@@ -1,0 +1,17 @@
+# PocketBase
+pb_data/
+pb_public/
+pocketbase
+pocketbase.exe
+
+# Hugo
+hugo/public/
+hugo/resources/
+hugo/.hugo_build.lock
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Misc
+*.bak
