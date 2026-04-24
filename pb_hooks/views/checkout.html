@@ -1,0 +1,98 @@
+
+<div class="max-w-4xl mx-auto" x-data="checkoutPage()">
+    <h1 class="text-3xl font-light mb-8 border-b border-gray-200 dark:border-bmw-darkBorder pb-4 text-gray-900 dark:text-white">CHECKOUT</h1>
+    
+    <template x-if="items.length === 0">
+        <div class="py-12 text-center text-gray-500">Your cart is empty. Cannot checkout.</div>
+    </template>
+
+    <template x-if="items.length > 0">
+        <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-6 rounded-sm">
+            <h2 class="text-xl font-light mb-6 text-gray-900 dark:text-white">Payment Details</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">Order Total</label>
+                    <div class="text-2xl font-medium text-gray-900 dark:text-white" x-text="'₩' + subtotal.toLocaleString()"></div>
+                </div>
+            </div>
+            
+            <div class="mt-8">
+                <button @click="requestPayment" :disabled="processing" class="w-full bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-black dark:hover:bg-gray-200 px-8 py-4 uppercase tracking-widest text-sm font-bold transition duration-300 disabled:opacity-50">
+                    <span x-show="!processing">PAY NOW SECURELY</span>
+                    <span x-show="processing">PROCESSING...</span>
+                </button>
+            </div>
+        </div>
+    </template>
+</div>
+
+<script>
+function checkoutPage() {
+    return {
+        items: JSON.parse(localStorage.getItem('cart') || '[]'),
+        processing: false,
+        get subtotal() {
+            return this.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+        },
+        async requestPayment() {
+            if (this.items.length === 0) return;
+            this.processing = true;
+            
+            try {
+                // 1. Prepare order on server
+                const res = await fetch('/api/orders/prep', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cart: this.items })
+                });
+                
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    throw new Error(data.error || "Failed to prepare order");
+                }
+                
+                // 2. Call PortOne SDK
+                PortOne.requestPayment({
+                    storeId: "store-4017de8b-4c12-42b4-8452-f38b00085a67", // Placeholder
+                    channelKey: "channel-key-placeholder", // Placeholder
+                    paymentId: data.orderId, // PocketBase order ID
+                    orderName: "BMW Shop Order",
+                    totalAmount: data.amount,
+                    currency: "CURRENCY_KRW",
+                    payMethod: "CARD",
+                    windowType: {
+                        pc: "IFRAME",
+                        mobile: "REDIRECTION"
+                    },
+                    redirectUrl: window.location.origin + "/payment/complete"
+                }).then(function(response) {
+                    if (response.code !== undefined) {
+                        alert("Payment failed: " + response.message);
+                        window.dispatchEvent(new CustomEvent('payment-failed'));
+                        return;
+                    }
+                    
+                    // Clear cart on success
+                    localStorage.removeItem('cart');
+                    window.dispatchEvent(new Event('cart-updated'));
+                    
+                    window.location.href = "/payment/complete?paymentId=" + response.paymentId;
+                });
+            } catch(err) {
+                alert("Checkout error: " + err.message);
+                this.processing = false;
+            }
+        }
+    }
+}
+
+window.addEventListener('payment-failed', () => {
+    // Reset processing state if PortOne iframe is closed
+    const el = document.querySelector('[x-data="checkoutPage()"]');
+    if(el && el.__x) {
+        el.__x.$data.processing = false;
+    }
+});
+</script>
+

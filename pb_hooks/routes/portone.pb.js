@@ -3,7 +3,7 @@
 // PortOne V2 Payment Webhook & API Verification Handler
 routerAdd("POST", "/api/payment/webhook", (e) => {
     try {
-        const portoneVerify = require(`${__hooks}/helpers/portone-verify.js`);
+        const portoneVerify = require(`${__hooks}/services/portone-verify.js`);
         
         // 1. Get Headers
         const webhookId = e.request.Header.Get("Webhook-Id");
@@ -51,8 +51,27 @@ routerAdd("POST", "/api/payment/webhook", (e) => {
             const status = pResponse.status;
             
             // 5. Update Database Order
-            // E.g., const order = $app.findFirstRecordByData("orders", "payment_id", paymentId)
-            console.log("PortOne Webhook processed successfully for payment: " + paymentId);
+            const orders = $app.findRecordsByFilter("orders", "id = {:id}", "", 1, 0, { "id": paymentId });
+            if (!orders || orders.length === 0) {
+                return e.json(404, { error: "Order not found for paymentId: " + paymentId });
+            }
+            const order = orders[0];
+
+            if (pResponse.amount && pResponse.amount.total !== order.getInt("total_amount")) {
+                console.log("Amount mismatch for order " + paymentId);
+                return e.json(400, { error: "Amount mismatch" });
+            }
+
+            if (status === "PAID") {
+                order.set("status", "paid");
+            } else if (status === "CANCELLED") {
+                order.set("status", "cancelled");
+            }
+
+            order.set("portone_tx_id", pResponse.id || paymentId);
+            $app.save(order);
+            
+            console.log("PortOne Webhook processed successfully for order: " + paymentId + " with status: " + status);
             
             return e.json(200, { success: true });
         } catch(apiErr) {
