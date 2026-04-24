@@ -160,7 +160,7 @@ hugo/                   ← Hugo source (content, themes, config)
     - **Rule:** Avoid backtick template literals for multi-line content strings in Goja JSVM; use string concatenation (`'...' + variable + '...'`) instead, as template literal newlines can be misinterpreted.
 17. **CMS Rebuild Workflow — Product-to-Markdown Sync:**
     - The CMS admin dashboard (`/cms/`) allows superusers to manage products and trigger a full site rebuild via `POST /api/admin/rebuild`.
-    - The rebuild route (`pb_hooks/routes/admin.pb.js`) iterates all products, generates `hugo/content/products/{slug}.md` files with frontmatter (title, price, id, image URL), then runs `hugo --ignoreCache` to compile fresh static pages into `pb_public/`.
+    - The rebuild route (`pb_hooks/routes/admin.pb.js`) iterates all products, generates `hugo/content/products/{slug}.md` files with frontmatter (title, price, image URL), then runs `hugo --ignoreCache` to compile fresh static pages into `pb_public/`.
     - **Rule:** Always pass `--ignoreCache` to the Hugo command when rebuilding programmatically, to ensure `resources.GetRemote` (used for product images) fetches fresh data instead of reusing stale cached responses.
     - **Rule:** Product image URLs in Markdown frontmatter must use the full PocketBase file API path: `http://127.0.0.1:8090/api/files/{collectionId}/{recordId}/{filename}`.
 18. **Korean IME Composition and Alpine.js `$watch`:**

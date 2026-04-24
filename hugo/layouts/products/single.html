@@ -1,7 +1,9 @@
+{{ define "title" }}{{ .Title }} | BMW Shop{{ end }}
+
 {{ define "main" }}
-<main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full" x-data="{ adding: false }">
+<main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full text-gray-800 dark:text-gray-200">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
-        <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder aspect-[4/3] flex items-center justify-center overflow-hidden relative">
+        <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder aspect-[4/3] flex items-center justify-center overflow-hidden">
             {{ if .Params.image }}
                 {{ $remoteImg := false }}
                 {{ with try (resources.GetRemote .Params.image) }}
@@ -19,40 +21,30 @@
                     <img src="{{ .Params.image }}" alt="{{ .Title }}" class="w-full h-full object-cover">
                 {{ end }}
             {{ else }}
-                <span class="text-gray-400 dark:text-gray-600 tracking-widest uppercase text-xs">Product Image</span>
+                <span class="text-gray-400 dark:text-gray-600 text-sm tracking-widest uppercase">Product Image</span>
             {{ end }}
         </div>
         <div class="flex flex-col justify-center">
-            <nav class="flex mb-4 text-xs text-gray-500 uppercase tracking-widest gap-2">
-                <a href="/" class="hover:text-bmw-blue">Catalog</a>
-                <span>/</span>
-                <span class="text-gray-900 dark:text-white">{{ .Title }}</span>
-            </nav>
-            <h1 class="text-4xl font-light mb-4 text-gray-900 dark:text-white">{{ .Title }}</h1>
+            <h1 class="text-4xl font-light mb-4">{{ .Title }}</h1>
             <div class="text-2xl font-medium text-gray-900 dark:text-white mb-6">₩{{ lang.FormatNumberCustom 0 .Params.price }}</div>
-            <div class="prose dark:prose-invert text-gray-600 dark:text-gray-400 mb-8 max-w-none">
+            <div class="prose prose-invert text-gray-500 dark:text-gray-400 mb-8 max-w-none">
                 {{ .Content }}
             </div>
-            
+            <!-- Add to Cart Button — uses shared Alpine.js localStorage cart via baseof.html -->
             <button 
-                @click="
-                    $dispatch('add-to-cart', {
-                        id: {{ .Params.id | jsonify }}, 
-                        name: {{ .Title | jsonify }}, 
-                        price: {{ .Params.price }}, 
-                        image: {{ if .Params.image }}{{ .Params.image | jsonify }}{{ else }}null{{ end }},
-                        quantity: 1
-                    });
-                    adding = true;
-                    setTimeout(() => adding = false, 1500);
-                "
-                class="bg-bmw-blue hover:bg-blue-700 text-white px-8 py-4 uppercase tracking-widest text-sm font-bold transition duration-300 w-full md:w-auto"
-                :disabled="adding"
+                @click="$dispatch('add-to-cart', {
+                    id: {{ .File.ContentBaseName | jsonify }}, 
+                    name: {{ .Title | jsonify }}, 
+                    price: {{ .Params.price }}, 
+                    image: {{ if .Params.image }}{{ .Params.image | jsonify }}{{ else }}null{{ end }},
+                    quantity: 1
+                })"
+                class="bg-bmw-blue hover:bg-blue-700 text-white px-8 py-4 uppercase tracking-widest text-sm font-bold transition duration-300 w-full md:w-auto rounded"
             >
-                <span x-show="!adding">ADD TO CART</span>
-                <span x-show="adding">ADDED TO CART!</span>
+                ADD TO CART
             </button>
         </div>
     </div>
 </main>
 {{ end }}
+
