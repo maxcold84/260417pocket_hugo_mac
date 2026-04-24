@@ -22,7 +22,7 @@ routerAdd("POST", "/api/admin/rebuild", (e) => {
                 imageLine = '\nimage: "http://127.0.0.1:8090/api/files/' + collectionId + '/' + recordId + '/' + images[0] + '"';
             }
 
-            const content = '---\ntitle: "' + name + '"\nprice: ' + price + imageLine + '\n---\n' + description + '\n';
+            const content = '---\ntitle: "' + name + '"\nprice: ' + price + '\nid: "' + p.id + '"' + imageLine + '\n---\n' + description + '\n';
             const filePath = "hugo/content/products/" + slug + ".md";
 
             // Use $os.writeFile for safe file creation (handles Korean/spaces in paths)
