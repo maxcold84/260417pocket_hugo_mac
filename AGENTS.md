@@ -143,3 +143,9 @@ hugo/                   ← Hugo source (content, themes, config)
     - Alpine.js v3 uses Proxy objects for its reactive data (`x-data`). Passing these Proxies directly into the PocketBase JS SDK (`pb.collection().create(this.data)`) can sometimes lead to missing payload fields.
     - **Rule:** Strip Alpine Proxies before sending via `JSON.parse(JSON.stringify(this.data))`.
     - **Rule:** In PocketBase, `required: true` on a `NumberField` strictly prevents `0` (zero) as it is considered the "empty" value. Ensure number inputs properly cast empty strings and 0 to actual numbers, and handle 0-value rejections if the field is marked required.
+14. **Custom API Route Authentication via SDK:**
+    - Using native `fetch()` with manually crafted `Authorization: Bearer` headers can lead to parsing errors or 401 Unauthorized responses with PocketBase v0.23's strict middlewares.
+    - **Rule:** Always use the PocketBase SDK's `pb.send('/api/custom-route', { method: 'POST' })` method instead of native `fetch()` when calling authenticated custom routes. The SDK automatically and correctly attaches the JWT.
+15. **Hugo `resources.GetRemote` Aggressive Caching:**
+    - By default, Hugo caches the response of `resources.GetRemote` based strictly on the URL. If a static build needs to pull fresh data from the PocketBase REST API, it will reuse old cached data if the URL is identical.
+    - **Rule:** Append a timestamp query parameter to the URL to bypass Hugo's cache on every rebuild. E.g., `{{ $url := printf "http://127.0.0.1:8090/api/collections/products/records?t=%d" now.Unix }}`.

@@ -2,8 +2,8 @@
 <main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full text-gray-800 dark:text-gray-200">
     <h1 class="text-3xl font-light mb-8 border-b border-gray-200 dark:border-bmw-darkBorder pb-4">CATALOG</h1>
     
-    {{ $url := "http://127.0.0.1:8090/api/collections/products/records" }}
-    
+    {{/* Prevent Hugo from caching the API response by adding a timestamp */}}
+    {{ $url := printf "http://127.0.0.1:8090/api/collections/products/records?t=%d" now.Unix }}
     {{/* Hugo will ignore getJSON errors and return nil if the server is down. We check if data exists. */}}
     {{ $data := dict "items" slice }}
     {{ with try (resources.GetRemote $url) }}

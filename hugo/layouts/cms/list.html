@@ -269,19 +269,13 @@
                 async rebuildSite() {
                     this.isRebuilding = true;
                     try {
-                        const token = pb.authStore.token;
-                        const res = await fetch('/api/admin/rebuild', {
-                            method: 'POST',
-                            headers: { 'Authorization': 'Bearer ' + token }
+                        // Use PocketBase SDK's send method which automatically attaches the correct auth headers
+                        const data = await pb.send('/api/admin/rebuild', {
+                            method: 'POST'
                         });
-                        const data = await res.json();
-                        if (res.ok) {
-                            alert('Site successfully synced and rebuilt!\n' + data.message);
-                        } else {
-                            alert('Failed to rebuild site: ' + (data.error || 'Unknown error'));
-                        }
+                        alert('Site successfully synced and rebuilt!\n' + (data.message || ''));
                     } catch (err) {
-                        alert('Network error while rebuilding.');
+                        alert('Failed to rebuild site:\n' + (err.message || JSON.stringify(err.data || err)));
                         console.error(err);
                     } finally {
                         this.isRebuilding = false;
