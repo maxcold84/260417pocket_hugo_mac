@@ -1,0 +1,347 @@
+{{ define "main" }}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMW Shop CMS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        bmw: {
+                            blue: '#1C69D4',
+                            dark: '#111111',
+                            surface: '#1A1A1A',
+                            border: '#e5e7eb',
+                            darkBorder: '#333333'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans antialiased min-h-screen" x-data="cmsApp()">
+
+    <!-- Login Screen -->
+    <template x-if="!isLoggedIn">
+        <div class="min-h-screen flex items-center justify-center bg-gray-50">
+            <div class="max-w-md w-full p-8 bg-white shadow-lg rounded-sm border border-gray-200">
+                <h1 class="text-2xl font-light tracking-widest text-center mb-8">CMS LOGIN</h1>
+                <form @submit.prevent="login" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Admin Email</label>
+                        <input type="email" x-model="email" required class="w-full border border-gray-300 p-3 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" x-model="password" required class="w-full border border-gray-300 p-3 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition">
+                    </div>
+                    <div x-show="error" class="text-red-500 text-sm p-3 bg-red-50 border border-red-200 rounded" x-text="error" style="display: none;"></div>
+                    <button type="submit" class="w-full bg-bmw-blue hover:bg-blue-700 text-white p-3 rounded uppercase tracking-wider font-medium transition" :disabled="loading">
+                        <span x-show="!loading">Login</span>
+                        <span x-show="loading">Logging in...</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </template>
+
+    <!-- Dashboard -->
+    <template x-if="isLoggedIn">
+        <div class="flex h-screen overflow-hidden">
+            <!-- Sidebar -->
+            <aside class="w-64 bg-bmw-dark text-white flex flex-col flex-shrink-0">
+                <div class="h-16 flex items-center px-6 border-b border-bmw-darkBorder bg-black">
+                    <span class="text-lg font-bold tracking-widest text-white">BMW CMS</span>
+                </div>
+                <div class="flex-1 overflow-y-auto py-4">
+                    <nav class="space-y-1 px-3">
+                        <button @click="currentTab = 'products'; fetchProducts()" 
+                                :class="{'bg-bmw-blue text-white': currentTab === 'products', 'text-gray-300 hover:bg-bmw-surface hover:text-white': currentTab !== 'products'}"
+                                class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition">
+                            Products
+                        </button>
+                        <button @click="currentTab = 'orders'; fetchOrders()" 
+                                :class="{'bg-bmw-blue text-white': currentTab === 'orders', 'text-gray-300 hover:bg-bmw-surface hover:text-white': currentTab !== 'orders'}"
+                                class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition">
+                            Orders
+                        </button>
+                    </nav>
+                </div>
+                <div class="p-4 border-t border-bmw-darkBorder bg-black">
+                    <button @click="logout" class="w-full text-left text-sm text-gray-400 hover:text-white transition">Logout</button>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 overflow-y-auto bg-gray-100 focus:outline-none">
+                <div class="h-16 flex items-center px-8 border-b border-gray-200 bg-white justify-between sticky top-0 z-10 shadow-sm">
+                    <h2 class="text-xl font-light tracking-wide uppercase" x-text="currentTab"></h2>
+                    <template x-if="currentTab === 'products'">
+                        <button @click="openAddProductModal" class="bg-bmw-blue hover:bg-blue-700 text-white px-4 py-2 text-sm rounded transition shadow-sm">
+                            + Add Product
+                        </button>
+                    </template>
+                </div>
+
+                <div class="p-8">
+                    <!-- Products Tab -->
+                    <template x-if="currentTab === 'products'">
+                        <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name / Slug</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price (₩)</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="product in products" :key="product.id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <template x-if="product.images && product.images.length > 0">
+                                                    <img :src="'/api/files/products/' + product.id + '/' + product.images[0]" class="w-12 h-12 object-cover rounded border border-gray-200">
+                                                </template>
+                                                <template x-if="!product.images || product.images.length === 0">
+                                                    <div class="w-12 h-12 bg-gray-100 flex items-center justify-center text-xs text-gray-400 rounded border border-gray-200">IMG</div>
+                                                </template>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm font-medium text-gray-900" x-text="product.name"></div>
+                                                <div class="text-sm text-gray-500" x-text="product.slug"></div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="product.price.toLocaleString()"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <input type="number" x-model.number="product.stock" @change="updateStock(product.id, product.stock)" class="w-20 border border-gray-300 p-1 text-sm rounded text-center">
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <button @click="deleteProduct(product.id)" class="text-red-600 hover:text-red-900">Delete</button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template x-if="products.length === 0">
+                                        <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No products found.</td></tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+
+                    <!-- Orders Tab -->
+                    <template x-if="currentTab === 'orders'">
+                        <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (₩)</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Info</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="order in orders" :key="order.id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="order.id"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="new Date(order.created).toLocaleString()"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="order.total_amount.toLocaleString()"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <select x-model="order.status" @change="updateOrderStatus(order.id, order.status)" class="border border-gray-300 p-1 text-sm rounded bg-white" :class="{
+                                                    'text-yellow-600': order.status === 'pending',
+                                                    'text-green-600': order.status === 'paid',
+                                                    'text-red-600': order.status === 'cancelled' || order.status === 'refunded'
+                                                }">
+                                                    <option value="pending">Pending</option>
+                                                    <option value="paid">Paid</option>
+                                                    <option value="cancelled">Cancelled</option>
+                                                    <option value="refunded">Refunded</option>
+                                                </select>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-500">
+                                                <div x-text="order.expand?.user?.email || order.guest_info?.email || 'Unknown User'"></div>
+                                                <div class="text-xs text-gray-400" x-show="order.portone_tx_id" x-text="'Tx: ' + order.portone_tx_id"></div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template x-if="orders.length === 0">
+                                        <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No orders found.</td></tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                </div>
+            </main>
+        </div>
+
+        <!-- Add Product Modal -->
+        <template x-teleport="body">
+            <div x-show="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+                <div @click.away="showAddModal = false" class="bg-white p-8 rounded shadow-2xl w-full max-w-lg border border-gray-200">
+                    <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                        <h3 class="text-xl font-light tracking-wide">ADD NEW PRODUCT</h3>
+                        <button @click="showAddModal = false" class="text-gray-400 hover:text-gray-900 text-2xl leading-none">&times;</button>
+                    </div>
+                    <form @submit.prevent="createProduct" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <input type="text" x-model="newProduct.name" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+                            <input type="text" x-model="newProduct.slug" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <textarea x-model="newProduct.description" rows="3" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none"></textarea>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Price (₩)</label>
+                                <input type="number" x-model.number="newProduct.price" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                                <input type="number" x-model.number="newProduct.stock" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
+                            </div>
+                        </div>
+                        <!-- We skip images upload for the simple modal for now -->
+                        <div class="pt-4 flex justify-end gap-3">
+                            <button type="button" @click="showAddModal = false" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded">Cancel</button>
+                            <button type="submit" class="px-4 py-2 text-sm text-white bg-bmw-blue hover:bg-blue-700 rounded transition" :disabled="loading">Save Product</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </template>
+    </template>
+
+    <script>
+        const pb = new PocketBase('http://127.0.0.1:8090');
+
+        function cmsApp() {
+            return {
+                isLoggedIn: pb.authStore.isValid && pb.authStore.isAdmin,
+                email: '',
+                password: '',
+                error: '',
+                loading: false,
+                currentTab: 'products',
+                products: [],
+                orders: [],
+                showAddModal: false,
+                newProduct: {
+                    name: '',
+                    slug: '',
+                    description: '',
+                    price: 0,
+                    stock: 0
+                },
+                init() {
+                    if (this.isLoggedIn) {
+                        this.fetchProducts();
+                    }
+                    // Auto-slugify new product name
+                    this.$watch('newProduct.name', val => {
+                        if (!this.newProduct.slug || this.newProduct.slug === val.substring(0, val.length - 1).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')) {
+                            this.newProduct.slug = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+                        }
+                    });
+                },
+                async login() {
+                    this.loading = true;
+                    this.error = '';
+                    try {
+                        await pb.admins.authWithPassword(this.email, this.password);
+                        this.isLoggedIn = true;
+                        this.fetchProducts();
+                    } catch (err) {
+                        this.error = err.message || 'Invalid credentials.';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                logout() {
+                    pb.authStore.clear();
+                    this.isLoggedIn = false;
+                },
+                async fetchProducts() {
+                    try {
+                        const result = await pb.collection('products').getList(1, 50, { sort: '-created' });
+                        this.products = result.items;
+                    } catch (err) {
+                        console.error('Error fetching products:', err);
+                    }
+                },
+                async fetchOrders() {
+                    try {
+                        const result = await pb.collection('orders').getList(1, 50, { sort: '-created', expand: 'user' });
+                        this.orders = result.items;
+                    } catch (err) {
+                        console.error('Error fetching orders:', err);
+                    }
+                },
+                async updateStock(id, newStock) {
+                    try {
+                        await pb.collection('products').update(id, { stock: newStock });
+                        // Optionally show a toast
+                    } catch (err) {
+                        console.error('Error updating stock:', err);
+                        alert('Failed to update stock');
+                        this.fetchProducts(); // revert
+                    }
+                },
+                async updateOrderStatus(id, newStatus) {
+                    try {
+                        await pb.collection('orders').update(id, { status: newStatus });
+                    } catch (err) {
+                        console.error('Error updating order status:', err);
+                        alert('Failed to update status');
+                        this.fetchOrders(); // revert
+                    }
+                },
+                async deleteProduct(id) {
+                    if (confirm('Are you sure you want to delete this product?')) {
+                        try {
+                            await pb.collection('products').delete(id);
+                            this.fetchProducts();
+                        } catch (err) {
+                            console.error('Error deleting product:', err);
+                            alert('Failed to delete product');
+                        }
+                    }
+                },
+                openAddProductModal() {
+                    this.newProduct = { name: '', slug: '', description: '', price: 0, stock: 0 };
+                    this.showAddModal = true;
+                },
+                async createProduct() {
+                    this.loading = true;
+                    try {
+                        await pb.collection('products').create(this.newProduct);
+                        this.showAddModal = false;
+                        this.fetchProducts();
+                    } catch (err) {
+                        console.error('Error creating product:', err);
+                        alert(err.message || 'Failed to create product');
+                    } finally {
+                        this.loading = false;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+{{ end }}
