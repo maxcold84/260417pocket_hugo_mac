@@ -89,9 +89,26 @@
     </nav>
     <main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full" x-data="{ adding: false }">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
-            <div class="bg-bmw-surface border border-bmw-border aspect-[4/3] flex items-center justify-center">
-                <!-- Placeholder for image -->
-                <span class="text-gray-600 text-sm tracking-widest uppercase">Product Image</span>
+            <div class="bg-bmw-surface border border-bmw-border aspect-[4/3] flex items-center justify-center overflow-hidden">
+                {{ if .Params.image }}
+                    {{ $remoteImg := false }}
+                    {{ with try (resources.GetRemote .Params.image) }}
+                        {{ with .Err }}
+                            <!-- Error fetching remote image: {{ . }} -->
+                        {{ else }}
+                            {{ $remoteImg = .Value }}
+                        {{ end }}
+                    {{ end }}
+
+                    {{ if $remoteImg }}
+                        {{ $processedImg := $remoteImg.Process "resize 800x webp" }}
+                        <img src="{{ $processedImg.RelPermalink }}" alt="{{ .Title }}" class="w-full h-full object-cover">
+                    {{ else }}
+                        <img src="{{ .Params.image }}" alt="{{ .Title }}" class="w-full h-full object-cover">
+                    {{ end }}
+                {{ else }}
+                    <span class="text-gray-600 text-sm tracking-widest uppercase">Product Image</span>
+                {{ end }}
             </div>
             <div class="flex flex-col justify-center">
                 <h1 class="text-4xl font-light mb-4">{{ .Title }}</h1>

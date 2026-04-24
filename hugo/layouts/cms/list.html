@@ -130,7 +130,8 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 <input type="number" x-model.number="product.stock" @change="updateStock(product.id, product.stock)" class="w-20 border border-gray-300 p-1 text-sm rounded text-center">
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                                                <button @click="openEditProductModal(product)" class="text-bmw-blue hover:text-blue-900 font-medium">Edit</button>
                                                 <button @click="deleteProduct(product.id)" class="text-red-600 hover:text-red-900">Delete</button>
                                             </td>
                                         </tr>
@@ -207,11 +208,15 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
-                            <input type="text" x-model="newProduct.slug" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500">
+                            <input type="text" x-model="newProduct.slug" @input="_slugTouched = true" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
                             <textarea x-model="newProduct.description" rows="3" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
+                            <input type="file" x-ref="imageInput" accept="image/jpeg, image/png, image/webp" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
                         </div>
                         <div class="flex gap-4">
                             <div class="flex-1">
@@ -233,6 +238,58 @@
             </div>
         </template>
 
+    <!-- Edit Product Modal -->
+        <template x-teleport="body">
+            <div x-show="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+                <div @click.away="showEditModal = false" class="bg-white p-8 rounded shadow-2xl w-full max-w-lg border border-gray-200">
+                    <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                        <h3 class="text-xl font-light tracking-wide">EDIT PRODUCT</h3>
+                        <button @click="showEditModal = false" class="text-gray-400 hover:text-gray-900 text-2xl leading-none">&times;</button>
+                    </div>
+                    <form @submit.prevent="updateProduct" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <input type="text" x-model="editProduct.name" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+                            <input type="text" x-model="editProduct.slug" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <textarea x-model="editProduct.description" rows="3" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
+                            <!-- Current image preview -->
+                            <template x-if="editProduct._currentImageUrl">
+                                <div class="mb-2 flex items-center gap-3">
+                                    <img :src="editProduct._currentImageUrl" class="w-16 h-16 object-cover rounded border border-gray-200">
+                                    <span class="text-xs text-gray-400">Current image</span>
+                                </div>
+                            </template>
+                            <input type="file" x-ref="editImageInput" accept="image/jpeg, image/png, image/webp" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
+                            <p class="text-xs text-gray-400 mt-1">Leave empty to keep current image.</p>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Price (₩)</label>
+                                <input type="number" x-model.number="editProduct.price" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                                <input type="number" x-model.number="editProduct.stock" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
+                            </div>
+                        </div>
+                        <div class="pt-4 flex justify-end gap-3">
+                            <button type="button" @click="showEditModal = false" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded">Cancel</button>
+                            <button type="submit" class="px-4 py-2 text-sm text-white bg-bmw-blue hover:bg-blue-700 rounded transition" :disabled="loading">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </template>
+
     <script>
         const pb = new PocketBase('http://127.0.0.1:8090');
 
@@ -248,6 +305,8 @@
                 products: [],
                 orders: [],
                 showAddModal: false,
+                showEditModal: false,
+                _slugTouched: false,
                 newProduct: {
                     name: '',
                     slug: '',
@@ -255,14 +314,23 @@
                     price: '',
                     stock: ''
                 },
+                editProduct: {
+                    id: '',
+                    name: '',
+                    slug: '',
+                    description: '',
+                    price: '',
+                    stock: '',
+                    _currentImageUrl: ''
+                },
                 init() {
                     if (this.isLoggedIn) {
                         this.fetchProducts();
                     }
-                    // Auto-slugify new product name
+                    // Auto-slugify new product name (supports Korean IME)
                     this.$watch('newProduct.name', val => {
-                        if (!this.newProduct.slug || this.newProduct.slug === val.substring(0, val.length - 1).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')) {
-                            this.newProduct.slug = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+                        if (!this._slugTouched) {
+                            this.newProduct.slug = val.toLowerCase().replace(/[^a-z0-9가-힣ㄱ-ㅎㅏ-ㅣ]+/g, '-').replace(/-+/g, '-').replace(/(^-|-$)+/g, '');
                         }
                     });
                 },
@@ -350,22 +418,77 @@
                 },
                 openAddProductModal() {
                     this.newProduct = { name: '', slug: '', description: '', price: '', stock: '' };
+                    this._slugTouched = false;
+                    if (this.$refs.imageInput) {
+                        this.$refs.imageInput.value = '';
+                    }
                     this.showAddModal = true;
+                },
+                openEditProductModal(product) {
+                    this.editProduct = {
+                        id: product.id,
+                        name: product.name,
+                        slug: product.slug,
+                        description: product.description,
+                        price: product.price,
+                        stock: product.stock,
+                        _currentImageUrl: (product.images && product.images.length > 0)
+                            ? '/api/files/products/' + product.id + '/' + product.images[0]
+                            : ''
+                    };
+                    this.$nextTick(() => {
+                        if (this.$refs.editImageInput) {
+                            this.$refs.editImageInput.value = '';
+                        }
+                    });
+                    this.showEditModal = true;
                 },
                 async createProduct() {
                     this.loading = true;
                     try {
-                        const data = JSON.parse(JSON.stringify(this.newProduct));
-                        // Ensure numeric fields are actually numbers to satisfy PocketBase
-                        data.price = Number(data.price) || 0;
-                        data.stock = Number(data.stock) || 0;
-                        
-                        await pb.collection('products').create(data);
+                        const formData = new FormData();
+                        formData.append('name', this.newProduct.name);
+                        formData.append('slug', this.newProduct.slug);
+                        formData.append('description', this.newProduct.description);
+                        formData.append('price', Number(this.newProduct.price) || 0);
+                        formData.append('stock', Number(this.newProduct.stock) || 0);
+
+                        const fileInput = this.$refs.imageInput;
+                        if (fileInput && fileInput.files.length > 0) {
+                            formData.append('images', fileInput.files[0]);
+                        }
+
+                        await pb.collection('products').create(formData);
                         this.showAddModal = false;
                         this.fetchProducts();
                     } catch (err) {
                         console.error('Error creating product:', err, err.data);
                         alert((err.message || 'Failed to create product') + '\n' + JSON.stringify(err.data || {}));
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                async updateProduct() {
+                    this.loading = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append('name', this.editProduct.name);
+                        formData.append('slug', this.editProduct.slug);
+                        formData.append('description', this.editProduct.description);
+                        formData.append('price', Number(this.editProduct.price) || 0);
+                        formData.append('stock', Number(this.editProduct.stock) || 0);
+
+                        const fileInput = this.$refs.editImageInput;
+                        if (fileInput && fileInput.files.length > 0) {
+                            formData.append('images', fileInput.files[0]);
+                        }
+
+                        await pb.collection('products').update(this.editProduct.id, formData);
+                        this.showEditModal = false;
+                        this.fetchProducts();
+                    } catch (err) {
+                        console.error('Error updating product:', err, err.data);
+                        alert((err.message || 'Failed to update product') + '\n' + JSON.stringify(err.data || {}));
                     } finally {
                         this.loading = false;
                     }
