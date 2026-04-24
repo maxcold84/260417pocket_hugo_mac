@@ -85,9 +85,15 @@
                 <div class="h-16 flex items-center px-8 border-b border-gray-200 bg-white justify-between sticky top-0 z-10 shadow-sm">
                     <h2 class="text-xl font-light tracking-wide uppercase" x-text="currentTab"></h2>
                     <template x-if="currentTab === 'products'">
-                        <button @click="openAddProductModal" class="bg-bmw-blue hover:bg-blue-700 text-white px-4 py-2 text-sm rounded transition shadow-sm">
-                            + Add Product
-                        </button>
+                        <div class="flex gap-4">
+                            <button @click="rebuildSite" class="bg-gray-800 hover:bg-black text-white px-4 py-2 text-sm rounded transition shadow-sm border border-gray-600 flex items-center gap-2" :disabled="isRebuilding">
+                                <span x-show="!isRebuilding">Sync & Rebuild Site</span>
+                                <span x-show="isRebuilding">Rebuilding...</span>
+                            </button>
+                            <button @click="openAddProductModal" class="bg-bmw-blue hover:bg-blue-700 text-white px-4 py-2 text-sm rounded transition shadow-sm">
+                                + Add Product
+                            </button>
+                        </div>
                     </template>
                 </div>
 
@@ -184,8 +190,9 @@
                 </div>
             </main>
         </div>
+    </template>
 
-        <!-- Add Product Modal -->
+    <!-- Add Product Modal -->
         <template x-teleport="body">
             <div x-show="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
                 <div @click.away="showAddModal = false" class="bg-white p-8 rounded shadow-2xl w-full max-w-lg border border-gray-200">
@@ -225,18 +232,18 @@
                 </div>
             </div>
         </template>
-    </template>
 
     <script>
         const pb = new PocketBase('http://127.0.0.1:8090');
 
         function cmsApp() {
             return {
-                isLoggedIn: pb.authStore.isValid && pb.authStore.isAdmin,
+                isLoggedIn: pb.authStore.isValid && (pb.authStore.isSuperuser || pb.authStore.isAdmin),
                 email: '',
                 password: '',
                 error: '',
                 loading: false,
+                isRebuilding: false,
                 currentTab: 'products',
                 products: [],
                 orders: [],
@@ -245,8 +252,8 @@
                     name: '',
                     slug: '',
                     description: '',
-                    price: 0,
-                    stock: 0
+                    price: '',
+                    stock: ''
                 },
                 init() {
                     if (this.isLoggedIn) {
@@ -259,11 +266,36 @@
                         }
                     });
                 },
+                async rebuildSite() {
+                    this.isRebuilding = true;
+                    try {
+                        const token = pb.authStore.token;
+                        const res = await fetch('/api/admin/rebuild', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            alert('Site successfully synced and rebuilt!\n' + data.message);
+                        } else {
+                            alert('Failed to rebuild site: ' + (data.error || 'Unknown error'));
+                        }
+                    } catch (err) {
+                        alert('Network error while rebuilding.');
+                        console.error(err);
+                    } finally {
+                        this.isRebuilding = false;
+                    }
+                },
                 async login() {
                     this.loading = true;
                     this.error = '';
                     try {
-                        await pb.admins.authWithPassword(this.email, this.password);
+                        if (pb.collection && pb.collection('_superusers')) {
+                            await pb.collection('_superusers').authWithPassword(this.email, this.password);
+                        } else {
+                            await pb.admins.authWithPassword(this.email, this.password);
+                        }
                         this.isLoggedIn = true;
                         this.fetchProducts();
                     } catch (err) {
@@ -278,7 +310,7 @@
                 },
                 async fetchProducts() {
                     try {
-                        const result = await pb.collection('products').getList(1, 50, { sort: '-created' });
+                        const result = await pb.collection('products').getList(1, 50);
                         this.products = result.items;
                     } catch (err) {
                         console.error('Error fetching products:', err);
@@ -286,7 +318,7 @@
                 },
                 async fetchOrders() {
                     try {
-                        const result = await pb.collection('orders').getList(1, 50, { sort: '-created', expand: 'user' });
+                        const result = await pb.collection('orders').getList(1, 50, { expand: 'user' });
                         this.orders = result.items;
                     } catch (err) {
                         console.error('Error fetching orders:', err);
@@ -323,18 +355,23 @@
                     }
                 },
                 openAddProductModal() {
-                    this.newProduct = { name: '', slug: '', description: '', price: 0, stock: 0 };
+                    this.newProduct = { name: '', slug: '', description: '', price: '', stock: '' };
                     this.showAddModal = true;
                 },
                 async createProduct() {
                     this.loading = true;
                     try {
-                        await pb.collection('products').create(this.newProduct);
+                        const data = JSON.parse(JSON.stringify(this.newProduct));
+                        // Ensure numeric fields are actually numbers to satisfy PocketBase
+                        data.price = Number(data.price) || 0;
+                        data.stock = Number(data.stock) || 0;
+                        
+                        await pb.collection('products').create(data);
                         this.showAddModal = false;
                         this.fetchProducts();
                     } catch (err) {
-                        console.error('Error creating product:', err);
-                        alert(err.message || 'Failed to create product');
+                        console.error('Error creating product:', err, err.data);
+                        alert((err.message || 'Failed to create product') + '\n' + JSON.stringify(err.data || {}));
                     } finally {
                         this.loading = false;
                     }

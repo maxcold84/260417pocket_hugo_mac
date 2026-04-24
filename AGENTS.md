@@ -132,3 +132,14 @@ hugo/                   ← Hugo source (content, themes, config)
 10. **Avoid PocketBase JS SDK on Static Pages:**
     - The PocketBase JS SDK UMD bundle can conflict with Alpine.js initialization or add unnecessary payload for simple data reads.
     - **Rule:** For read-only data fetching (catalog listings), prefer native `fetch('/api/collections/{name}/records')` over the PocketBase JS SDK. Reserve the SDK for pages that need auth operations (login, register).
+11. **Superuser Authentication in JS SDK (v0.23+):**
+    - The `pb.admins` API has been removed in PocketBase v0.23+. Admin users are now stored in the `_superusers` collection.
+    - **Rule:** To authenticate as an admin, use `pb.collection('_superusers').authWithPassword(email, password)` instead of `pb.admins.authWithPassword()`.
+    - **Rule:** To check if the current user is an admin, check `pb.authStore.isSuperuser` instead of `pb.authStore.isAdmin`. Use a fallback for compatibility: `pb.authStore.isSuperuser || pb.authStore.isAdmin`.
+12. **Alpine.js Template Constraints (`<template x-if>`):**
+    - The `<template x-if>` directive in Alpine.js strictly requires **only one root element** inside it.
+    - **Rule:** If you place another `<template>` (such as `<template x-teleport="body">`) alongside a `<div>` inside an `x-if` block, Alpine.js will silently drop the second element, breaking the UI. Always move `x-teleport` templates completely outside of `x-if` blocks, or wrap everything in a single parent element.
+13. **PocketBase Payload Parsing & Required Number Fields:**
+    - Alpine.js v3 uses Proxy objects for its reactive data (`x-data`). Passing these Proxies directly into the PocketBase JS SDK (`pb.collection().create(this.data)`) can sometimes lead to missing payload fields.
+    - **Rule:** Strip Alpine Proxies before sending via `JSON.parse(JSON.stringify(this.data))`.
+    - **Rule:** In PocketBase, `required: true` on a `NumberField` strictly prevents `0` (zero) as it is considered the "empty" value. Ensure number inputs properly cast empty strings and 0 to actual numbers, and handle 0-value rejections if the field is marked required.
