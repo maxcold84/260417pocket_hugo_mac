@@ -8,6 +8,7 @@ pocketbase.exe
 hugo/public/
 hugo/resources/
 hugo/.hugo_build.lock
+hugo/content/products/
 
 # macOS
 .DS_Store
