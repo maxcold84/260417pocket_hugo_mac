@@ -26,6 +26,17 @@
     </script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
+    <style>
+        /* Hide number input spin buttons */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield; /* Firefox */
+        }
+    </style>
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans antialiased min-h-screen" x-data="cmsApp()">
 
@@ -346,6 +357,15 @@
                         }
                     });
                 },
+                handleError(err, defaultMsg = '오류가 발생했습니다') {
+                    if (err.status === 401 || err.status === 403) {
+                        alert('권한이 없거나 세션이 만료되었습니다. 다시 로그인해주세요.');
+                        this.logout();
+                        return;
+                    }
+                    console.error(defaultMsg, err);
+                    alert(`${defaultMsg}\n상세: ${err.message || JSON.stringify(err.data || err)}`);
+                },
                 async rebuildSite() {
                     this.isRebuilding = true;
                     try {
@@ -355,8 +375,7 @@
                         });
                         alert('Site successfully synced and rebuilt!\n' + (data.message || ''));
                     } catch (err) {
-                        alert('Failed to rebuild site:\n' + (err.message || JSON.stringify(err.data || err)));
-                        console.error(err);
+                        this.handleError(err, 'Failed to rebuild site');
                     } finally {
                         this.isRebuilding = false;
                     }
@@ -387,6 +406,7 @@
                         const result = await pb.collection('products').getList(1, 50);
                         this.products = result.items;
                     } catch (err) {
+                        if (err.status === 401) this.logout();
                         console.error('Error fetching products:', err);
                     }
                 },
@@ -418,16 +438,17 @@
                         }
                         this.orders = finalOrders;
                     } catch (err) {
+                        if (err.status === 401) this.logout();
                         console.error('Error fetching orders:', err);
                     }
                 },
                 async updateStock(id, newStock) {
                     try {
-                        await pb.collection('products').update(id, { stock: newStock });
+                        const stockValue = newStock === '' ? 0 : Number(newStock);
+                        await pb.collection('products').update(id, { stock: stockValue });
                         // Optionally show a toast
                     } catch (err) {
-                        console.error('Error updating stock:', err);
-                        alert('Failed to update stock');
+                        this.handleError(err, '재고 업데이트 실패');
                         this.fetchProducts(); // revert
                     }
                 },
@@ -435,8 +456,7 @@
                     try {
                         await pb.collection('orders').update(id, { status: newStatus });
                     } catch (err) {
-                        console.error('Error updating order status:', err);
-                        alert('Failed to update status');
+                        this.handleError(err, '주문 상태 업데이트 실패');
                         this.fetchOrders(); // revert
                     }
                 },
@@ -455,8 +475,7 @@
                             await pb.collection('products').delete(id);
                             this.fetchProducts();
                         } catch (err) {
-                            console.error('Error deleting product:', err);
-                            alert('상품 삭제 실패: ' + (err.message || err));
+                            this.handleError(err, '상품 삭제 실패');
                         }
                     }
                 },
@@ -475,8 +494,7 @@
                             await pb.collection('orders').delete(id);
                             this.fetchOrders();
                         } catch (err) {
-                            console.error('Error deleting order:', err);
-                            alert('주문 삭제 실패: ' + (err.message || err));
+                            this.handleError(err, '주문 삭제 실패');
                         }
                     }
                 },
@@ -526,8 +544,7 @@
                         this.showAddModal = false;
                         this.fetchProducts();
                     } catch (err) {
-                        console.error('Error creating product:', err, err.data);
-                        alert((err.message || 'Failed to create product') + '\n' + JSON.stringify(err.data || {}));
+                        this.handleError(err, '상품 등록 실패');
                     } finally {
                         this.loading = false;
                     }
@@ -551,8 +568,7 @@
                         this.showEditModal = false;
                         this.fetchProducts();
                     } catch (err) {
-                        console.error('Error updating product:', err, err.data);
-                        alert((err.message || 'Failed to update product') + '\n' + JSON.stringify(err.data || {}));
+                        this.handleError(err, '상품 수정 실패');
                     } finally {
                         this.loading = false;
                     }

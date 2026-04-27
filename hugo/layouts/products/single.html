@@ -33,7 +33,7 @@
             <!-- Add to Cart Button — uses shared Alpine.js localStorage cart via baseof.html -->
             <button 
                 @click="$dispatch('add-to-cart', {
-                    id: {{ .File.ContentBaseName | jsonify }}, 
+                    id: {{ .Params.id | jsonify }}, 
                     name: {{ .Title | jsonify }}, 
                     price: {{ .Params.price }}, 
                     image: {{ if .Params.image }}{{ .Params.image | jsonify }}{{ else }}null{{ end }},

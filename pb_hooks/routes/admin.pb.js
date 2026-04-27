@@ -89,7 +89,7 @@ routerAdd("POST", "/api/admin/rebuild", (e) => {
                 imageLine = '\nimage: "http://127.0.0.1:8090/api/files/' + collectionId + '/' + recordId + '/' + images[0] + '"';
             }
 
-            const content = '---\ntitle: "' + name + '"\nprice: ' + price + imageLine + '\n---\n' + description + '\n';
+            const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + imageLine + '\n---\n' + description + '\n';
             $os.writeFile("hugo/content/products/" + slug + ".md", content, 0o644);
             syncedCount++;
         }
