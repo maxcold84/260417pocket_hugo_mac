@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="{{ .Site.LanguageCode | default "ko-kr" }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ if eq .Type "shell" }}{{ print "{{.title}}" | safeHTML }}{{ else }}{{ block "title" . }}{{ .Title | default "BMW Shop" }}{{ end }}{{ end }}</title>
+    <title>{{ if eq .Type "shell" }}{{ print "{{.title}}" | safeHTML }}{{ else }}{{ block "title" . }}{{ .Title | default site.Title }}{{ end }}{{ end }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -56,14 +56,14 @@
 
             <!-- Desktop Nav -->
             <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-500 dark:text-gray-400">
-                <a href="/" class="hover:text-gray-900 dark:hover:text-white transition">CATALOG</a>
-                <a href="#" @click.prevent="cartOpen = true" class="hover:text-gray-900 dark:hover:text-white transition">CART (<span x-text="cart.length"></span>)</a>
-                <a href="/my-orders" class="hover:text-gray-900 dark:hover:text-white transition">ORDERS</a>
+                <a href="/" class="hover:text-gray-900 dark:hover:text-white transition">{{ i18n "catalog" }}</a>
+                <a href="#" @click.prevent="cartOpen = true" class="hover:text-gray-900 dark:hover:text-white transition">{{ i18n "cart" }} (<span x-text="cart.length"></span>)</a>
+                <a href="/my-orders" class="hover:text-gray-900 dark:hover:text-white transition">{{ i18n "orders" }}</a>
                 <template x-if="!loggedIn">
-                    <a href="/login" class="hover:text-gray-900 dark:hover:text-white transition">LOGIN</a>
+                    <a href="/login" class="hover:text-gray-900 dark:hover:text-white transition">{{ i18n "login" }}</a>
                 </template>
                 <template x-if="loggedIn">
-                    <button @click="document.cookie = 'pb_auth=; Max-Age=0; path=/'; window.location.href='/';" class="hover:text-gray-900 dark:hover:text-white transition uppercase tracking-widest">LOGOUT</button>
+                    <button @click="document.cookie = 'pb_auth=; Max-Age=0; path=/'; window.location.href='/';" class="hover:text-gray-900 dark:hover:text-white transition uppercase tracking-widest">{{ i18n "logout" }}</button>
                 </template>
                 <button @click="toggleDark()" class="ml-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition p-2 rounded-full">
                     <svg x-show="!darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
@@ -101,7 +101,7 @@
                      class="relative w-full max-w-md bg-white dark:bg-bmw-dark shadow-2xl h-full flex flex-col border-l border-gray-200 dark:border-bmw-darkBorder relative">
                     
                     <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-bmw-darkBorder">
-                        <h2 class="text-xl font-light tracking-widest text-gray-900 dark:text-white">YOUR CART</h2>
+                        <h2 class="text-xl font-light tracking-widest text-gray-900 dark:text-white uppercase">{{ i18n "your_cart" }}</h2>
                         <button @click="cartOpen = false" class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white text-3xl leading-none font-light">&times;</button>
                     </div>
 
@@ -136,11 +136,11 @@
                                 </div>
                                 <div class="mt-auto pt-4 border-t border-gray-200 dark:border-bmw-darkBorder bg-gray-50 dark:bg-bmw-dark z-10 sticky bottom-0 p-6">
                                     <div class="flex justify-between items-center text-sm font-medium mb-6">
-                                        <span class="text-gray-500 tracking-wider">SUBTOTAL</span>
+                                        <span class="text-gray-500 tracking-wider uppercase">{{ i18n "subtotal" }}</span>
                                         <span class="text-gray-900 dark:text-white text-lg" x-text="'₩' + cartTotal.toLocaleString()"></span>
                                     </div>
                                     <a href="/checkout" class="block w-full bg-bmw-blue hover:bg-blue-700 text-white text-center py-4 uppercase tracking-wider text-sm font-medium transition duration-300">
-                                        PROCEED TO CHECKOUT
+                                        {{ i18n "proceed_to_checkout" }}
                                     </a>
                                 </div>
                             </div>
@@ -162,19 +162,19 @@
         <div class="grid grid-cols-4 h-16">
             <a href="/" class="flex flex-col items-center justify-center gap-1 text-bmw-blue">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                <span class="text-[10px] font-bold tracking-wide">HOME</span>
+                <span class="text-[10px] font-bold tracking-wide uppercase">{{ i18n "home" }}</span>
             </a>
             <a href="/#catalog" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                <span class="text-[10px] font-medium tracking-wide">CATALOG</span>
+                <span class="text-[10px] font-medium tracking-wide uppercase">{{ i18n "catalog" }}</span>
             </a>
             <a href="/my-orders" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                <span class="text-[10px] font-medium tracking-wide">ORDERS</span>
+                <span class="text-[10px] font-medium tracking-wide uppercase">{{ i18n "orders" }}</span>
             </a>
             <a x-bind:href="loggedIn ? '#' : '/login'" @click="if(loggedIn){document.cookie='pb_auth=;Max-Age=0;path=/';window.location.href='/';}" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                <span class="text-[10px] font-medium tracking-wide" x-text="loggedIn ? 'LOGOUT' : 'LOGIN'">LOGIN</span>
+                <span class="text-[10px] font-medium tracking-wide uppercase" x-text="loggedIn ? '{{ i18n "logout" }}' : '{{ i18n "login" }}'"></span>
             </a>
         </div>
     </div>

@@ -1,11 +1,16 @@
 baseURL = "http://localhost:8090/"
 languageCode = "ko-kr"
-title = "BMW Shop"
+defaultContentLanguage = "ko-kr"
+title = "D'roll Shop"
 
 # Publish Hugo output directly to the PocketBase public directory
 publishDir = "../pb_public"
 
-[module]
+[params]
+heroImg = "https://images.unsplash.com/photo-1555099962-4199c345e5dd?q=80&w=2070&auto=format&fit=crop"
+heroTitle = "The Ultimate Driving Machine"
+heroSubtitle = "Experience uncompromised performance and luxury with our latest curated collection of premium accessories."
+
 # We don't use Hugo's tailwind npm module, we use css.Build inside layouts instead if necessary, 
 # or just inline CDN to keep Node.js completely out as per AGENTS.md
 
