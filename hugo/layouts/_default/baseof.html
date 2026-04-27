@@ -49,27 +49,37 @@
       @add-to-cart.window="addToCart($event.detail)" 
       @open-cart.window="cartOpen = true">
     <nav class="bg-white/90 dark:bg-black/90 backdrop-blur-md sticky top-0 z-50 border-b border-gray-200 dark:border-bmw-darkBorder transition-colors duration-300">
-        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <a href="/" class="text-xl font-bold tracking-widest text-gray-900 dark:text-white hover:text-bmw-blue dark:hover:text-bmw-blue transition duration-300">
-                BMW SHOP
+        <div class="max-w-7xl mx-auto px-4 h-14 md:h-16 flex items-center justify-between">
+            <a href="/" class="text-lg md:text-xl font-bold tracking-widest text-gray-900 dark:text-white hover:text-bmw-blue dark:hover:text-bmw-blue transition duration-300">
+                {{ site.Title | upper }}
             </a>
-            <div class="flex items-center gap-6 text-sm font-medium text-gray-500 dark:text-gray-400">
+
+            <!-- Desktop Nav -->
+            <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-500 dark:text-gray-400">
                 <a href="/" class="hover:text-gray-900 dark:hover:text-white transition">CATALOG</a>
                 <a href="#" @click.prevent="cartOpen = true" class="hover:text-gray-900 dark:hover:text-white transition">CART (<span x-text="cart.length"></span>)</a>
                 <a href="/my-orders" class="hover:text-gray-900 dark:hover:text-white transition">ORDERS</a>
-                
                 <template x-if="!loggedIn">
                     <a href="/login" class="hover:text-gray-900 dark:hover:text-white transition">LOGIN</a>
                 </template>
                 <template x-if="loggedIn">
                     <button @click="document.cookie = 'pb_auth=; Max-Age=0; path=/'; window.location.href='/';" class="hover:text-gray-900 dark:hover:text-white transition uppercase tracking-widest">LOGOUT</button>
                 </template>
+                <button @click="toggleDark()" class="ml-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition p-2 rounded-full">
+                    <svg x-show="!darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                    <svg x-show="darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                </button>
+            </div>
 
-                <!-- Dark Mode Toggle -->
-                <button @click="toggleDark()" 
-                        class="ml-4 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition flex items-center justify-center p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-bmw-blue">
-                    <svg x-show="!darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display: none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-                    <svg x-show="darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display: none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            <!-- Mobile: Cart + Dark Toggle + Hamburger -->
+            <div class="flex md:hidden items-center gap-3">
+                <button @click="toggleDark()" class="text-gray-500 dark:text-gray-400 p-2">
+                    <svg x-show="!darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                    <svg x-show="darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                </button>
+                <button @click.prevent="cartOpen = true" class="relative text-gray-700 dark:text-gray-300 p-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                    <span x-show="cart.length > 0" class="absolute -top-0.5 -right-0.5 bg-bmw-blue text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center" x-text="cart.length" style="display:none;"></span>
                 </button>
             </div>
         </div>
@@ -143,9 +153,31 @@
 
     {{ block "main" . }}{{ end }}
 
-    <footer class="bg-gray-100 dark:bg-black border-t border-gray-200 dark:border-bmw-darkBorder py-8 text-center text-xs text-gray-500">
-        <p>&copy; 2026 BMW eCommerce Example.</p>
+    <footer class="bg-gray-100 dark:bg-black border-t border-gray-200 dark:border-bmw-darkBorder py-8 pb-24 md:pb-8 text-center text-xs text-gray-500">
+        <p>&copy; {{ now.Format "2006" }} {{ site.Title }}. All rights reserved.</p>
     </footer>
+
+    <!-- Mobile Bottom Tab Bar -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-black/95 backdrop-blur-md border-t border-gray-200 dark:border-bmw-darkBorder safe-bottom">
+        <div class="grid grid-cols-4 h-16">
+            <a href="/" class="flex flex-col items-center justify-center gap-1 text-bmw-blue">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                <span class="text-[10px] font-bold tracking-wide">HOME</span>
+            </a>
+            <a href="/#catalog" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                <span class="text-[10px] font-medium tracking-wide">CATALOG</span>
+            </a>
+            <a href="/my-orders" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                <span class="text-[10px] font-medium tracking-wide">ORDERS</span>
+            </a>
+            <a x-bind:href="loggedIn ? '#' : '/login'" @click="if(loggedIn){document.cookie='pb_auth=;Max-Age=0;path=/';window.location.href='/';}" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                <span class="text-[10px] font-medium tracking-wide" x-text="loggedIn ? 'LOGOUT' : 'LOGIN'">LOGIN</span>
+            </a>
+        </div>
+    </div>
 
     <script>
         function appData() {
@@ -192,5 +224,8 @@
             }
         }
     </script>
+    <style>
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
 </body>
 </html>

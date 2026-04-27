@@ -1,12 +1,97 @@
 {{ define "main" }}
-<main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full text-gray-800 dark:text-gray-200">
-    <h1 class="text-3xl font-light mb-8 border-b border-gray-200 dark:border-bmw-darkBorder pb-4">CATALOG</h1>
+{{/* Dynamic Configuration */}}
+{{ $pbBase := site.BaseURL }}
+{{ $heroImg := "https://images.unsplash.com/photo-1555099962-4199c345e5dd?q=80&w=2070&auto=format&fit=crop" }}
+{{ $heroTitle := "The Ultimate Driving Machine" }}
+{{ $heroSubtitle := "Experience uncompromised performance and luxury with our latest curated collection of premium accessories." }}
+
+<!-- Hero Section -->
+<section class="relative w-full h-[70vh] md:h-[80vh] bg-bmw-dark overflow-hidden">
+    <!-- Premium Car/Product Image -->
+    <img src="{{ $heroImg }}" alt="Hero Background" class="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay">
     
-    {{/* Prevent Hugo from caching the API response by adding a timestamp */}}
-    {{ $url := printf "http://127.0.0.1:8090/api/collections/products/records?t=%d" now.Unix }}
-    {{/* Hugo will ignore getJSON errors and return nil if the server is down. We check if data exists. */}}
+    <!-- Gradient Overlay -->
+    <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent dark:from-bmw-dark dark:via-bmw-dark/60"></div>
+    
+    <!-- Content -->
+    <div class="relative h-full flex flex-col items-center justify-end pb-20 px-6 text-center">
+        <span class="text-bmw-blue font-bold tracking-[0.2em] text-sm md:text-base mb-3 uppercase">New Collection</span>
+        <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 tracking-tight leading-tight">
+            {{ range $i, $line := (split $heroTitle " ") }}{{ if eq $i 2 }}<br class="md:hidden" />{{ end }}{{ if $i }} {{ end }}{{ $line }}{{ end }}
+        </h1>
+        <p class="text-base md:text-lg text-gray-300 mb-10 max-w-xl mx-auto font-light leading-relaxed">
+            {{ $heroSubtitle }}
+        </p>
+        <a href="#catalog" class="bg-bmw-blue hover:bg-blue-600 text-white px-10 py-4 rounded-full uppercase tracking-widest text-sm font-bold transition-all duration-300 transform hover:scale-105 shadow-[0_0_20px_rgba(28,105,212,0.4)] hover:shadow-[0_0_30px_rgba(28,105,212,0.6)]">
+            Explore Collection
+        </a>
+    </div>
+</section>
+
+<!-- Categories (Horizontal Scroll for Mobile) -->
+<section class="py-10 bg-white dark:bg-bmw-surface border-b border-gray-100 dark:border-bmw-darkBorder shadow-sm z-10 relative">
+    <div class="max-w-7xl mx-auto px-4 md:px-8">
+        <div class="flex justify-between items-center mb-6 md:hidden">
+            <h2 class="text-sm font-bold tracking-widest text-gray-400">CATEGORIES</h2>
+        </div>
+        <div class="flex overflow-x-auto hide-scroll-bar gap-6 md:gap-12 pb-4 snap-x snap-mandatory md:justify-center">
+            <!-- Category 1 -->
+            <div class="snap-start shrink-0">
+                <a href="#" class="flex flex-col items-center gap-3 group">
+                    <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gray-50 dark:bg-bmw-dark flex items-center justify-center border-2 border-gray-100 dark:border-bmw-darkBorder group-hover:border-bmw-blue transition-all duration-300 shadow-sm group-hover:shadow-md transform group-hover:-translate-y-1">
+                        <svg class="w-6 h-6 md:w-8 md:h-8 text-gray-700 dark:text-gray-300 group-hover:text-bmw-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">Performance</span>
+                </a>
+            </div>
+            <!-- Category 2 -->
+            <div class="snap-start shrink-0">
+                <a href="#" class="flex flex-col items-center gap-3 group">
+                    <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gray-50 dark:bg-bmw-dark flex items-center justify-center border-2 border-gray-100 dark:border-bmw-darkBorder group-hover:border-bmw-blue transition-all duration-300 shadow-sm group-hover:shadow-md transform group-hover:-translate-y-1">
+                        <svg class="w-6 h-6 md:w-8 md:h-8 text-gray-700 dark:text-gray-300 group-hover:text-bmw-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    </div>
+                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">Accessories</span>
+                </a>
+            </div>
+            <!-- Category 3 -->
+            <div class="snap-start shrink-0">
+                <a href="#" class="flex flex-col items-center gap-3 group">
+                    <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gray-50 dark:bg-bmw-dark flex items-center justify-center border-2 border-gray-100 dark:border-bmw-darkBorder group-hover:border-bmw-blue transition-all duration-300 shadow-sm group-hover:shadow-md transform group-hover:-translate-y-1">
+                        <svg class="w-6 h-6 md:w-8 md:h-8 text-gray-700 dark:text-gray-300 group-hover:text-bmw-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                    </div>
+                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">Lifestyle</span>
+                </a>
+            </div>
+            <!-- Category 4 -->
+            <div class="snap-start shrink-0">
+                <a href="#" class="flex flex-col items-center gap-3 group">
+                    <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gray-50 dark:bg-bmw-dark flex items-center justify-center border-2 border-gray-100 dark:border-bmw-darkBorder group-hover:border-bmw-blue transition-all duration-300 shadow-sm group-hover:shadow-md transform group-hover:-translate-y-1">
+                        <svg class="w-6 h-6 md:w-8 md:h-8 text-gray-700 dark:text-gray-300 group-hover:text-bmw-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+                    </div>
+                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">New Arrival</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Catalog Section -->
+<main id="catalog" class="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-24 flex-1 w-full text-gray-800 dark:text-gray-200">
+    <div class="flex items-end justify-between mb-10 md:mb-16 border-b border-gray-200 dark:border-bmw-darkBorder pb-4 md:pb-6">
+        <div>
+            <span class="text-bmw-blue text-xs md:text-sm font-bold tracking-widest uppercase mb-1 block">Selected For You</span>
+            <h2 class="text-3xl md:text-4xl font-light tracking-wide text-gray-900 dark:text-white">FEATURED <span class="font-bold">PRODUCTS</span></h2>
+        </div>
+        <a href="#" class="hidden md:inline-flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-bmw-blue dark:hover:text-bmw-blue transition-colors uppercase tracking-wider">
+            View All 
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+        </a>
+    </div>
+    
+    {{/* Fetch Products from PocketBase */}}
+    {{ $prodUrl := printf "%sapi/collections/products/records?t=%d" $pbBase now.Unix }}
     {{ $data := dict "items" slice }}
-    {{ with try (resources.GetRemote $url) }}
+    {{ with try (resources.GetRemote $prodUrl) }}
         {{ with .Err }}
             <!-- Error connecting to PocketBase -->
         {{ else }}
@@ -14,43 +99,103 @@
         {{ end }}
     {{ end }}
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 lg:gap-10">
         {{ range $data.items }}
-            <div class="block group bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder overflow-hidden relative">
-                <div class="aspect-[4/3] bg-gray-100 dark:bg-black flex items-center justify-center border-b border-gray-200 dark:border-bmw-darkBorder relative">
+            <div class="flex flex-col group bg-white dark:bg-bmw-surface border border-gray-100 dark:border-bmw-darkBorder/50 rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
+                
+                <!-- Product Image Area -->
+                <div class="aspect-[4/5] bg-gray-50 dark:bg-bmw-dark flex items-center justify-center relative overflow-hidden">
+                    <a href="/products/{{ .slug }}" class="absolute inset-0 z-10"></a>
                     {{ if and .images (gt (len .images) 0) }}
-                        <img src="/api/files/products/{{ .id }}/{{ index .images 0 }}" class="w-full h-full object-cover">
+                        <img src="/api/files/products/{{ .id }}/{{ index .images 0 }}" alt="{{ .name }}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
                     {{ else }}
-                        <span class="text-gray-400 dark:text-gray-600 tracking-widest uppercase text-xs">Image Placeholder</span>
+                        <div class="w-full h-full bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
+                            <span class="text-gray-400 dark:text-gray-600 tracking-widest uppercase text-[10px] md:text-xs font-semibold">No Image</span>
+                        </div>
                     {{ end }}
+                    
+                    <!-- Quick Add Button (Desktop Hover) -->
+                    <button @click="$dispatch('add-to-cart', {
+                                id: {{ .id | jsonify }}, 
+                                name: {{ .name | jsonify }}, 
+                                price: {{ .price }}, 
+                                image: {{ if and .images (gt (len .images) 0) }}{{ printf "/api/files/products/%s/%s" .id (index .images 0) | jsonify }}{{ else }}null{{ end }},
+                                quantity: 1
+                            })" 
+                            class="absolute bottom-4 left-1/2 -translate-x-1/2 w-[85%] bg-white/95 dark:bg-bmw-surface/95 backdrop-blur text-gray-900 dark:text-white py-3 rounded-xl text-xs font-bold uppercase tracking-widest opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 z-20 hover:bg-bmw-blue hover:text-white dark:hover:bg-bmw-blue dark:hover:text-white shadow-[0_8px_16px_rgba(0,0,0,0.1)] hidden md:block"
+                            {{ if le .stock 0 }}disabled{{ end }}>
+                        {{ if gt .stock 0 }}
+                            Add to Cart
+                        {{ else }}
+                            Sold Out
+                        {{ end }}
+                    </button>
+
+                    <!-- Status Badges -->
+                    <div class="absolute top-3 left-3 flex flex-col gap-2 z-20">
+                        {{ if le .stock 0 }}
+                            <span class="bg-red-500 text-white text-[10px] font-bold px-2 py-1 uppercase rounded tracking-wider shadow-sm">Sold Out</span>
+                        {{ else if eq .stock 1 }}
+                            <span class="bg-orange-500 text-white text-[10px] font-bold px-2 py-1 uppercase rounded tracking-wider shadow-sm">Last Item</span>
+                        {{ end }}
+                    </div>
                 </div>
-                <div class="p-6">
-                    <a href="/products/{{ .slug }}">
-                        <h2 class="text-lg font-light mb-2 group-hover:text-bmw-blue transition truncate">{{ .name }}</h2>
+                
+                <!-- Product Details Area -->
+                <div class="p-4 md:p-6 flex flex-col flex-grow relative bg-white dark:bg-bmw-surface">
+                    <a href="/products/{{ .slug }}" class="group-hover:text-bmw-blue transition-colors mb-1 block z-10 relative">
+                        <h3 class="text-sm md:text-base font-medium line-clamp-2 text-gray-900 dark:text-gray-100 leading-snug">{{ .name }}</h3>
                     </a>
-                    <div class="flex items-center justify-between mt-4">
-                        <div class="text-sm font-medium text-gray-900 dark:text-gray-300">₩{{ lang.FormatNumberCustom 0 .price }}</div>
+                    <div class="mt-auto pt-3 md:pt-4 flex items-end justify-between">
+                        <div class="text-base md:text-lg font-bold text-gray-900 dark:text-white tracking-tight">₩{{ lang.FormatNumberCustom 0 .price }}</div>
+                        
+                        <!-- Mobile Add to Cart Icon Button -->
                         <button @click="$dispatch('add-to-cart', {
-                                    id: {{ .id | jsonify }}, 
-                                    name: {{ .name | jsonify }}, 
-                                    price: {{ .price }}, 
-                                    image: {{ if and .images (gt (len .images) 0) }}{{ printf "/api/files/products/%s/%s" .id (index .images 0) | jsonify }}{{ else }}null{{ end }},
-                                    quantity: 1
-                                })" 
-                                class="text-xs bg-bmw-blue hover:bg-blue-700 text-white px-3 py-2 uppercase tracking-wide transition rounded"
-                                {{ if le .stock 0 }}disabled{{ end }}>
+                                id: {{ .id | jsonify }}, 
+                                name: {{ .name | jsonify }}, 
+                                price: {{ .price }}, 
+                                image: {{ if and .images (gt (len .images) 0) }}{{ printf "/api/files/products/%s/%s" .id (index .images 0) | jsonify }}{{ else }}null{{ end }},
+                                quantity: 1
+                            })"
+                            class="md:hidden w-10 h-10 rounded-full bg-bmw-dark text-white dark:bg-white dark:text-bmw-dark flex items-center justify-center shadow-md active:scale-95 transition-transform z-20"
+                            {{ if le .stock 0 }}disabled{{ end }}>
                             {{ if gt .stock 0 }}
-                                <span>Add</span>
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                             {{ else }}
-                                <span>Sold Out</span>
+                                <svg class="w-5 h-5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
                             {{ end }}
                         </button>
                     </div>
                 </div>
             </div>
         {{ else }}
-            <div class="col-span-3 py-12 text-center text-gray-500">No products available.</div>
+            <div class="col-span-2 md:col-span-3 lg:col-span-4 py-24 text-center text-gray-500 bg-gray-50 dark:bg-bmw-dark/50 rounded-3xl border border-dashed border-gray-300 dark:border-bmw-darkBorder">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-white dark:bg-bmw-surface flex items-center justify-center shadow-sm">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                </div>
+                <p class="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">No products available</p>
+                <p class="text-sm text-gray-500">Check back later for new arrivals.</p>
+            </div>
         {{ end }}
     </div>
+
+    <!-- Mobile View All Button -->
+    <div class="mt-8 text-center md:hidden">
+        <a href="#" class="inline-block border-2 border-gray-900 dark:border-white text-gray-900 dark:text-white px-8 py-3 rounded-full text-sm font-bold uppercase tracking-widest hover:bg-gray-900 hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors">
+            View All Products
+        </a>
+    </div>
 </main>
+
+<style>
+/* Hide scrollbar for Chrome, Safari and Opera */
+.hide-scroll-bar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.hide-scroll-bar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+</style>
 {{ end }}

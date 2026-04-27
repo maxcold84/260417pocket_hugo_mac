@@ -8,3 +8,7 @@ publishDir = "../pb_public"
 [module]
 # We don't use Hugo's tailwind npm module, we use css.Build inside layouts instead if necessary, 
 # or just inline CDN to keep Node.js completely out as per AGENTS.md
+
+[params.oauth]
+google = true
+kakao = false
