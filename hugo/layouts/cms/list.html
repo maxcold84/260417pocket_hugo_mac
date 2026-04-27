@@ -147,6 +147,13 @@
                     <!-- Orders Tab -->
                     <template x-if="currentTab === 'orders'">
                         <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden">
+                            <!-- Search Bar -->
+                            <div class="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                                <div class="relative w-full max-w-md">
+                                    <input type="text" x-model="orderSearchQuery" @input.debounce.500ms="fetchOrders()" placeholder="주문 번호, 이메일, 트랜잭션 ID 검색..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition text-sm">
+                                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                            </div>
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
@@ -155,6 +162,7 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (₩)</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Info</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -179,10 +187,13 @@
                                                 <div x-text="order.expand?.user?.email || order.guest_info?.email || 'Unknown User'"></div>
                                                 <div class="text-xs text-gray-400" x-show="order.portone_tx_id" x-text="'Tx: ' + order.portone_tx_id"></div>
                                             </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <button @click="deleteOrder(order.id)" class="text-red-600 hover:text-red-900">Delete</button>
+                                            </td>
                                         </tr>
                                     </template>
                                     <template x-if="orders.length === 0">
-                                        <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No orders found.</td></tr>
+                                        <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No orders found.</td></tr>
                                     </template>
                                 </tbody>
                             </table>
@@ -304,6 +315,7 @@
                 currentTab: 'products',
                 products: [],
                 orders: [],
+                orderSearchQuery: '',
                 showAddModal: false,
                 showEditModal: false,
                 _slugTouched: false,
@@ -380,8 +392,31 @@
                 },
                 async fetchOrders() {
                     try {
-                        const result = await pb.collection('orders').getList(1, 50, { expand: 'user' });
-                        this.orders = result.items;
+                        let filter = '';
+                        if (this.orderSearchQuery) {
+                            const q = this.orderSearchQuery.replace(/"/g, '\\"');
+                            // PocketBase filter syntax for relations or json is tricky. We'll search id and tx_id.
+                            // For JSON (guest_info) and Relations (user.email), we can use:
+                            filter = `id ~ "${q}" || portone_tx_id ~ "${q}" || user.email ~ "${q}"`;
+                        }
+                        const result = await pb.collection('orders').getList(1, 50, { 
+                            expand: 'user',
+                            filter: filter
+                        });
+                        
+                        // For guest_info.email which is a JSON field, filtering might be limited depending on PocketBase version.
+                        // If we want to filter guest info as well and the DB doesn't support it perfectly, we filter locally as a fallback.
+                        let finalOrders = result.items;
+                        if (this.orderSearchQuery) {
+                            const sq = this.orderSearchQuery.toLowerCase();
+                            finalOrders = finalOrders.filter(o => 
+                                o.id.toLowerCase().includes(sq) ||
+                                (o.portone_tx_id && o.portone_tx_id.toLowerCase().includes(sq)) ||
+                                (o.expand?.user?.email && o.expand.user.email.toLowerCase().includes(sq)) ||
+                                (o.guest_info?.email && o.guest_info.email.toLowerCase().includes(sq))
+                            );
+                        }
+                        this.orders = finalOrders;
                     } catch (err) {
                         console.error('Error fetching orders:', err);
                     }
@@ -406,13 +441,42 @@
                     }
                 },
                 async deleteProduct(id) {
-                    if (confirm('Are you sure you want to delete this product?')) {
+                    if (confirm('이 상품을 삭제하시겠습니까?\n(연결된 주문 내역도 함께 삭제됩니다)')) {
                         try {
+                            // 1. Delete associated order_items first
+                            const orderItems = await pb.collection('order_items').getFullList({
+                                filter: `product = "${id}"`
+                            });
+                            for (const item of orderItems) {
+                                await pb.collection('order_items').delete(item.id);
+                            }
+
+                            // 2. Delete the product
                             await pb.collection('products').delete(id);
                             this.fetchProducts();
                         } catch (err) {
                             console.error('Error deleting product:', err);
-                            alert('Failed to delete product');
+                            alert('상품 삭제 실패: ' + (err.message || err));
+                        }
+                    }
+                },
+                async deleteOrder(id) {
+                    if (confirm('이 주문을 삭제하시겠습니까?\n(연결된 상세 내역도 함께 삭제됩니다)')) {
+                        try {
+                            // Delete associated order_items first
+                            const orderItems = await pb.collection('order_items').getFullList({
+                                filter: `order = "${id}"`
+                            });
+                            for (const item of orderItems) {
+                                await pb.collection('order_items').delete(item.id);
+                            }
+
+                            // Delete the order
+                            await pb.collection('orders').delete(id);
+                            this.fetchOrders();
+                        } catch (err) {
+                            console.error('Error deleting order:', err);
+                            alert('주문 삭제 실패: ' + (err.message || err));
                         }
                     }
                 },
