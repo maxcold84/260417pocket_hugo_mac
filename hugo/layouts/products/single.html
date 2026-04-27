@@ -1,4 +1,4 @@
-{{ define "title" }}{{ .Title }} | BMW Shop{{ end }}
+{{ define "title" }}{{ .Title | default site.Title }}{{ end }}
 
 {{ define "main" }}
 <main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full text-gray-800 dark:text-gray-200">
@@ -14,7 +14,7 @@
                     <img :src="images[activeImage]" alt="{{ .Title }}" class="w-full h-full object-cover transition-opacity duration-300">
                 </template>
                 <template x-if="images.length === 0">
-                    <span class="text-gray-400 dark:text-gray-600 text-sm tracking-widest uppercase">Product Image</span>
+                    <span class="text-gray-400 dark:text-gray-600 text-sm tracking-widest uppercase">{{ i18n "product_image" }}</span>
                 </template>
             </div>
             
@@ -48,7 +48,7 @@
                 })"
                 class="bg-bmw-blue hover:bg-blue-700 text-white px-8 py-4 uppercase tracking-widest text-sm font-bold transition duration-300 w-full md:w-auto rounded"
             >
-                ADD TO CART
+                {{ i18n "add_to_cart" }}
             </button>
         </div>
     </div>

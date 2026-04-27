@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | BMW Shop</title>
+    <title>{{ .Title | default site.Title }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -28,7 +28,7 @@
     <nav class="bg-black/90 backdrop-blur-md sticky top-0 z-50 border-b border-bmw-border" x-data="{ loggedIn: document.cookie.includes('pb_auth='), cartOpen: false }" @open-cart.window="cartOpen = true; fetch('/cart/view').then(r=>r.text()).then(html => $refs.cartContent.innerHTML = html)">
         <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <a href="/" class="text-xl font-bold tracking-widest text-white hover:text-bmw-blue transition duration-300">
-                BMW SHOP
+                {{ site.Title | upper }}
             </a>
             <div class="flex items-center gap-6 text-sm font-medium text-gray-400">
                 <a href="/" class="hover:text-white transition">CATALOG</a>
@@ -230,7 +230,7 @@
         </script>
     </main>
     <footer class="bg-black border-t border-bmw-border py-8 text-center text-xs text-gray-500">
-        <p>&copy; 2026 BMW eCommerce Example.</p>
+        <p>&copy; {{ now.Format "2006" }} {{ site.Title }}. All rights reserved.</p>
     </footer>
 </body>
 </html>
