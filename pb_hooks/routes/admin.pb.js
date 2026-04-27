@@ -9,9 +9,10 @@ routerAdd("POST", "/api/admin/rebuild", (e) => {
             if (slug) dbSlugs[slug] = true;
             const images = p.getStringSlice("images");
             if (images && images.length > 0) {
-                // Hugo strips extension and uses the base name as prefix for generated files
-                const base = images[0].replace(/\.[^.]+$/, ""); // e.g. "myimage.jpg" -> "myimage"
-                usedImagePrefixes.push(base);
+                for (let img of images) {
+                    const base = img.replace(/\.[^.]+$/, "");
+                    usedImagePrefixes.push(base);
+                }
             }
         }
 
@@ -86,7 +87,11 @@ routerAdd("POST", "/api/admin/rebuild", (e) => {
             if (images && images.length > 0) {
                 const collectionId = p.collection().id;
                 const recordId = p.id;
-                imageLine = '\nimage: "http://127.0.0.1:8090/api/files/' + collectionId + '/' + recordId + '/' + images[0] + '"';
+                let imageUrls = [];
+                for (let img of images) {
+                    imageUrls.push('"http://127.0.0.1:8090/api/files/' + collectionId + '/' + recordId + '/' + img + '"');
+                }
+                imageLine = '\nimages: [' + imageUrls.join(', ') + ']\nimage: ' + imageUrls[0];
             }
 
             const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + imageLine + '\n---\n' + description + '\n';

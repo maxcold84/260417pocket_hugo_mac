@@ -237,8 +237,8 @@
                             <textarea x-model="newProduct.description" rows="3" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none"></textarea>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
-                            <input type="file" x-ref="imageInput" accept="image/jpeg, image/png, image/webp" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Images (Up to 5)</label>
+                            <input type="file" x-ref="imageInput" multiple accept="image/jpeg, image/png, image/webp" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
                         </div>
                         <div class="flex gap-4">
                             <div class="flex-1">
@@ -282,16 +282,18 @@
                             <textarea x-model="editProduct.description" rows="3" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none"></textarea>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
-                            <!-- Current image preview -->
-                            <template x-if="editProduct._currentImageUrl">
-                                <div class="mb-2 flex items-center gap-3">
-                                    <img :src="editProduct._currentImageUrl" class="w-16 h-16 object-cover rounded border border-gray-200">
-                                    <span class="text-xs text-gray-400">Current image</span>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Images (Up to 5)</label>
+                            <template x-if="editProduct._currentImages && editProduct._currentImages.length > 0">
+                                <div class="mb-3 flex flex-wrap gap-2">
+                                    <template x-for="(imgUrl, index) in editProduct._currentImages" :key="index">
+                                        <div class="relative">
+                                            <img :src="imgUrl" class="w-16 h-16 object-cover rounded border border-gray-200">
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
-                            <input type="file" x-ref="editImageInput" accept="image/jpeg, image/png, image/webp" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
-                            <p class="text-xs text-gray-400 mt-1">Leave empty to keep current image.</p>
+                            <input type="file" x-ref="editImageInput" multiple accept="image/jpeg, image/png, image/webp" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
+                            <p class="text-xs text-gray-400 mt-1">Leave empty to keep current images. Selecting new images will replace all existing ones.</p>
                         </div>
                         <div class="flex gap-4">
                             <div class="flex-1">
@@ -344,7 +346,7 @@
                     description: '',
                     price: '',
                     stock: '',
-                    _currentImageUrl: ''
+                    _currentImages: []
                 },
                 init() {
                     if (this.isLoggedIn) {
@@ -514,9 +516,9 @@
                         description: product.description,
                         price: product.price,
                         stock: product.stock,
-                        _currentImageUrl: (product.images && product.images.length > 0)
-                            ? '/api/files/products/' + product.id + '/' + product.images[0]
-                            : ''
+                        _currentImages: (product.images && product.images.length > 0)
+                            ? product.images.map(img => '/api/files/products/' + product.id + '/' + img)
+                            : []
                     };
                     this.$nextTick(() => {
                         if (this.$refs.editImageInput) {
@@ -537,7 +539,9 @@
 
                         const fileInput = this.$refs.imageInput;
                         if (fileInput && fileInput.files.length > 0) {
-                            formData.append('images', fileInput.files[0]);
+                            for (let i = 0; i < fileInput.files.length; i++) {
+                                formData.append('images', fileInput.files[i]);
+                            }
                         }
 
                         await pb.collection('products').create(formData);
@@ -561,7 +565,9 @@
 
                         const fileInput = this.$refs.editImageInput;
                         if (fileInput && fileInput.files.length > 0) {
-                            formData.append('images', fileInput.files[0]);
+                            for (let i = 0; i < fileInput.files.length; i++) {
+                                formData.append('images', fileInput.files[i]);
+                            }
                         }
 
                         await pb.collection('products').update(this.editProduct.id, formData);
