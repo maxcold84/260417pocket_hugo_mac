@@ -1,19 +1,32 @@
 baseURL = "http://localhost:8090/"
-languageCode = "ko-kr"
-defaultContentLanguage = "ko-kr"
 title = "D'roll Shop"
 
 # Publish Hugo output directly to the PocketBase public directory
 publishDir = "../pb_public"
+
+defaultContentLanguage = "ko-kr"
+enableLanguages = ["ko-kr", "en"]
+
+[languages]
+  [languages.ko-kr]
+    languageCode = "ko-kr"
+    languageName = "한국어"
+    weight = 1
+  [languages.en]
+    languageCode = "en-us"
+    languageName = "English"
+    weight = 2
 
 [params]
 heroImg = "https://images.unsplash.com/photo-1555099962-4199c345e5dd?q=80&w=2070&auto=format&fit=crop"
 heroTitle = "The Ultimate Driving Machine"
 heroSubtitle = "Experience uncompromised performance and luxury with our latest curated collection of premium accessories."
 
-# We don't use Hugo's tailwind npm module, we use css.Build inside layouts instead if necessary, 
-# or just inline CDN to keep Node.js completely out as per AGENTS.md
-
 [params.oauth]
 google = true
 kakao = false
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true

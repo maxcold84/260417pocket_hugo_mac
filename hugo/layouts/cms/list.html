@@ -1,10 +1,10 @@
 {{ define "main" }}
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="{{ .Site.LanguageCode | default "ko-kr" }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ .Title | default site.Title }}</title>
+    <title>{{ .Title | default site.Title }} CMS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -44,20 +44,20 @@
     <template x-if="!isLoggedIn">
         <div class="min-h-screen flex items-center justify-center bg-gray-50">
             <div class="max-w-md w-full p-8 bg-white shadow-lg rounded-sm border border-gray-200">
-                <h1 class="text-2xl font-light tracking-widest text-center mb-8">CMS LOGIN</h1>
+                <h1 class="text-2xl font-light tracking-widest text-center mb-8 uppercase">{{ i18n "cms_login" }}</h1>
                 <form @submit.prevent="login" class="space-y-6">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Admin Email</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2 uppercase">{{ i18n "admin_email" }}</label>
                         <input type="email" x-model="email" required class="w-full border border-gray-300 p-3 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2 uppercase">{{ i18n "password" }}</label>
                         <input type="password" x-model="password" required class="w-full border border-gray-300 p-3 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition">
                     </div>
                     <div x-show="error" class="text-red-500 text-sm p-3 bg-red-50 border border-red-200 rounded" x-text="error" style="display: none;"></div>
                     <button type="submit" class="w-full bg-bmw-blue hover:bg-blue-700 text-white p-3 rounded uppercase tracking-wider font-medium transition" :disabled="loading">
-                        <span x-show="!loading">Login</span>
-                        <span x-show="loading">Logging in...</span>
+                        <span x-show="!loading">{{ i18n "login" }}</span>
+                        <span x-show="loading">{{ i18n "authenticating" }}</span>
                     </button>
                 </form>
             </div>
@@ -76,18 +76,18 @@
                     <nav class="space-y-1 px-3">
                         <button @click="currentTab = 'products'; fetchProducts()" 
                                 :class="{'bg-bmw-blue text-white': currentTab === 'products', 'text-gray-300 hover:bg-bmw-surface hover:text-white': currentTab !== 'products'}"
-                                class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition">
-                            Products
+                                class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase">
+                            {{ i18n "catalog" }}
                         </button>
                         <button @click="currentTab = 'orders'; fetchOrders()" 
                                 :class="{'bg-bmw-blue text-white': currentTab === 'orders', 'text-gray-300 hover:bg-bmw-surface hover:text-white': currentTab !== 'orders'}"
-                                class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition">
-                            Orders
+                                class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase">
+                            {{ i18n "orders" }}
                         </button>
                     </nav>
                 </div>
                 <div class="p-4 border-t border-bmw-darkBorder bg-black">
-                    <button @click="logout" class="w-full text-left text-sm text-gray-400 hover:text-white transition">Logout</button>
+                    <button @click="logout" class="w-full text-left text-sm text-gray-400 hover:text-white transition uppercase">{{ i18n "logout" }}</button>
                 </div>
             </aside>
 
@@ -98,11 +98,11 @@
                     <template x-if="currentTab === 'products'">
                         <div class="flex gap-4">
                             <button @click="rebuildSite" class="bg-gray-800 hover:bg-black text-white px-4 py-2 text-sm rounded transition shadow-sm border border-gray-600 flex items-center gap-2" :disabled="isRebuilding">
-                                <span x-show="!isRebuilding">Sync & Rebuild Site</span>
-                                <span x-show="isRebuilding">Rebuilding...</span>
+                                <span x-show="!isRebuilding">{{ i18n "sync_rebuild" }}</span>
+                                <span x-show="isRebuilding">{{ i18n "processing" }}</span>
                             </button>
                             <button @click="openAddProductModal" class="bg-bmw-blue hover:bg-blue-700 text-white px-4 py-2 text-sm rounded transition shadow-sm">
-                                + Add Product
+                                + {{ i18n "add_product" }}
                             </button>
                         </div>
                     </template>
@@ -115,11 +115,11 @@
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name / Slug</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price (₩)</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "product_image" }}</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "ui_name" }} / {{ i18n "ui_slug" }}</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "price" }} (₩)</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "stock" }}</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "actions" }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -142,13 +142,13 @@
                                                 <input type="number" x-model.number="product.stock" @change="updateStock(product.id, product.stock)" class="w-20 border border-gray-300 p-1 text-sm rounded text-center">
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
-                                                <button @click="openEditProductModal(product)" class="text-bmw-blue hover:text-blue-900 font-medium">Edit</button>
-                                                <button @click="deleteProduct(product.id)" class="text-red-600 hover:text-red-900">Delete</button>
+                                                <button @click="openEditProductModal(product)" class="text-bmw-blue hover:text-blue-900 font-medium">{{ i18n "edit_product" }}</button>
+                                                <button @click="deleteProduct(product.id)" class="text-red-600 hover:text-red-900">{{ i18n "delete" }}</button>
                                             </td>
                                         </tr>
                                     </template>
                                     <template x-if="products.length === 0">
-                                        <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No products found.</td></tr>
+                                        <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">{{ i18n "no_products_found" }}</td></tr>
                                     </template>
                                 </tbody>
                             </table>
@@ -161,7 +161,7 @@
                             <!-- Search Bar -->
                             <div class="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                                 <div class="relative w-full max-w-md">
-                                    <input type="text" x-model="orderSearchQuery" @input.debounce.500ms="fetchOrders()" placeholder="주문 번호, 이메일, 트랜잭션 ID 검색..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition text-sm">
+                                    <input type="text" x-model="orderSearchQuery" @input.debounce.500ms="fetchOrders()" placeholder="{{ i18n "search_placeholder" }}" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition text-sm">
                                     <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                                 </div>
                             </div>
@@ -169,11 +169,11 @@
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (₩)</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Info</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "ui_date" }}</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "amount" }} (₩)</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "status" }}</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "info" }}</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "actions" }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -199,7 +199,7 @@
                                                 <div class="text-xs text-gray-400" x-show="order.portone_tx_id" x-text="'Tx: ' + order.portone_tx_id"></div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button @click="deleteOrder(order.id)" class="text-red-600 hover:text-red-900">Delete</button>
+                                                <button @click="deleteOrder(order.id)" class="text-red-600 hover:text-red-900">{{ i18n "delete" }}</button>
                                             </td>
                                         </tr>
                                     </template>
@@ -220,40 +220,39 @@
             <div x-show="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
                 <div @click.away="showAddModal = false" class="bg-white p-8 rounded shadow-2xl w-full max-w-lg border border-gray-200">
                     <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
-                        <h3 class="text-xl font-light tracking-wide">ADD NEW PRODUCT</h3>
+                        <h3 class="text-xl font-light tracking-wide uppercase">{{ i18n "add_product" }}</h3>
                         <button @click="showAddModal = false" class="text-gray-400 hover:text-gray-900 text-2xl leading-none">&times;</button>
                     </div>
                     <form @submit.prevent="createProduct" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "ui_name" }}</label>
                             <input type="text" x-model="newProduct.name" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "ui_slug" }}</label>
                             <input type="text" x-model="newProduct.slug" @input="_slugTouched = true" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "ui_description" }}</label>
                             <textarea x-model="newProduct.description" rows="3" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none"></textarea>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Images (Up to 5)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "product_image" }}</label>
                             <input type="file" x-ref="imageInput" multiple accept="image/jpeg, image/png, image/webp" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
                         </div>
                         <div class="flex gap-4">
                             <div class="flex-1">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Price (₩)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "price" }} (₩)</label>
                                 <input type="number" x-model.number="newProduct.price" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                             </div>
                             <div class="flex-1">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "stock" }}</label>
                                 <input type="number" x-model.number="newProduct.stock" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                             </div>
                         </div>
-                        <!-- We skip images upload for the simple modal for now -->
                         <div class="pt-4 flex justify-end gap-3">
-                            <button type="button" @click="showAddModal = false" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded">Cancel</button>
-                            <button type="submit" class="px-4 py-2 text-sm text-white bg-bmw-blue hover:bg-blue-700 rounded transition" :disabled="loading">Save Product</button>
+                            <button type="button" @click="showAddModal = false" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded uppercase">{{ i18n "cancel" }}</button>
+                            <button type="submit" class="px-4 py-2 text-sm text-white bg-bmw-blue hover:bg-blue-700 rounded transition uppercase" :disabled="loading">{{ i18n "add_product" }}</button>
                         </div>
                     </form>
                 </div>
@@ -265,24 +264,24 @@
             <div x-show="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
                 <div @click.away="showEditModal = false" class="bg-white p-8 rounded shadow-2xl w-full max-w-lg border border-gray-200">
                     <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
-                        <h3 class="text-xl font-light tracking-wide">EDIT PRODUCT</h3>
+                        <h3 class="text-xl font-light tracking-wide uppercase">{{ i18n "edit_product" }}</h3>
                         <button @click="showEditModal = false" class="text-gray-400 hover:text-gray-900 text-2xl leading-none">&times;</button>
                     </div>
                     <form @submit.prevent="updateProduct" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "ui_name" }}</label>
                             <input type="text" x-model="editProduct.name" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "ui_slug" }}</label>
                             <input type="text" x-model="editProduct.slug" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "ui_description" }}</label>
                             <textarea x-model="editProduct.description" rows="3" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none"></textarea>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Images (Up to 5)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "product_image" }}</label>
                             <template x-if="editProduct._currentImages && editProduct._currentImages.length > 0">
                                 <div class="mb-3 flex flex-wrap gap-2">
                                     <template x-for="(imgUrl, index) in editProduct._currentImages" :key="index">
@@ -293,21 +292,20 @@
                                 </div>
                             </template>
                             <input type="file" x-ref="editImageInput" multiple accept="image/jpeg, image/png, image/webp" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
-                            <p class="text-xs text-gray-400 mt-1">Leave empty to keep current images. Selecting new images will replace all existing ones.</p>
                         </div>
                         <div class="flex gap-4">
                             <div class="flex-1">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Price (₩)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "price" }} (₩)</label>
                                 <input type="number" x-model.number="editProduct.price" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                             </div>
                             <div class="flex-1">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "stock" }}</label>
                                 <input type="number" x-model.number="editProduct.stock" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                             </div>
                         </div>
                         <div class="pt-4 flex justify-end gap-3">
-                            <button type="button" @click="showEditModal = false" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded">Cancel</button>
-                            <button type="submit" class="px-4 py-2 text-sm text-white bg-bmw-blue hover:bg-blue-700 rounded transition" :disabled="loading">Save Changes</button>
+                            <button type="button" @click="showEditModal = false" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded uppercase">{{ i18n "cancel" }}</button>
+                            <button type="submit" class="px-4 py-2 text-sm text-white bg-bmw-blue hover:bg-blue-700 rounded transition uppercase" :disabled="loading">{{ i18n "save_changes" }}</button>
                         </div>
                     </form>
                 </div>
@@ -371,11 +369,10 @@
                 async rebuildSite() {
                     this.isRebuilding = true;
                     try {
-                        // Use PocketBase SDK's send method which automatically attaches the correct auth headers
                         const data = await pb.send('/api/admin/rebuild', {
                             method: 'POST'
                         });
-                        alert('Site successfully synced and rebuilt!\n' + (data.message || ''));
+                        alert('{{ i18n "site_rebuilt_success" }}\n' + (data.message || ''));
                     } catch (err) {
                         this.handleError(err, 'Failed to rebuild site');
                     } finally {
@@ -417,8 +414,6 @@
                         let filter = '';
                         if (this.orderSearchQuery) {
                             const q = this.orderSearchQuery.replace(/"/g, '\\"');
-                            // PocketBase filter syntax for relations or json is tricky. We'll search id and tx_id.
-                            // For JSON (guest_info) and Relations (user.email), we can use:
                             filter = `id ~ "${q}" || portone_tx_id ~ "${q}" || user.email ~ "${q}"`;
                         }
                         const result = await pb.collection('orders').getList(1, 50, { 
@@ -426,8 +421,6 @@
                             filter: filter
                         });
                         
-                        // For guest_info.email which is a JSON field, filtering might be limited depending on PocketBase version.
-                        // If we want to filter guest info as well and the DB doesn't support it perfectly, we filter locally as a fallback.
                         let finalOrders = result.items;
                         if (this.orderSearchQuery) {
                             const sq = this.orderSearchQuery.toLowerCase();
@@ -448,10 +441,9 @@
                     try {
                         const stockValue = newStock === '' ? 0 : Number(newStock);
                         await pb.collection('products').update(id, { stock: stockValue });
-                        // Optionally show a toast
                     } catch (err) {
                         this.handleError(err, '재고 업데이트 실패');
-                        this.fetchProducts(); // revert
+                        this.fetchProducts();
                     }
                 },
                 async updateOrderStatus(id, newStatus) {
@@ -459,21 +451,18 @@
                         await pb.collection('orders').update(id, { status: newStatus });
                     } catch (err) {
                         this.handleError(err, '주문 상태 업데이트 실패');
-                        this.fetchOrders(); // revert
+                        this.fetchOrders();
                     }
                 },
                 async deleteProduct(id) {
-                    if (confirm('이 상품을 삭제하시겠습니까?\n(연결된 주문 내역도 함께 삭제됩니다)')) {
+                    if (confirm('{{ i18n "confirm_delete" }}')) {
                         try {
-                            // 1. Delete associated order_items first
                             const orderItems = await pb.collection('order_items').getFullList({
                                 filter: `product = "${id}"`
                             });
                             for (const item of orderItems) {
                                 await pb.collection('order_items').delete(item.id);
                             }
-
-                            // 2. Delete the product
                             await pb.collection('products').delete(id);
                             this.fetchProducts();
                         } catch (err) {
@@ -482,17 +471,14 @@
                     }
                 },
                 async deleteOrder(id) {
-                    if (confirm('이 주문을 삭제하시겠습니까?\n(연결된 상세 내역도 함께 삭제됩니다)')) {
+                    if (confirm('{{ i18n "confirm_delete" }}')) {
                         try {
-                            // Delete associated order_items first
                             const orderItems = await pb.collection('order_items').getFullList({
                                 filter: `order = "${id}"`
                             });
                             for (const item of orderItems) {
                                 await pb.collection('order_items').delete(item.id);
                             }
-
-                            // Delete the order
                             await pb.collection('orders').delete(id);
                             this.fetchOrders();
                         } catch (err) {

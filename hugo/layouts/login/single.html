@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="{{ .Site.LanguageCode | default "ko-kr" }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,20 +27,29 @@
 <body class="bg-bmw-dark text-white min-h-screen flex flex-col">
     <nav class="bg-black/90 backdrop-blur-md sticky top-0 z-50 border-b border-bmw-border" x-data="{ loggedIn: document.cookie.includes('pb_auth='), cartOpen: false }" @open-cart.window="cartOpen = true; fetch('/cart/view').then(r=>r.text()).then(html => $refs.cartContent.innerHTML = html)">
         <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <a href="/" class="text-xl font-bold tracking-widest text-white hover:text-bmw-blue transition duration-300">
+            <a href="{{ "/" | relLangURL }}" class="text-xl font-bold tracking-widest text-white hover:text-bmw-blue transition duration-300">
                 {{ site.Title | upper }}
             </a>
             <div class="flex items-center gap-6 text-sm font-medium text-gray-400">
-                <a href="/" class="hover:text-white transition">CATALOG</a>
-                <a href="#" @click.prevent="cartOpen = true; fetch('/cart/view').then(r=>r.text()).then(html => $refs.cartContent.innerHTML = html)" class="hover:text-white transition">CART</a>
-                <a href="/my-orders" class="hover:text-white transition">ORDERS</a>
+                <a href="{{ "/" | relLangURL }}" class="hover:text-white transition">{{ i18n "catalog" }}</a>
+                <a href="#" @click.prevent="cartOpen = true; fetch('/cart/view').then(r=>r.text()).then(html => $refs.cartContent.innerHTML = html)" class="hover:text-white transition">{{ i18n "cart" }}</a>
+                <a href="{{ "/my-orders" | relLangURL }}" class="hover:text-white transition">{{ i18n "orders" }}</a>
                 
                 <template x-if="!loggedIn">
-                    <a href="/login" class="hover:text-white transition">LOGIN</a>
+                    <a href="/login" class="hover:text-white transition">{{ i18n "login" }}</a>
                 </template>
                 <template x-if="loggedIn">
-                    <button @click="document.cookie = 'pb_auth=; Max-Age=0; path=/'; window.location.href='/';" class="hover:text-white transition uppercase tracking-widest text-gray-400">LOGOUT</button>
+                    <button @click="document.cookie = 'pb_auth=; Max-Age=0; path=/'; window.location.href='{{ "/" | relLangURL }}';" class="hover:text-white transition uppercase tracking-widest text-gray-400">{{ i18n "logout" }}</button>
                 </template>
+
+                <!-- Language Switcher -->
+                <div class="ml-4 flex items-center gap-2 border-l border-bmw-border pl-4">
+                    {{ range .AllTranslations }}
+                        <a href="{{ .RelPermalink }}" class="text-[10px] font-bold tracking-tighter transition {{ if eq .Language.Lang $.Language.Lang }}text-bmw-blue{{ else }}text-gray-400 hover:text-white{{ end }}">
+                            {{ .Language.Lang | upper }}
+                        </a>
+                    {{ end }}
+                </div>
             </div>
         </div>
 
@@ -61,13 +70,13 @@
                      class="relative w-full max-w-md bg-bmw-dark shadow-2xl h-full flex flex-col border-l border-bmw-border relative">
                     
                     <div class="flex items-center justify-between p-6 border-b border-bmw-border">
-                        <h2 class="text-xl font-light tracking-widest text-white">YOUR CART</h2>
+                        <h2 class="text-xl font-light tracking-widest text-white uppercase">{{ i18n "your_cart" }}</h2>
                         <button @click="cartOpen = false" class="text-gray-400 hover:text-white text-3xl leading-none font-light">&times;</button>
                     </div>
 
                     <div x-ref="cartContent" class="flex-1 overflow-hidden p-6 relative">
                         <div class="flex items-center justify-center h-full text-gray-500">
-                            Loading cart...
+                            {{ i18n "loading_cart" }}
                         </div>
                     </div>
                 </div>
@@ -76,11 +85,11 @@
     </nav>
     <main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full" x-data="authForm()">
         <div class="max-w-md mx-auto py-8">
-            <h1 class="text-3xl font-light mb-8 text-center tracking-widest" x-text="tab === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT'"></h1>
+            <h1 class="text-3xl font-light mb-8 text-center tracking-widest uppercase" x-text="tab === 'login' ? '{{ i18n "sign_in" }}' : '{{ i18n "create_account" }}'"></h1>
             
             <div class="flex mb-8 border-b border-bmw-border">
-                <button @click="tab = 'login'; error = ''" :class="tab==='login' ? 'text-white border-b-2 border-bmw-blue' : 'text-gray-500'" class="flex-1 pb-4 uppercase tracking-widest text-sm font-medium transition">Sign In</button>
-                <button @click="tab = 'register'; error = ''" :class="tab==='register' ? 'text-white border-b-2 border-bmw-blue' : 'text-gray-500'" class="flex-1 pb-4 uppercase tracking-widest text-sm font-medium transition">Register</button>
+                <button @click="tab = 'login'; error = ''" :class="tab==='login' ? 'text-white border-b-2 border-bmw-blue' : 'text-gray-500'" class="flex-1 pb-4 uppercase tracking-widest text-sm font-medium transition">{{ i18n "sign_in" }}</button>
+                <button @click="tab = 'register'; error = ''" :class="tab==='register' ? 'text-white border-b-2 border-bmw-blue' : 'text-gray-500'" class="flex-1 pb-4 uppercase tracking-widest text-sm font-medium transition">{{ i18n "register" }}</button>
             </div>
 
             <div class="bg-bmw-surface border border-bmw-border p-8 rounded-sm">
@@ -93,47 +102,47 @@
                 <!-- LOGIN FORM -->
                 <form x-show="tab === 'login'" @submit.prevent="login()" class="space-y-6">
                     <div>
-                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">Email</label>
+                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "email" }}</label>
                         <input type="email" x-model="loginData.email" required class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
                     </div>
                     <div>
-                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">Password</label>
+                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "password" }}</label>
                         <input type="password" x-model="loginData.password" required class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
                     </div>
                     <button type="submit" :disabled="loading" class="w-full bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
-                        <span x-show="!loading">Sign In</span>
-                        <span x-show="loading">Authenticating...</span>
+                        <span x-show="!loading">{{ i18n "sign_in" }}</span>
+                        <span x-show="loading">{{ i18n "authenticating" }}</span>
                     </button>
                 </form>
 
                 <!-- REGISTER FORM -->
                 <form x-show="tab === 'register'" x-cloak @submit.prevent="register()" class="space-y-6">
                     <div>
-                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">Email</label>
+                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "email" }}</label>
                         <input type="email" x-model="regData.email" required class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
                     </div>
                     <div>
-                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">Password</label>
+                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "password" }}</label>
                         <input type="password" x-model="regData.password" required class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
                     </div>
                     <div>
-                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">Confirm Password</label>
+                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "confirm_password" }}</label>
                         <input type="password" x-model="regData.passwordConfirm" required class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
                     </div>
                     <div class="pt-4 border-t border-bmw-border">
-                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">Nickname</label>
+                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "nickname" }}</label>
                         <input type="text" x-model="regData.nickname" required class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition mb-4" />
                         
-                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">Phone Number</label>
+                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "phone" }}</label>
                         <input type="text" x-model="regData.phone" class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition mb-4" />
                         
-                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">Address</label>
+                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "address" }}</label>
                         <input type="text" x-model="regData.address" class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
                     </div>
 
                     <button type="submit" :disabled="loading" class="w-full bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
-                        <span x-show="!loading">Create Account</span>
-                        <span x-show="loading">Processing...</span>
+                        <span x-show="!loading">{{ i18n "create_account" }}</span>
+                        <span x-show="loading">{{ i18n "processing" }}</span>
                     </button>
                 </form>
 
@@ -144,7 +153,7 @@
 
                 {{ if $hasOAuth }}
                 <div class="mt-8 text-center text-sm text-gray-500 relative">
-                    <span class="bg-bmw-surface px-4 relative z-10">OR CONTINUE WITH</span>
+                    <span class="bg-bmw-surface px-4 relative z-10 uppercase">{{ i18n "or_continue_with" }}</span>
                     <div class="absolute inset-0 flex items-center justify-center">
                         <div class="w-full border-t border-bmw-border"></div>
                     </div>
@@ -154,13 +163,13 @@
                     {{ if site.Params.oauth.google }}
                     <button @click="oauthLogin('google')" class="w-full bg-white text-black hover:bg-gray-200 px-8 py-3 uppercase tracking-wider text-sm font-bold transition duration-300 flex justify-center items-center gap-2">
                         <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>
-                        Google Login
+                        {{ i18n "google_login" }}
                     </button>
                     {{ end }}
                     {{ if site.Params.oauth.kakao }}
                     <button @click="oauthLogin('kakao')" class="w-full bg-[#FEE500] text-black hover:bg-[#FEE500]/90 px-8 py-3 uppercase tracking-wider text-sm font-bold transition duration-300 flex justify-center items-center gap-2">
                         <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3C6.477 3 2 6.55 2 10.93c0 2.822 1.83 5.304 4.582 6.643l-1.18 4.316a.4.4 0 0 0 .59.43l5.06-3.328c.31.026.626.04 9.426.04 5.523 0 10-3.55 10-7.93S17.523 3 12 3z"/></svg>
-                        Kakao Login
+                        {{ i18n "kakao_login" }}
                     </button>
                     {{ end }}
                 </div>
@@ -230,7 +239,7 @@
         </script>
     </main>
     <footer class="bg-black border-t border-bmw-border py-8 text-center text-xs text-gray-500">
-        <p>&copy; {{ now.Format "2006" }} {{ site.Title }}. All rights reserved.</p>
+        <p>&copy; {{ now.Format "2006" }} {{ site.Title }}. {{ i18n "all_rights_reserved" }}</p>
     </footer>
 </body>
 </html>

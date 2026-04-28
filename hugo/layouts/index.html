@@ -15,7 +15,7 @@
     
     <!-- Content -->
     <div class="relative h-full flex flex-col items-center justify-end pb-20 px-6 text-center">
-        <span class="text-bmw-blue font-bold tracking-[0.2em] text-sm md:text-base mb-3 uppercase">New Collection</span>
+        <span class="text-bmw-blue font-bold tracking-[0.2em] text-sm md:text-base mb-3 uppercase">{{ i18n "new_arrival" }}</span>
         <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 tracking-tight leading-tight">
             {{ range $i, $line := (split $heroTitle " ") }}{{ if eq $i 2 }}<br class="md:hidden" />{{ end }}{{ if $i }} {{ end }}{{ $line }}{{ end }}
         </h1>
@@ -32,7 +32,7 @@
 <section class="py-10 bg-white dark:bg-bmw-surface border-b border-gray-100 dark:border-bmw-darkBorder shadow-sm z-10 relative">
     <div class="max-w-7xl mx-auto px-4 md:px-8">
         <div class="flex justify-between items-center mb-6 md:hidden">
-            <h2 class="text-sm font-bold tracking-widest text-gray-400">CATEGORIES</h2>
+            <h2 class="text-sm font-bold tracking-widest text-gray-400 uppercase">{{ i18n "categories" }}</h2>
         </div>
         <div class="flex overflow-x-auto hide-scroll-bar gap-6 md:gap-12 pb-4 snap-x snap-mandatory md:justify-center">
             <!-- Category 1 -->
@@ -41,7 +41,7 @@
                     <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gray-50 dark:bg-bmw-dark flex items-center justify-center border-2 border-gray-100 dark:border-bmw-darkBorder group-hover:border-bmw-blue transition-all duration-300 shadow-sm group-hover:shadow-md transform group-hover:-translate-y-1">
                         <svg class="w-6 h-6 md:w-8 md:h-8 text-gray-700 dark:text-gray-300 group-hover:text-bmw-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                     </div>
-                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">Performance</span>
+                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">{{ i18n "performance" }}</span>
                 </a>
             </div>
             <!-- Category 2 -->
@@ -50,16 +50,16 @@
                     <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gray-50 dark:bg-bmw-dark flex items-center justify-center border-2 border-gray-100 dark:border-bmw-darkBorder group-hover:border-bmw-blue transition-all duration-300 shadow-sm group-hover:shadow-md transform group-hover:-translate-y-1">
                         <svg class="w-6 h-6 md:w-8 md:h-8 text-gray-700 dark:text-gray-300 group-hover:text-bmw-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
                     </div>
-                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">Accessories</span>
+                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">{{ i18n "accessories" }}</span>
                 </a>
             </div>
             <!-- Category 3 -->
             <div class="snap-start shrink-0">
                 <a href="#" class="flex flex-col items-center gap-3 group">
                     <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gray-50 dark:bg-bmw-dark flex items-center justify-center border-2 border-gray-100 dark:border-bmw-darkBorder group-hover:border-bmw-blue transition-all duration-300 shadow-sm group-hover:shadow-md transform group-hover:-translate-y-1">
-                        <svg class="w-6 h-6 md:w-8 md:h-8 text-gray-700 dark:text-gray-300 group-hover:text-bmw-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                        <svg class="w-6 h-6 md:w-8 md:h-8 text-gray-700 dark:text-gray-300 group-hover:text-bmw-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3-3v8a3 3 0 003 3z"></path></svg>
                     </div>
-                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">Lifestyle</span>
+                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">{{ i18n "lifestyle" }}</span>
                 </a>
             </div>
             <!-- Category 4 -->
@@ -68,7 +68,7 @@
                     <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gray-50 dark:bg-bmw-dark flex items-center justify-center border-2 border-gray-100 dark:border-bmw-darkBorder group-hover:border-bmw-blue transition-all duration-300 shadow-sm group-hover:shadow-md transform group-hover:-translate-y-1">
                         <svg class="w-6 h-6 md:w-8 md:h-8 text-gray-700 dark:text-gray-300 group-hover:text-bmw-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
                     </div>
-                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">New Arrival</span>
+                    <span class="text-xs md:text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-bmw-blue uppercase tracking-wider transition-colors">{{ i18n "new_arrival" }}</span>
                 </a>
             </div>
         </div>
@@ -79,8 +79,8 @@
 <main id="catalog" class="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-24 flex-1 w-full text-gray-800 dark:text-gray-200">
     <div class="flex items-end justify-between mb-10 md:mb-16 border-b border-gray-200 dark:border-bmw-darkBorder pb-4 md:pb-6">
         <div>
-            <span class="text-bmw-blue text-xs md:text-sm font-bold tracking-widest uppercase mb-1 block">Selected For You</span>
-            <h2 class="text-3xl md:text-4xl font-light tracking-wide text-gray-900 dark:text-white">FEATURED <span class="font-bold">PRODUCTS</span></h2>
+            <span class="text-bmw-blue text-xs md:text-sm font-bold tracking-widest uppercase mb-1 block">{{ i18n "selected_for_you" }}</span>
+            <h2 class="text-3xl md:text-4xl font-light tracking-wide text-gray-900 dark:text-white uppercase">{{ i18n "featured_products" }}</h2>
         </div>
         <a href="#" class="hidden md:inline-flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-bmw-blue dark:hover:text-bmw-blue transition-colors uppercase tracking-wider">
             {{ i18n "view_all" }} 
@@ -105,12 +105,12 @@
                 
                 <!-- Product Image Area -->
                 <div class="aspect-[4/5] bg-gray-50 dark:bg-bmw-dark flex items-center justify-center relative overflow-hidden">
-                    <a href="/products/{{ .slug }}" class="absolute inset-0 z-10"></a>
+                    <a href="{{ printf "/products/%s" .slug | relLangURL }}" class="absolute inset-0 z-10"></a>
                     {{ if and .images (gt (len .images) 0) }}
                         <img src="/api/files/products/{{ .id }}/{{ index .images 0 }}" alt="{{ .name }}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
                     {{ else }}
                         <div class="w-full h-full bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
-                            <span class="text-gray-400 dark:text-gray-600 tracking-widest uppercase text-[10px] md:text-xs font-semibold">No Image</span>
+                            <span class="text-gray-400 dark:text-gray-600 tracking-widest uppercase text-[10px] md:text-xs font-semibold">{{ i18n "no_image" }}</span>
                         </div>
                     {{ end }}
                     
@@ -143,7 +143,7 @@
                 
                 <!-- Product Details Area -->
                 <div class="p-4 md:p-6 flex flex-col flex-grow relative bg-white dark:bg-bmw-surface">
-                    <a href="/products/{{ .slug }}" class="group-hover:text-bmw-blue transition-colors mb-1 block z-10 relative">
+                    <a href="{{ printf "/products/%s" .slug | relLangURL }}" class="group-hover:text-bmw-blue transition-colors mb-1 block z-10 relative">
                         <h3 class="text-sm md:text-base font-medium line-clamp-2 text-gray-900 dark:text-gray-100 leading-snug">{{ .name }}</h3>
                     </a>
                     <div class="mt-auto pt-3 md:pt-4 flex items-end justify-between">
@@ -173,8 +173,8 @@
                 <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-white dark:bg-bmw-surface flex items-center justify-center shadow-sm">
                     <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
                 </div>
-                <p class="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">No products available</p>
-                <p class="text-sm text-gray-500">Check back later for new arrivals.</p>
+                <p class="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">{{ i18n "no_products_found" }}</p>
+                <p class="text-sm text-gray-500">{{ i18n "check_back_later" }}</p>
             </div>
         {{ end }}
     </div>
