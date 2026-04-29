@@ -66,7 +66,9 @@ routerAdd("GET", "/checkout", (c) => {
             portoneStoreId: $os.getenv("PORTONE_STORE_ID") || "store-placeholder",
             channelKeyKakaopay: $os.getenv("PORTONE_CHANNEL_KEY_KAKAOPAY") || "",
             channelKeyInicis: $os.getenv("PORTONE_CHANNEL_KEY_INICIS") || "",
-            channelKeyKcp: $os.getenv("PORTONE_CHANNEL_KEY_KCP") || ""
+            channelKeyKcp: $os.getenv("PORTONE_CHANNEL_KEY_KCP") || "",
+            userEmail: c.auth ? c.auth.getString("email") : "",
+            userPhone: c.auth ? c.auth.getString("phone") : ""
         });
         return renderUtil.render(c, partialHtml, { title: "Checkout - D'roll Shop" });
     } catch(err) { return c.json(500, { error: err.toString() }); }

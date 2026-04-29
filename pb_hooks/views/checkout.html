@@ -14,7 +14,16 @@
                     <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">Order Total</label>
                     <div class="text-2xl font-medium text-gray-900 dark:text-white" x-text="'₩' + subtotal.toLocaleString()"></div>
                 </div>
-            </div>
+                <!-- Buyer Email (required for Inicis/KCP) -->
+                <div class="mt-4" x-show="selectedMethod !== 'kakaopay'">
+                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">구매자 이메일</label>
+                    <input type="email" class="w-full border rounded-sm p-2 mb-4" placeholder="example@domain.com" x-model="buyerEmail" required />
+                    
+                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">구매자 휴대폰 번호</label>
+                    <input type="tel" class="w-full border rounded-sm p-2" placeholder="010-1234-5678" x-model="buyerPhone" required />
+                </div>
+                </div>
+            
             <h2 class="text-xl font-light mb-6 text-gray-900 dark:text-white">Payment Method</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <label class="relative flex flex-col p-4 border cursor-pointer rounded-sm transition" :class="selectedMethod === 'kakaopay' ? 'border-bmw-blue bg-blue-50/50 dark:bg-bmw-blue/10' : 'border-gray-200 dark:border-bmw-darkBorder'">
@@ -25,6 +34,7 @@
                 <label class="relative flex flex-col p-4 border cursor-pointer rounded-sm transition" :class="selectedMethod === 'inicis' ? 'border-bmw-blue bg-blue-50/50 dark:bg-bmw-blue/10' : 'border-gray-200 dark:border-bmw-darkBorder'">
                     <input type="radio" name="payMethod" value="inicis" x-model="selectedMethod" class="absolute top-4 right-4 h-4 w-4 text-bmw-blue">
                     <span class="text-sm font-medium text-gray-900 dark:text-white">KG이니시스</span>
+                    <span class="text-xs text-gray-500 mt-1">신용카드 / 계좌이체</span>
                     <span class="text-xs text-gray-500 mt-1">신용카드 / 계좌이체</span>
                 </label>
                 <label class="relative flex flex-col p-4 border cursor-pointer rounded-sm transition" :class="selectedMethod === 'kcp' ? 'border-bmw-blue bg-blue-50/50 dark:bg-bmw-blue/10' : 'border-gray-200 dark:border-bmw-darkBorder'">
@@ -46,8 +56,49 @@
 
 <script>
 function checkoutPage() {
+    let defaultEmail = '';
+    let defaultPhone = '';
+    try {
+        const authData = JSON.parse(localStorage.getItem('pocketbase_auth'));
+        const userObj = (authData && authData.record) || (authData && authData.model);
+        if (userObj) {
+            if (userObj.email) defaultEmail = userObj.email;
+            if (userObj.phone) defaultPhone = userObj.phone;
+        }
+    } catch (e) {}
+
     return {
         items: JSON.parse(localStorage.getItem('cart') || '[]'),
+        buyerEmail: defaultEmail,
+        buyerPhone: defaultPhone,
+        
+        async init() {
+            try {
+                const authStr = localStorage.getItem('pocketbase_auth');
+                if (!authStr) return;
+                const authData = JSON.parse(authStr);
+                const token = authData.token;
+                const userId = authData.record?.id || authData.model?.id;
+                
+                if (token && userId) {
+                    const res = await fetch('/api/collections/users/records/' + userId, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (res.ok) {
+                        const user = await res.json();
+                        if (user.phone && !this.buyerPhone) this.buyerPhone = user.phone;
+                        if (user.email && !this.buyerEmail) this.buyerEmail = user.email;
+                        
+                        // Update local storage with fresh data just in case
+                        authData.record = user;
+                        localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch fresh user data:", err);
+            }
+        },
+        
         processing: false,
         selectedMethod: 'kakaopay',
         channelKeys: {
@@ -72,7 +123,20 @@ function checkoutPage() {
                 return;
             }
 
-            const payMethod = this.payMethods[this.selectedMethod] || "CARD";
+            if (this.selectedMethod !== 'kakaopay') {
+                if (!this.buyerEmail) {
+                    alert("KG이니시스 및 NHN KCP 결제 시 구매자 이메일은 필수 입력입니다.");
+                    const emailInput = document.querySelector('input[type="email"]');
+                    if (emailInput) emailInput.focus();
+                    return;
+                }
+                if (!this.buyerPhone) {
+                    alert("KG이니시스 및 NHN KCP 결제 시 구매자 휴대폰 번호는 필수 입력입니다.");
+                    const phoneInput = document.querySelector('input[type="tel"]');
+                    if (phoneInput) phoneInput.focus();
+                    return;
+                }
+            }
 
             this.processing = true;
             
@@ -101,10 +165,21 @@ function checkoutPage() {
                     customer: {
                         fullName: "고객"
                     },
-                    redirectUrl: window.location.origin + "/payment/complete"
+                    redirectUrl: window.location.origin + "/payment/complete",
+                // (PortOne requires email for these methods)
+                // Add email to customer object if method is not KakaoPay
+                // and buyerEmail is provided by the user
+                // This will satisfy the API requirement.
+                // Note: paymentOptions.customer already exists.
+                // We'll add email property conditionally after the object creation.
+                // (Will be inserted in next chunk)
                 };
 
                 // Set payMethod for all selected payment methods
+                if (this.selectedMethod !== 'kakaopay') {
+                    if (this.buyerEmail) paymentOptions.customer.email = this.buyerEmail;
+                    if (this.buyerPhone) paymentOptions.customer.phoneNumber = this.buyerPhone.replace(/[^0-9]/g, '');
+                }
                 // Assign the appropriate payMethod based on selectedMethod
                 if (this.selectedMethod === 'kakaopay') {
                     paymentOptions.payMethod = "EASY_PAY";
