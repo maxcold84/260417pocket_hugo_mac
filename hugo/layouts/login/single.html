@@ -102,6 +102,12 @@
                     <button @click="error=''" class="hover:text-white">&times;</button>
                 </div>
 
+                <!-- Success Alert -->
+                <div x-show="success" x-cloak class="bg-green-500/10 border border-green-500/30 text-green-400 px-4 py-3 mb-6 flex justify-between items-center text-sm">
+                    <span x-text="success"></span>
+                    <button @click="success=''" class="hover:text-white">&times;</button>
+                </div>
+
                 <!-- LOGIN FORM -->
                 <form x-show="tab === 'login'" @submit.prevent="login()" class="space-y-6">
                     <div>
@@ -109,7 +115,10 @@
                         <input type="email" x-model="loginData.email" required class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
                     </div>
                     <div>
-                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "password" }}</label>
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="block text-sm text-gray-400 uppercase tracking-wide">{{ i18n "password" }}</label>
+                            <button type="button" @click.prevent="tab = 'forgot'; error = ''; success = '';" class="text-xs text-bmw-blue hover:text-white transition">{{ i18n "forgot_password" }}</button>
+                        </div>
                         <input type="password" x-model="loginData.password" required class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
                     </div>
                     <button type="submit" :disabled="loading" class="w-full bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
@@ -146,6 +155,21 @@
                         <span x-show="!loading">{{ i18n "create_account" }}</span>
                         <span x-show="loading">{{ i18n "processing" }}</span>
                     </button>
+                </form>
+
+                <!-- FORGOT PASSWORD FORM -->
+                <form x-show="tab === 'forgot'" x-cloak @submit.prevent="resetPassword()" class="space-y-6">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "email" }}</label>
+                        <input type="email" x-model="resetEmail" required class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
+                    </div>
+                    <button type="submit" :disabled="loading" class="w-full bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
+                        <span x-show="!loading">{{ i18n "send_reset_link" }}</span>
+                        <span x-show="loading">{{ i18n "processing" }}</span>
+                    </button>
+                    <div class="text-center mt-4">
+                        <button type="button" @click="tab = 'login'; error = ''; success = '';" class="text-sm text-gray-400 hover:text-white transition uppercase tracking-widest">{{ i18n "back_to_login" }}</button>
+                    </div>
                 </form>
 
                 {{ $hasOAuth := false }}
@@ -185,9 +209,11 @@
                     tab: 'login',
                     loading: false,
                     error: '',
+                    success: '',
                     pb: null,
                     loginData: { email: '', password: '' },
                     regData: { email: '', password: '', passwordConfirm: '', nickname: '', phone: '', address: '' },
+                    resetEmail: '',
                     
                     init() {
                         this.pb = new PocketBase(window.location.origin);
@@ -222,6 +248,21 @@
                             window.location.href = '/my-orders';
                         } catch (err) {
                             this.error = err.message || 'Registration failed. Email might already be in use.';
+                        } finally {
+                            this.loading = false;
+                        }
+                    },
+                    
+                    async resetPassword() {
+                        this.loading = true;
+                        this.error = '';
+                        this.success = '';
+                        try {
+                            await this.pb.collection('users').requestPasswordReset(this.resetEmail);
+                            this.success = '{{ i18n "reset_email_sent" }}';
+                            this.resetEmail = '';
+                        } catch (err) {
+                            this.error = '{{ i18n "reset_email_error" }}';
                         } finally {
                             this.loading = false;
                         }

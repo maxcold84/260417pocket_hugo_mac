@@ -1,172 +1,24 @@
 # AGENTS.md — PocketBase E-Commerce with PortOne
 
-## Tech Stack
-- Backend: PocketBase v0.36.9 (single Go binary, SQLite embedded)
-- Static Site Generator: Hugo v0.160.1 (product catalog, SEO pages)
-- Dynamic Pages: Uses Hugo-generated static HTML layouts as the base shell, with only routes requiring dynamic data intercepted by PocketBase JSVM custom routes (routerAdd + JS template literals), which inject and replace the relevant content server-side (no PocketPages — static assets served by PocketBase, layout/partial rendering built with custom render helper)
-- Payment: PortOne V2 (Browser SDK via CDN + REST API for server verification)
-- Frontend Interactivity: HTMX 2.x + Alpine.js 3.x (no React, no Vue, no SPA)
-- Cart: Client-side localStorage via Alpine.js (no backend cart dependency)
-- Styling: Tailwind CSS via CDN (no Node.js dependency)
+**CORE DIRECTIVE**: This project uses a hybrid architecture (PocketBase backend/static file server + Hugo static generator + HTMX/Alpine.js frontend). No separate Node.js servers, no React/Vue/SPA. Everything runs inside a single PocketBase Go binary.
 
-## Architecture Rules
-- Everything runs inside a single PocketBase binary — no separate servers
-- Hugo builds static output into pb_public/ directory
-- All dynamic routes live in pb_hooks/*.pb.js using routerAdd()
-- HTML templates are JS template literals inside pb_hooks/templates/*.js
-- NEVER use npm packages inside JSVM — PocketBase Goja engine is NOT Node.js
-- NEVER use async/await or fetch() in JSVM — use $http.send() for HTTP calls
-- NEVER use PocketPages library — we replicate its pattern natively
+## 1. Quick Tech Stack
+- **Backend**: PocketBase v0.36.9 (Goja JSVM, SQLite)
+- **Frontend**: Hugo v0.160.1 (Static output), HTMX 2.x, Alpine.js 3.x, Tailwind CSS (CDN)
+- **Payment**: PortOne V2 (Client-side SDK + Server-side Webhook/Verify)
 
-## PocketBase JSVM Constraints
-- Engine: Goja (ES2021, synchronous only)
-- Available globals: $app, $http, $security, $filesystem, $apis, $os
-- Route registration: routerAdd("METHOD", "/path/{param}", handler, ...middlewares)
-- HTML response: e.html(200, htmlString)
-- JSON response: e.json(200, object)
-- Auth check: e.auth (null if guest)
-- Request body: e.requestInfo().body
-- Query params: e.request.url.query().get("key")
-- Outbound HTTP: $http.send({ method, url, headers, body })
-- Static serving: $apis.static("/path", false) with {path...} wildcard
+## 2. Progressive Disclosure (READ THESE BEFORE CODING)
+To keep instructions concise, detailed rules and gotchas are separated into documents. If your task involves any of these topics, you **MUST read the corresponding file** before making changes:
 
-## PortOne Integration Rules
-- Payment initiation: 100% client-side via PortOne Browser SDK CDN script
-- Use forceRedirect: true for all payments (unified PC + mobile flow)
-- Server verification: $http.send() GET to https://api.portone.io/payments/{paymentId}
-- Auth header format: "Authorization": "PortOne " + API_SECRET
-- Webhook endpoint: routerAdd("POST", "/api/payment/webhook", handler)
-- Webhook verification: Standard Webhooks spec (HMAC-SHA256 manual implementation)
-- Webhook headers to check: webhook-id, webhook-timestamp, webhook-signature
-- NEVER use @portone/server-sdk in JSVM — it requires Node.js
+- **PocketBase Custom Routes & JSVM**: Read `docs/POCKETBASE_JSVM.md` (Crucial for `pb_hooks` routing, file I/O, and Goja constraints)
+- **Database Schema & Security**: Read `docs/DATABASE.md` (Collections, list/view rules, AuthStore changes)
+- **PortOne Payment Integration**: Read `docs/PORTONE.md` (Payment flow, Webhook, Phone number handling)
+- **Frontend & Alpine.js**: Read `docs/FRONTEND.md` (Cart localStorage, IME composition, Template constraints)
+- **Hugo CMS Rebuild & Architecture**: Read `docs/HUGO_ARCHITECTURE.md` (Product-to-Markdown sync, Image caching, File structure)
 
-## File Structure
-pb_public/              ← Hugo output (static catalog, served by PocketBase)
-pb_hooks/
-  main.pb.js            ← Hook loader (requires route files)
-  routes/
-    admin.pb.js         ← CMS rebuild route (POST /api/admin/rebuild, syncs products→markdown + runs Hugo)
-  routes.pb.js          ← Dynamic route registration (checkout, orders, order-prep API)
-  portone.pb.js         ← PortOne webhook + payment verification routes
-  templates/
-    layout.js           ← Base HTML layout with dark mode + Alpine.js cart sidebar
-    checkout.js         ← Checkout page (reads localStorage cart, calls /api/orders/prep, invokes PortOne SDK)
-    order-complete.js   ← Order completion page
-    my-orders.js        ← User order history
-  helpers/
-    render.js           ← Simple layout-slot string replacement function
-    portone-verify.js   ← HMAC-SHA256 webhook signature verifier
-pb_data/                ← SQLite DB + uploaded files (gitignored)
-pb_migrations/          ← Schema and seed data migrations
-hugo/                   ← Hugo source (content, themes, config)
-  content/products/     ← Product markdown files (auto-generated by CMS rebuild)
-  layouts/
-    index.html          ← Homepage catalog (resources.GetRemote from PocketBase REST API)
-    products/single.html ← Product detail page (Hugo image optimization via GetRemote + Process)
-    cms/list.html       ← CMS admin dashboard (Alpine.js + PocketBase JS SDK, superuser-only)
-    login/single.html   ← Login/register page (Alpine.js + PocketBase JS SDK)
-  hugo.toml             ← Hugo config with publishDir = "../pb_public"
-
-## PocketBase Collections (DB Schema)
-- users (auth collection): email, name, nickname, address, phone
-- products: name, slug, description, price, images (file), stock, category (relation) — **listRule/viewRule: public**
-- categories: name, slug, sort_order — **listRule/viewRule: public**
-- orders: user (relation→users), status (pending/paid/cancelled/refunded), total_amount, portone_tx_id, guest_info (JSON), created
-- order_items: order (relation→orders), product (relation→products), quantity, unit_price
-
-> **Note:** `cart_items` collection은 더 이상 사용하지 않음. 장바구니는 클라이언트 localStorage로 관리.
-
-## Security Rules
-- NEVER hardcode PortOne API_SECRET — read from environment or PocketBase settings
-- Always verify payment amount server-side (compare DB order total vs PortOne response)
-- Webhook signature must be verified BEFORE processing any payment state change
-- /api/orders/prep endpoint validates cart items against DB prices/stock before creating pending order
-- Admin/superuser routes require $apis.requireSuperuserAuth()
-
-## Code Style
-- Use const over let — never use var
-- Keep each pb_hooks/*.pb.js file under 200 lines
-- Template files export a single function that returns HTML string
-- All money values stored as integers (Korean Won, no decimals)
-- Comments in English, user-facing strings in Korean (ko-KR)
-
-## Git Conventions
-- Conventional commits: feat:, fix:, docs:, refactor:
-- Commit Hugo source and pb_hooks/ — gitignore pb_data/ and pb_public/
-
-## PocketBase JSVM Gotchas & Best Practices
-1. **Migration Schema Definition (v0.23+):**
-   - The `Dao` object is no longer available. Models are strictly typed.
-   - Use `new Collection(...)` and `app.save(collection)`.
-   - Never use global `$app` inside the `migrate((app) => {...})` closure; use the injected `app` parameter.
-2. **Goja Closure & Scope Loss in Route Handlers:**
-   - Variables declared with `const` or `let` at the root of a `.pb.js` hook file may lose their scope inside async `routerAdd` callbacks, resulting in `ReferenceError`.
-   - **Rule:** Always place `require()` statements *inside* the route handler's callback scope (e.g., inside the `(c) => { ... }` block) to ensure references don't break when routes are accessed.
-   - Example: 
-     ```javascript
-     routerAdd("GET", "/path", (c) => {
-         const module = require(`${__hooks}/module.js`);
-         return c.html(200, module(c));
-     });
-     ```
-3. **Sort Parameter Constraints (JSVM + REST API):**
-   - Using base system fields like `"-created"` in `$app.findRecordsByFilter("collection", "1=1", "-created", ...)` can result in a fatal `GoError: invalid sort field "created"` in Goja hook callbacks.
-   - The same issue applies to the **REST API**: `GET /api/collections/{name}/records?sort=-created` returns **400 Bad Request** in certain PocketBase versions.
-   - **Rule:** Omit the `sort` parameter entirely in both JSVM `findRecordsByFilter()` and client-side `fetch()` calls unless sorting by a custom (non-system) field. Use `""` (empty string) for the sort parameter in JSVM.
-4. **Client-Side UUID Tracking on Localhost HTTP:**
-   - In strict browsers (e.g. Safari), `crypto.randomUUID()` evaluates to `undefined` on `http://127.0.0.1` because it is not always recognized as a Secure Context compared to `localhost`.
-   - **Rule:** Always provide a fallback generation string (e.g. `Math.random().toString(36)`) and use `SameSite=Lax` cookies when tracking sessions (like guest carts) locally without HTTPS to prevent silent JavaScript runtime failures.
-5. **Static Frontend vs JSVM Routing Separation:**
-   - **Static Pages:** Routes requiring no server-side compilation (e.g. `index`, `login/register`, `catalog`) MUST be compiled statically via Hugo into `pb_public`.
-   - **JSVM Pages:** ONLY routes requiring strict server-side logic (e.g. calculating precise `/cart` subtotals or verifying `/checkout` pre-flight PortOne logic) should use `routerAdd()` + `templates/` hooks.
-6. **Alpine.js Race Conditions across CDNs:**
-   - When using `<script defer src="...alpine.js">` alongside direct `x-data` bindings that require JS initialization logic, avoid using `Alpine.data()` inside `alpine:init` listeners if the component loading order is unpredictable.
-   - **Rule:** Lift the component data model into a plain vanilla global function (e.g., `function authForm() { return { ... } }`) inside an inline script placed linearly before or near the component to ensure bullet-proof initialization free of race-condition crashes.
-7. **Hugo Rebuild Necessity for Shared UI Elements:**
-   - Modifying layout files under `hugo/layouts/` (e.g., adding sidebar modals, changing `<nav>` logic) will NOT automatically reflect in the active browser, because PocketBase serves the static `/pb_public` directory.
-   - **Rule:** Always run `hugo` inside the `/hugo` directory immediately after editing any global HTML layouts or static Markdown pages so that changes are correctly compiled to `pb_public` and picked up by `/pocketbase serve`.
-8. **PocketBase Collection API Access Rules:**
-   - Collections default to superuser-only access. If the frontend needs to read data via REST API (e.g., product catalog), `listRule` and `viewRule` MUST be set to `""` (empty string = public).
-   - **Rule:** After creating collections, always verify API access rules. Use a migration script or the Admin UI (`/_/`) to set appropriate rules. Test with `curl` before relying on frontend fetch.
-9. **Checkout Flow — localStorage Cart to Server Order:**
-   - The checkout process sends the client-side `localStorage` cart array to `POST /api/orders/prep`.
-   - The server validates each item against the DB (price, stock), creates a `pending` order + order_items, and returns `{ orderId, amount }`.
-   - The client then calls PortOne SDK with the returned orderId and amount.
-   - On successful payment, the client clears localStorage cart and redirects to `/payment/complete`.
-   - PortOne webhook independently verifies and updates order status to `paid`.
-10. **Avoid PocketBase JS SDK on Static Pages:**
-    - The PocketBase JS SDK UMD bundle can conflict with Alpine.js initialization or add unnecessary payload for simple data reads.
-    - **Rule:** For read-only data fetching (catalog listings), prefer native `fetch('/api/collections/{name}/records')` over the PocketBase JS SDK. Reserve the SDK for pages that need auth operations (login, register).
-11. **Superuser Authentication in JS SDK (v0.23+):**
-    - The `pb.admins` API has been removed in PocketBase v0.23+. Admin users are now stored in the `_superusers` collection.
-    - **Rule:** To authenticate as an admin, use `pb.collection('_superusers').authWithPassword(email, password)` instead of `pb.admins.authWithPassword()`.
-    - **Rule:** To check if the current user is an admin, check `pb.authStore.isSuperuser` instead of `pb.authStore.isAdmin`. Use a fallback for compatibility: `pb.authStore.isSuperuser || pb.authStore.isAdmin`.
-12. **Alpine.js Template Constraints (`<template x-if>`):**
-    - The `<template x-if>` directive in Alpine.js strictly requires **only one root element** inside it.
-    - **Rule:** If you place another `<template>` (such as `<template x-teleport="body">`) alongside a `<div>` inside an `x-if` block, Alpine.js will silently drop the second element, breaking the UI. Always move `x-teleport` templates completely outside of `x-if` blocks, or wrap everything in a single parent element.
-13. **PocketBase Payload Parsing & Required Number Fields:**
-    - Alpine.js v3 uses Proxy objects for its reactive data (`x-data`). Passing these Proxies directly into the PocketBase JS SDK (`pb.collection().create(this.data)`) can sometimes lead to missing payload fields.
-    - **Rule:** Strip Alpine Proxies before sending via `JSON.parse(JSON.stringify(this.data))`.
-    - **Rule:** In PocketBase, `required: true` on a `NumberField` strictly prevents `0` (zero) as it is considered the "empty" value. Ensure number inputs properly cast empty strings and 0 to actual numbers, and handle 0-value rejections if the field is marked required.
-14. **Custom API Route Authentication via SDK:**
-    - Using native `fetch()` with manually crafted `Authorization: Bearer` headers can lead to parsing errors or 401 Unauthorized responses with PocketBase v0.23's strict middlewares.
-    - **Rule:** Always use the PocketBase SDK's `pb.send('/api/custom-route', { method: 'POST' })` method instead of native `fetch()` when calling authenticated custom routes. The SDK automatically and correctly attaches the JWT.
-15. **Hugo `resources.GetRemote` Aggressive Caching:**
-    - By default, Hugo caches the response of `resources.GetRemote` based strictly on the URL. If a static build needs to pull fresh data from the PocketBase REST API, it will reuse old cached data if the URL is identical.
-    - **Rule:** Append a timestamp query parameter to the URL to bypass Hugo's cache on every rebuild. E.g., `{{ $url := printf "http://127.0.0.1:8090/api/collections/products/records?t=%d" now.Unix }}`.
-16. **JSVM File I/O — Use `$os.writeFile` Over Shell Commands:**
-    - Using `$os.cmd("sh", "-c", "cat << 'EOF' > file.md ...")` to write files from JSVM is fragile. It breaks when file paths contain **Korean characters, spaces, or special characters** because the shell interprets them as command delimiters.
-    - **Rule:** Always use `$os.writeFile(filePath, content, 0o644)` for creating/overwriting files from JSVM. It writes directly to the filesystem without invoking a shell, safely handling any Unicode path or content.
-    - **Rule:** Avoid backtick template literals for multi-line content strings in Goja JSVM; use string concatenation (`'...' + variable + '...'`) instead, as template literal newlines can be misinterpreted.
-17. **CMS Rebuild Workflow — Product-to-Markdown Sync:**
-    - The CMS admin dashboard (`/cms/`) allows superusers to manage products and trigger a full site rebuild via `POST /api/admin/rebuild`.
-    - The rebuild route (`pb_hooks/routes/admin.pb.js`) iterates all products, generates `hugo/content/products/{slug}.md` files with frontmatter (title, price, image URL), then runs `hugo --ignoreCache` to compile fresh static pages into `pb_public/`.
-    - **Rule:** Always pass `--ignoreCache` to the Hugo command when rebuilding programmatically, to ensure `resources.GetRemote` (used for product images) fetches fresh data instead of reusing stale cached responses.
-    - **Rule:** Product image URLs in Markdown frontmatter must use the full PocketBase file API path: `http://127.0.0.1:8090/api/files/{collectionId}/{recordId}/{filename}`.
-18. **Korean IME Composition and Alpine.js `$watch`:**
-    - Korean text input uses an IME (Input Method Editor) that **composes characters in place** (e.g., `ㅇ` → `이` → `이ㅁ` → `이미`). Unlike English typing where each keystroke appends a new character, Korean characters transform the **same position** during composition.
-    - This breaks any `$watch`-based auto-generation logic that compares the current value with a "previous character removed" version (e.g., `val.substring(0, val.length - 1)`), because the string length doesn't change during composition — only the last character mutates.
-    - **Rule:** Never use character-by-character string comparison for auto-slug or auto-fill features when Korean input is expected. Instead, use a **flag-based approach**: track whether the user has manually edited the target field (e.g., `_slugTouched = false`), and auto-generate only while the flag is `false`. Set the flag to `true` on the target field's `@input` event, and reset it when the form is re-opened.
-19. **PocketBase v0.23+ AuthStore LocalStorage Structure:**
-    - In PocketBase v0.23+, the `authStore` model structure changed. When accessing user data directly from `localStorage.getItem('pocketbase_auth')` without the SDK, the user data object is now stored under the `record` key instead of the `model` key.
-    - **Rule:** When parsing `pocketbase_auth` manually (e.g., in inline scripts or Alpine.js components where the SDK might not be fully initialized), always check for both `record` and `model` to ensure compatibility and prevent null reference errors: `const userObj = (authData && authData.record) || (authData && authData.model);`
+## 3. Strict Golden Rules
+1. **Never use npm packages inside JSVM**. PocketBase Goja engine is NOT Node.js.
+2. **Never use async/await or fetch() in JSVM**. Use `$http.send()` for HTTP calls.
+3. **Never use PocketPages library**. We replicate its pattern natively.
+4. **Use `const` over `let` — never use `var`.**
+5. **Git Conventions**: Use conventional commits (`feat:`, `fix:`, `docs:`, `refactor:`). Commit Hugo source and `pb_hooks/`. Gitignore `pb_data/` and `pb_public/`.
