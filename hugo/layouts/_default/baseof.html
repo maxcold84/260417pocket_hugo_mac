@@ -63,6 +63,9 @@
                     <a href="{{ "/login" | relLangURL }}" class="hover:text-gray-900 dark:hover:text-white transition">{{ i18n "login" }}</a>
                 </template>
                 <template x-if="loggedIn">
+                    <a href="{{ "/profile" | relLangURL }}" class="hover:text-gray-900 dark:hover:text-white transition">{{ i18n "profile" }}</a>
+                </template>
+                <template x-if="loggedIn">
                     <button @click="localStorage.removeItem('pocketbase_auth'); document.cookie = 'pb_auth=; Max-Age=0; path=/'; window.location.href='/';" class="hover:text-gray-900 dark:hover:text-white transition uppercase tracking-widest">{{ i18n "logout" }}</button>
                 </template>
                 <button @click="toggleDark()" class="ml-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition p-2 rounded-full">
@@ -177,7 +180,7 @@
 
     <!-- Mobile Bottom Tab Bar -->
     <div class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-black/95 backdrop-blur-md border-t border-gray-200 dark:border-bmw-darkBorder safe-bottom">
-        <div class="grid grid-cols-4 h-16">
+        <div class="grid grid-cols-5 h-16">
             <a href="{{ "/" | relLangURL }}" class="flex flex-col items-center justify-center gap-1 text-bmw-blue">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                 <span class="text-[10px] font-bold tracking-wide uppercase">{{ i18n "home" }}</span>
@@ -189,6 +192,10 @@
             <a href="{{ "/my-orders" | relLangURL }}" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                 <span class="text-[10px] font-medium tracking-wide uppercase">{{ i18n "orders" }}</span>
+            </a>
+            <a x-show="loggedIn" href="{{ "/profile" | relLangURL }}" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500" style="display:none;">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                <span class="text-[10px] font-medium tracking-wide uppercase">{{ i18n "profile" }}</span>
             </a>
             <a x-bind:href="loggedIn ? '#' : '{{ "/login" | relLangURL }}'" @click="if(loggedIn){document.cookie='pb_auth=;Max-Age=0;path=/';window.location.href='{{ "/" | relLangURL }}';}" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>

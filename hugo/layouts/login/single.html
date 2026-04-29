@@ -39,6 +39,9 @@
                     <a href="/login" class="hover:text-white transition">{{ i18n "login" }}</a>
                 </template>
                 <template x-if="loggedIn">
+                    <a href="{{ "/profile" | relLangURL }}" class="hover:text-white transition">{{ i18n "profile" }}</a>
+                </template>
+                <template x-if="loggedIn">
                     <button @click="document.cookie = 'pb_auth=; Max-Age=0; path=/'; window.location.href='{{ "/" | relLangURL }}';" class="hover:text-white transition uppercase tracking-widest text-gray-400">{{ i18n "logout" }}</button>
                 </template>
 
@@ -136,8 +139,7 @@
                         <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "phone" }}</label>
                         <input type="text" x-model="regData.phone" class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition mb-4" />
                         
-                        <label class="block text-sm text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "address" }}</label>
-                        <input type="text" x-model="regData.address" class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
+                        {{ partial "form/address.html" (dict "model" "regData.address" "theme" "dark" "Page" .) }}
                     </div>
 
                     <button type="submit" :disabled="loading" class="w-full bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
@@ -213,7 +215,8 @@
                         this.loading = true;
                         this.error = '';
                         try {
-                            await this.pb.collection('users').create(this.regData);
+                            const payload = JSON.parse(JSON.stringify(this.regData));
+                            await this.pb.collection('users').create(payload);
                             await this.pb.collection('users').authWithPassword(this.regData.email, this.regData.password);
                             document.cookie = 'pb_auth=' + this.pb.authStore.token + '; path=/; max-age=2592000; SameSite=Lax';
                             window.location.href = '/my-orders';

@@ -1,0 +1,52 @@
+{{ $model := .model }}
+{{ $theme := .theme | default "light" }}
+
+{{ $inputClass := "flex-1 px-4 py-3 focus:outline-none focus:border-bmw-blue transition " }}
+{{ $btnClass := "px-4 py-3 transition uppercase text-sm tracking-wider font-medium whitespace-nowrap " }}
+{{ $labelClass := "block text-sm mb-2 uppercase tracking-wide " }}
+
+{{ if eq $theme "dark" }}
+    {{ $inputClass = print $inputClass "bg-[#111] border border-bmw-border text-white" }}
+    {{ $btnClass = print $btnClass "bg-gray-800 text-gray-300 hover:bg-gray-700" }}
+    {{ $labelClass = print $labelClass "text-gray-400" }}
+{{ else }}
+    {{ $inputClass = print $inputClass "bg-white dark:bg-[#111] border border-gray-300 dark:border-bmw-darkBorder text-gray-900 dark:text-white" }}
+    {{ $btnClass = print $btnClass "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700" }}
+    {{ $labelClass = print $labelClass "text-gray-500 dark:text-gray-400" }}
+{{ end }}
+
+<div>
+    <label class="{{ $labelClass }}">{{ i18n "address" }}</label>
+    <div class="flex gap-2">
+        <input type="text" x-model="{{ $model }}" @keydown.enter.prevent="$refs.postcodeBtn.click()" class="{{ $inputClass }}" placeholder="검색할 주소를 입력하세요 (예: 판교역로 166)" />
+        <button type="button" x-ref="postcodeBtn" @click="
+            window.openKakaoPostcode({{ $model }} || '', (result) => { {{ $model }} = result; })
+        " class="{{ $btnClass }}">
+            주소검색
+        </button>
+    </div>
+</div>
+
+{{ if not (.Page.Scratch.Get "kakaoPostcodeLoaded") }}
+    <script src="//t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <script>
+        window.openKakaoPostcode = function(query, callback) {
+            new kakao.Postcode({
+                oncomplete: function(data) {
+                    let fullAddress = data.address;
+                    let extraAddress = '';
+                    if (data.addressType === 'R') {
+                        if (data.bname !== '' && /[동|로|가]$/g.test(data.bname)) { extraAddress += data.bname; }
+                        if (data.buildingName !== '' && data.apartment === 'Y') { extraAddress += (extraAddress !== '' ? ', ' + data.buildingName : data.buildingName); }
+                        if (extraAddress !== '') { fullAddress += ' (' + extraAddress + ')'; }
+                    }
+                    callback('[' + data.zonecode + '] ' + fullAddress + ' ');
+                }
+            }).open({
+                q: query,
+                popupKey: 'kakaopostcode'
+            });
+        };
+    </script>
+    {{ .Page.Scratch.Set "kakaoPostcodeLoaded" true }}
+{{ end }}
