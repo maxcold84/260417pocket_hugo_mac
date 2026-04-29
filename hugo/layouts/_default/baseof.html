@@ -63,7 +63,7 @@
                     <a href="{{ "/login" | relLangURL }}" class="hover:text-gray-900 dark:hover:text-white transition">{{ i18n "login" }}</a>
                 </template>
                 <template x-if="loggedIn">
-                    <button @click="document.cookie = 'pb_auth=; Max-Age=0; path=/'; window.location.href='/';" class="hover:text-gray-900 dark:hover:text-white transition uppercase tracking-widest">{{ i18n "logout" }}</button>
+                    <button @click="localStorage.removeItem('pocketbase_auth'); document.cookie = 'pb_auth=; Max-Age=0; path=/'; window.location.href='/';" class="hover:text-gray-900 dark:hover:text-white transition uppercase tracking-widest">{{ i18n "logout" }}</button>
                 </template>
                 <button @click="toggleDark()" class="ml-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition p-2 rounded-full">
                     <svg x-show="!darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>

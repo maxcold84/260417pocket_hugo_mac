@@ -56,21 +56,10 @@
 
 <script>
 function checkoutPage() {
-    let defaultEmail = '';
-    let defaultPhone = '';
-    try {
-        const authData = JSON.parse(localStorage.getItem('pocketbase_auth'));
-        const userObj = (authData && authData.record) || (authData && authData.model);
-        if (userObj) {
-            if (userObj.email) defaultEmail = userObj.email;
-            if (userObj.phone) defaultPhone = userObj.phone;
-        }
-    } catch (e) {}
-
     return {
         items: JSON.parse(localStorage.getItem('cart') || '[]'),
-        buyerEmail: defaultEmail,
-        buyerPhone: defaultPhone,
+        buyerEmail: '',
+        buyerPhone: '',
         
         async init() {
             try {
