@@ -66,4 +66,8 @@ kakao = false
 
 ---
 
+export $(grep -v '^#' .env | xargs) && ./pocketbase serve
+
+lsof -ti:8090 | xargs kill -9export $(grep -v '^#' .env | xargs) && ./pocketbase serve
+
 이 저장소는 AI 코딩 에이전트와의 협업을 통해 설계된 규칙서(`AGENTS.md`)를 기반으로 엄격한 제한 사항과 효율적인 패턴을 학습하여 개발되었습니다.

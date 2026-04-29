@@ -15,10 +15,28 @@
                     <div class="text-2xl font-medium text-gray-900 dark:text-white" x-text="'₩' + subtotal.toLocaleString()"></div>
                 </div>
             </div>
+            <h2 class="text-xl font-light mb-6 text-gray-900 dark:text-white">Payment Method</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <label class="relative flex flex-col p-4 border cursor-pointer rounded-sm transition" :class="selectedMethod === 'kakaopay' ? 'border-bmw-blue bg-blue-50/50 dark:bg-bmw-blue/10' : 'border-gray-200 dark:border-bmw-darkBorder'">
+                    <input type="radio" name="payMethod" value="kakaopay" x-model="selectedMethod" class="absolute top-4 right-4 h-4 w-4 text-bmw-blue">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">카카오페이</span>
+                    <span class="text-xs text-gray-500 mt-1">간편결제</span>
+                </label>
+                <label class="relative flex flex-col p-4 border cursor-pointer rounded-sm transition" :class="selectedMethod === 'inicis' ? 'border-bmw-blue bg-blue-50/50 dark:bg-bmw-blue/10' : 'border-gray-200 dark:border-bmw-darkBorder'">
+                    <input type="radio" name="payMethod" value="inicis" x-model="selectedMethod" class="absolute top-4 right-4 h-4 w-4 text-bmw-blue">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">KG이니시스</span>
+                    <span class="text-xs text-gray-500 mt-1">신용카드 / 계좌이체</span>
+                </label>
+                <label class="relative flex flex-col p-4 border cursor-pointer rounded-sm transition" :class="selectedMethod === 'kcp' ? 'border-bmw-blue bg-blue-50/50 dark:bg-bmw-blue/10' : 'border-gray-200 dark:border-bmw-darkBorder'">
+                    <input type="radio" name="payMethod" value="kcp" x-model="selectedMethod" class="absolute top-4 right-4 h-4 w-4 text-bmw-blue">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">NHN KCP</span>
+                    <span class="text-xs text-gray-500 mt-1">카드 / 가상계좌</span>
+                </label>
+            </div>
             
             <div class="mt-8">
                 <button @click="requestPayment" :disabled="processing" class="w-full bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-black dark:hover:bg-gray-200 px-8 py-4 uppercase tracking-widest text-sm font-bold transition duration-300 disabled:opacity-50">
-                    <span x-show="!processing">PAY NOW SECURELY</span>
+                    <span x-show="!processing" x-text="'PAY WITH ' + selectedMethod.toUpperCase()"></span>
                     <span x-show="processing">PROCESSING...</span>
                 </button>
             </div>
@@ -31,11 +49,31 @@ function checkoutPage() {
     return {
         items: JSON.parse(localStorage.getItem('cart') || '[]'),
         processing: false,
+        selectedMethod: 'kakaopay',
+        channelKeys: {
+            kakaopay: "{{.channelKeyKakaopay}}",
+            inicis: "{{.channelKeyInicis}}",
+            kcp: "{{.channelKeyKcp}}"
+        },
+        payMethods: {
+            kakaopay: "EASY_PAY",
+            inicis: "CARD",
+            kcp: "CARD"
+        },
         get subtotal() {
             return this.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
         },
         async requestPayment() {
             if (this.items.length === 0) return;
+            
+            const channelKey = this.channelKeys[this.selectedMethod];
+            if (!channelKey) {
+                alert("선택하신 결제 수단의 채널 키가 설정되지 않았습니다.");
+                return;
+            }
+
+            const payMethod = this.payMethods[this.selectedMethod] || "CARD";
+
             this.processing = true;
             
             try {
@@ -52,21 +90,31 @@ function checkoutPage() {
                     throw new Error(data.error || "Failed to prepare order");
                 }
                 
-                // 2. Call PortOne SDK
-                PortOne.requestPayment({
-                    storeId: "store-4017de8b-4c12-42b4-8452-f38b00085a67", // Placeholder
-                    channelKey: "channel-key-placeholder", // Placeholder
-                    paymentId: data.orderId, // PocketBase order ID
-                    orderName: "BMW Shop Order",
+                // 2. Build PortOne SDK options
+                const paymentOptions = {
+                    storeId: "{{.portoneStoreId}}",
+                    channelKey: channelKey,
+                    paymentId: data.orderId,
+                    orderName: "D'roll Shop Order",
                     totalAmount: data.amount,
                     currency: "CURRENCY_KRW",
-                    payMethod: "CARD",
-                    windowType: {
-                        pc: "IFRAME",
-                        mobile: "REDIRECTION"
+                    customer: {
+                        fullName: "고객"
                     },
                     redirectUrl: window.location.origin + "/payment/complete"
-                }).then(function(response) {
+                };
+
+                // Set payMethod for all selected payment methods
+                // Assign the appropriate payMethod based on selectedMethod
+                if (this.selectedMethod === 'kakaopay') {
+                    paymentOptions.payMethod = "EASY_PAY";
+                } else {
+                    // For KG 이니시스 and NHN KCP, use the method defined in payMethods mapping
+                    paymentOptions.payMethod = this.payMethods[this.selectedMethod] || "CARD";
+                }
+                // End of payMethod assignment
+
+                PortOne.requestPayment(paymentOptions).then(function(response) {
                     if (response.code !== undefined) {
                         alert("Payment failed: " + response.message);
                         window.dispatchEvent(new CustomEvent('payment-failed'));

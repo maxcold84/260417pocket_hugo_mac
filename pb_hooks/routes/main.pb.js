@@ -62,8 +62,13 @@ routerAdd("POST", "/api/orders/prep", (e) => {
 routerAdd("GET", "/checkout", (c) => {
     try {
         const renderUtil = require(`${__hooks}/utils/render.js`);
-        const partialHtml = $template.loadFiles(`${__hooks}/views/checkout.html`).render({});
-        return renderUtil.render(c, partialHtml, { title: "Checkout - BMW Shop" });
+        const partialHtml = $template.loadFiles(`${__hooks}/views/checkout.html`).render({
+            portoneStoreId: $os.getenv("PORTONE_STORE_ID") || "store-placeholder",
+            channelKeyKakaopay: $os.getenv("PORTONE_CHANNEL_KEY_KAKAOPAY") || "",
+            channelKeyInicis: $os.getenv("PORTONE_CHANNEL_KEY_INICIS") || "",
+            channelKeyKcp: $os.getenv("PORTONE_CHANNEL_KEY_KCP") || ""
+        });
+        return renderUtil.render(c, partialHtml, { title: "Checkout - D'roll Shop" });
     } catch(err) { return c.json(500, { error: err.toString() }); }
 });
 
@@ -75,7 +80,7 @@ routerAdd("GET", "/payment/complete", (c) => {
         const paymentId = c.request.url.query().get("paymentId") || "Unknown";
         partialHtml = partialHtml.replace("{{.paymentId}}", paymentId);
         
-        return renderUtil.render(c, partialHtml, { title: "Order Complete - BMW Shop" });
+        return renderUtil.render(c, partialHtml, { title: "Order Complete - D'roll Shop" });
     } catch(err) { return c.json(500, { error: err.toString() }); }
 });
 
@@ -83,6 +88,6 @@ routerAdd("GET", "/my-orders", (c) => {
     try {
         const renderUtil = require(`${__hooks}/utils/render.js`);
         const partialHtml = $template.loadFiles(`${__hooks}/views/my-orders.html`).render({});
-        return renderUtil.render(c, partialHtml, { title: "My Orders - BMW Shop" });
+        return renderUtil.render(c, partialHtml, { title: "My Orders - D'roll Shop" });
     } catch(err) { return c.json(500, { error: err.toString() }); }
 });
