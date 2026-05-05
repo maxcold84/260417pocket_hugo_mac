@@ -18,6 +18,7 @@
 
 ## Checkout Flow — localStorage Cart to Server Order
 - The checkout process sends the client-side `localStorage` cart array to `POST /api/orders/prep`.
+- **Auth Header:** When calling `/api/orders/prep`, the frontend MUST manually attach `Authorization: Bearer <token>` from `localStorage` to ensure the order is correctly linked to the authenticated user ID.
 - The server validates each item against the DB (price, stock), creates a `pending` order + order_items, and returns `{ orderId, amount }`.
 - The client then calls PortOne SDK with the returned orderId and amount.
 - On successful payment, the client clears localStorage cart and redirects to `/payment/complete`.

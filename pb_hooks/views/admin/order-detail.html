@@ -1,0 +1,127 @@
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="mb-8 flex items-center justify-between">
+        <a href="/cms/orders" class="text-sm text-gray-500 hover:text-bmw-blue flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            주문 목록으로 돌아가기
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">주문 상세 관리</h1>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Main Content -->
+        <div class="md:col-span-2 space-y-8">
+            <!-- Order Items -->
+            <div class="bg-white dark:bg-bmw-surface rounded-xl border border-gray-200 dark:border-bmw-darkBorder overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-bmw-darkBorder">
+                    <h2 class="font-bold">주문 상품</h2>
+                </div>
+                <div class="p-6">
+                    <table class="w-full">
+                        <tbody class="divide-y divide-gray-100 dark:divide-bmw-darkBorder">
+                            {{range .items}}
+                            <tr class="py-4">
+                                <td class="py-4">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 bg-gray-100 dark:bg-black rounded border border-gray-200 dark:border-bmw-darkBorder flex items-center justify-center overflow-hidden">
+                                            {{if .expand.product.images}}
+                                                <img src="/api/files/{{.expand.product.collectionId}}/{{.expand.product.id}}/{{index .expand.product.images 0}}" class="w-full h-full object-cover">
+                                            {{else}}
+                                                <span class="text-[10px] text-gray-400">IMG</span>
+                                            {{end}}
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{.expand.product.name}}</p>
+                                            <p class="text-xs text-gray-500">단가: ₩{{.unit_price}}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-4 text-right text-sm text-gray-600 dark:text-gray-400">
+                                    {{.quantity}}개
+                                </td>
+                                <td class="py-4 text-right text-sm font-medium text-gray-900 dark:text-white">
+                                    ₩{{.total_price}}
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t border-gray-200 dark:border-bmw-darkBorder">
+                                <td colspan="2" class="pt-6 text-sm text-gray-500 uppercase tracking-wider font-bold">총 결제 금액</td>
+                                <td class="pt-6 text-right text-xl font-bold text-bmw-blue">₩{{.order.total_amount}}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Shipping Info -->
+            <div class="bg-white dark:bg-bmw-surface rounded-xl border border-gray-200 dark:border-bmw-darkBorder p-6">
+                <h2 class="font-bold mb-4">배송지 정보</h2>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <p class="text-gray-500 mb-1">수령인</p>
+                        <p class="font-medium text-gray-900 dark:text-white">
+                            {{if .order.user}} {{.order.expand.user.name}} {{else}} {{.order.guest_info.name}} {{end}}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 mb-1">연락처</p>
+                        <p class="font-medium text-gray-900 dark:text-white">
+                            {{if .order.user}} {{.order.expand.user.phone}} {{else}} {{.order.guest_info.phone}} {{end}}
+                        </p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="text-gray-500 mb-1">주소</p>
+                        <p class="font-medium text-gray-900 dark:text-white">
+                            {{if .order.user}} {{.order.expand.user.address}} {{else}} {{.order.guest_info.address}} {{end}}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Actions -->
+        <div class="space-y-8">
+            <div class="bg-white dark:bg-bmw-surface rounded-xl border border-gray-200 dark:border-bmw-darkBorder p-6 shadow-sm">
+                <h2 class="font-bold mb-6">주문 관리</h2>
+                
+                <form hx-post="/api/cms/orders/{{.order.id}}/update" hx-swap="none" hx-on::after-request="if(event.detail.successful) alert('저장되었습니다.'); else alert('오류가 발생했습니다.');" class="space-y-6">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">주문 상태</label>
+                        <select name="status" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                            <option value="pending" {{if eq .order.status "pending"}}selected{{end}}>Pending (대기)</option>
+                            <option value="paid" {{if eq .order.status "paid"}}selected{{end}}>Paid (결제완료)</option>
+                            <option value="shipping" {{if eq .order.status "shipping"}}selected{{end}}>Shipping (배송중)</option>
+                            <option value="completed" {{if eq .order.status "completed"}}selected{{end}}>Completed (배송완료)</option>
+                            <option value="cancelled" {{if eq .order.status "cancelled"}}selected{{end}}>Cancelled (취소)</option>
+                            <option value="refunded" {{if eq .order.status "refunded"}}selected{{end}}>Refunded (환불)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">택배사</label>
+                        <input type="text" name="courier_name" value="{{.order.courier_name}}" placeholder="예: CJ대한통운" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">운송장 번호</label>
+                        <input type="text" name="tracking_number" value="{{.order.tracking_number}}" placeholder="숫자만 입력" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                    </div>
+
+                    <button type="submit" class="w-full bg-bmw-blue hover:bg-blue-700 text-white font-bold py-3 rounded transition duration-300">
+                        변경사항 저장
+                    </button>
+                </form>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-black/30 rounded-xl p-6 border border-dashed border-gray-200 dark:border-bmw-darkBorder">
+                <h3 class="text-xs font-bold uppercase text-gray-500 mb-4">결제 정보</h3>
+                <div class="space-y-2 text-xs">
+                    <p class="flex justify-between"><span class="text-gray-400">주문 ID:</span> <span class="font-mono">{{.order.id}}</span></p>
+                    <p class="flex justify-between"><span class="text-gray-400">포트원 ID:</span> <span class="font-mono">{{.order.portone_tx_id}}</span></p>
+                    <p class="flex justify-between"><span class="text-gray-400">주문일시:</span> <span>{{.order.created}}</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

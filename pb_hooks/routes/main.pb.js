@@ -86,10 +86,5 @@ routerAdd("GET", "/payment/complete", (c) => {
     } catch(err) { return c.json(500, { error: err.toString() }); }
 });
 
-routerAdd("GET", "/my-orders", (c) => {
-    try {
-        const renderUtil = require(`${__hooks}/utils/render.js`);
-        const partialHtml = $template.loadFiles(`${__hooks}/views/my-orders.html`).render({});
-        return renderUtil.render(c, partialHtml, { title: "My Orders - D'roll Shop" });
-    } catch(err) { return c.json(500, { error: err.toString() }); }
-});
+
+

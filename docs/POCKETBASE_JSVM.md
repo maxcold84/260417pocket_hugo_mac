@@ -38,3 +38,16 @@
     - Using `$os.cmd("sh", "-c", "cat << 'EOF' > file.md ...")` to write files from JSVM is fragile. It breaks when file paths contain **Korean characters, spaces, or special characters** because the shell interprets them as command delimiters.
     - **Rule:** Always use `$os.writeFile(filePath, content, 0o644)` for creating/overwriting files from JSVM. It writes directly to the filesystem without invoking a shell, safely handling any Unicode path or content.
     - **Rule:** Avoid backtick template literals for multi-line content strings in Goja JSVM; use string concatenation (`'...' + variable + '...'`) instead, as template literal newlines can be misinterpreted.
+7. **Bootstrap Hooks & Collection Modification (v0.36+)**:
+    - `onAfterBootstrap` has been renamed to `onBootstrap`.
+    - **Rule:** You MUST call `e.next()` at the start of `onBootstrap` to allow the bootstrap process to continue.
+    - **Rule:** When modifying collections programmatically (e.g., setting API rules), use direct property assignment (e.g., `collection.listRule = "..."`) instead of `.set()`, and use `e.app.save(collection)` instead of `$app.save()`.
+    - **Example:**
+      ```javascript
+      onBootstrap((e) => {
+          e.next();
+          const collection = e.app.findCollectionByNameOrId("name");
+          collection.listRule = "@request.auth.id != ''";
+          e.app.save(collection);
+      });
+      ```

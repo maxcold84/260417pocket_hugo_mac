@@ -1,0 +1,31 @@
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white mb-8">CMS 통합 관리</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Order Management Card -->
+        <a href="/cms/orders" class="group bg-white dark:bg-bmw-surface rounded-xl border border-gray-200 dark:border-bmw-darkBorder p-8 shadow-sm hover:border-bmw-blue transition duration-300">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-bmw-blue">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-bmw-blue transition">주문 내역 관리</h2>
+            </div>
+            <p class="text-gray-500 dark:text-gray-400 text-sm">고객들의 주문 내역을 확인하고 배송 상태 및 운송장 번호를 관리합니다.</p>
+        </a>
+
+        <!-- Site Rebuild Card -->
+        <div class="bg-white dark:bg-bmw-surface rounded-xl border border-gray-200 dark:border-bmw-darkBorder p-8 shadow-sm">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-green-600">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">사이트 재빌드 (Hugo)</h2>
+            </div>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">상품 정보를 Hugo 정적 페이지로 동기화하고 사이트를 다시 빌드합니다.</p>
+            <button hx-post="/api/cms/rebuild" hx-swap="none" hx-on::after-request="if(event.detail.successful) alert('빌드가 완료되었습니다.'); else alert('오류가 발생했습니다.');" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded transition duration-300 flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                재빌드 시작하기
+            </button>
+        </div>
+    </div>
+</div>

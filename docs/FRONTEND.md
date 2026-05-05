@@ -29,3 +29,11 @@
 7. **PocketBase v0.23+ AuthStore LocalStorage Structure**:
     - In PocketBase v0.23+, the `authStore` model structure changed. When accessing user data directly from `localStorage.getItem('pocketbase_auth')` without the SDK, the user data object is now stored under the `record` key instead of the `model` key.
     - **Rule:** When parsing `pocketbase_auth` manually (e.g., in inline scripts or Alpine.js components where the SDK might not be fully initialized), always check for both `record` and `model` to ensure compatibility and prevent null reference errors: `const userObj = (authData && authData.record) || (authData && authData.model);`
+8. **Manual Authorization Header in `fetch()`**:
+    - PocketBase's custom API routes (`routerAdd`) require an explicit `Authorization: Bearer <token>` header if they use `e.auth`. Unlike the SDK's `pb.send()`, native `fetch()` does NOT attach the token automatically.
+    - **Rule:** When calling custom endpoints like `/api/orders/prep` from the frontend, manually extract the token from `localStorage` and include it in the headers to avoid being treated as a Guest.
+9. **Back-Relation Expansion Syntax**:
+    - To expand related records from a collection pointing TO the current one, use the `collection_via_field` syntax.
+    - **Example:** `pb.collection('orders').getList(1, 50, { expand: 'order_items_via_order' })` where `order_items` has an `order` field.
+10. **Client-Side Dynamic Page Pattern**:
+    - For pages requiring fresh user data (e.g., order history), avoid server-side rendering routes. Instead, create a static Hugo page and use Alpine.js + PocketBase SDK to fetch data on `init()`. This avoids cache staleness and matches the `profile` page pattern.

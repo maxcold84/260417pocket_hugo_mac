@@ -1,4 +1,4 @@
-routerAdd("POST", "/api/admin/rebuild", (e) => {
+routerAdd("POST", "/api/cms/rebuild", (e) => {
     try {
         // Step 1: Get all current products from DB — collect slugs and image filenames
         const products = $app.findRecordsByFilter("products", "1=1", "", 1000, 0);
@@ -110,5 +110,79 @@ routerAdd("POST", "/api/admin/rebuild", (e) => {
     } catch (err) {
         console.error("Rebuild error:", err);
         return e.json(500, { error: String(err) });
+    }
+}, $apis.requireSuperuserAuth());
+routerAdd("GET", "/cms", (e) => {
+    try {
+        const renderUtil = require(`${__hooks}/utils/render.js`);
+        const partialHtml = $template.loadFiles(`${__hooks}/views/admin/dashboard.html`).render({});
+        return renderUtil.render(e, partialHtml, { title: "CMS 통합 관리" });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());
+
+routerAdd("GET", "/cms/orders", (e) => {
+    try {
+        const renderUtil = require(`${__hooks}/utils/render.js`);
+        const orders = $app.findRecordsByFilter("orders", "1=1", "-created", 100, 0);
+        for (let order of orders) {
+            try { $app.expandRecord(order, ["user"], null); } catch (e) {}
+        }
+        const partialHtml = $template.loadFiles(`${__hooks}/views/admin/order-list.html`).render({
+            orders: orders
+        });
+        return renderUtil.render(e, partialHtml, { title: "주문 관리 - CMS" });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());
+
+routerAdd("GET", "/cms/orders/:id", (e) => {
+    try {
+        const renderUtil = require(`${__hooks}/utils/render.js`);
+        const orderId = e.request.pathValue("id");
+        const order = $app.findRecordById("orders", orderId);
+        
+        // Expand user and order items
+        $app.expandRecord(order, ["user"], null);
+        
+        const items = $app.findRecordsByFilter("order_items", "order = {:id}", "created", 100, 0, { id: orderId });
+        const itemsWithTotals = items.map(item => {
+            $app.expandRecord(item, ["product"], null);
+            const plain = item.publicExport();
+            // Manually re-add expanded product because publicExport might not include it nicely in some Goja versions
+            plain.expand = {
+                product: item.expandedOne("product") ? item.expandedOne("product").publicExport() : null
+            };
+            plain.total_price = item.getInt("unit_price") * item.getInt("quantity");
+            return plain;
+        });
+
+        const partialHtml = $template.loadFiles(`${__hooks}/views/admin/order-detail.html`).render({
+            order: order,
+            items: itemsWithTotals
+        });
+        return renderUtil.render(e, partialHtml, { title: "주문 상세 - CMS" });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());
+
+routerAdd("POST", "/api/cms/orders/:id/update", (e) => {
+    try {
+        const orderId = e.request.pathValue("id");
+        const data = e.requestInfo().body;
+        
+        const order = $app.findRecordById("orders", orderId);
+        if (data.status) order.set("status", data.status);
+        if (data.courier_name) order.set("courier_name", data.courier_name);
+        if (data.tracking_number) order.set("tracking_number", data.tracking_number);
+        
+        $app.save(order);
+        
+        return e.json(200, { message: "Order updated successfully" });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
     }
 }, $apis.requireSuperuserAuth());

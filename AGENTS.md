@@ -22,3 +22,4 @@ To keep instructions concise, detailed rules and gotchas are separated into docu
 3. **Never use PocketPages library**. We replicate its pattern natively.
 4. **Use `const` over `let` — never use `var`.**
 5. **Git Conventions**: Use conventional commits (`feat:`, `fix:`, `docs:`, `refactor:`). Commit Hugo source and `pb_hooks/`. Gitignore `pb_data/` and `pb_public/`.
+6. **Dynamic Data Pattern**: For user-specific historical data (orders, profile), prefer **client-side dynamic fetching** (Alpine.js + PB SDK) over server-side rendered routes to ensure data freshness and UI consistency.

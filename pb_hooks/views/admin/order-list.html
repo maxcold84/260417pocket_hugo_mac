@@ -1,0 +1,64 @@
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="mb-8 flex items-center justify-between">
+        <a href="/cms" class="text-sm text-gray-500 hover:text-bmw-blue flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            CMS 대시보드로 돌아가기
+        </a>
+        <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">주문 관리</h1>
+    </div>
+
+    <div class="bg-white dark:bg-bmw-surface rounded-xl border border-gray-200 dark:border-bmw-darkBorder overflow-hidden shadow-sm">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-gray-50 dark:bg-black/50 border-b border-gray-200 dark:border-bmw-darkBorder">
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">주문일시</th>
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">주문번호</th>
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">주문자</th>
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">결제금액</th>
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">상태</th>
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-bmw-darkBorder">
+                {{range .orders}}
+                <tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition">
+                    <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                        {{.created}}
+                    </td>
+                    <td class="px-6 py-4 text-sm font-mono text-gray-900 dark:text-white">
+                        {{.id}}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                        {{if .user}}
+                            {{.expand.user.name}} ({{.expand.user.email}})
+                        {{else}}
+                            {{.guest_info.name}} (비회원)
+                        {{end}}
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
+                        ₩{{.total_amount}}
+                    </td>
+                    <td class="px-6 py-4 text-sm">
+                        <span class="px-2 py-1 rounded-full text-[10px] font-bold uppercase 
+                            {{if eq .status "pending"}}bg-yellow-100 text-yellow-800
+                            {{else if eq .status "paid"}}bg-green-100 text-green-800
+                            {{else if eq .status "shipping"}}bg-blue-100 text-blue-800
+                            {{else if eq .status "completed"}}bg-gray-100 text-gray-800
+                            {{else if eq .status "cancelled"}}bg-red-100 text-red-800
+                            {{else}}bg-gray-100 text-gray-800{{end}}">
+                            {{.status}}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm">
+                        <a href="/cms/orders/{{.id}}" class="text-bmw-blue hover:underline font-medium">상세보기</a>
+                    </td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-500">주문 내역이 없습니다.</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>

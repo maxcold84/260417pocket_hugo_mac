@@ -130,10 +130,22 @@ function checkoutPage() {
             this.processing = true;
             
             try {
+                // Prepare headers with auth token if available
+                const headers = { 'Content-Type': 'application/json' };
+                const authStr = localStorage.getItem('pocketbase_auth');
+                if (authStr) {
+                    try {
+                        const authData = JSON.parse(authStr);
+                        if (authData.token) {
+                            headers['Authorization'] = 'Bearer ' + authData.token;
+                        }
+                    } catch(e) {}
+                }
+
                 // 1. Prepare order on server
                 const res = await fetch('/api/orders/prep', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: headers,
                     body: JSON.stringify({ cart: this.items })
                 });
                 
