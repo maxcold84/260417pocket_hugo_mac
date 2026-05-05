@@ -22,7 +22,7 @@
         <p class="text-base md:text-lg text-gray-300 mb-10 max-w-xl mx-auto font-light leading-relaxed">
             {{ $heroSubtitle }}
         </p>
-        <a href="#catalog" class="bg-bmw-blue hover:bg-blue-600 text-white px-10 py-4 rounded-full uppercase tracking-widest text-sm font-bold transition-all duration-300 transform hover:scale-105 shadow-[0_0_20px_rgba(28,105,212,0.4)] hover:shadow-[0_0_30px_rgba(28,105,212,0.6)]">
+        <a href="{{ "/products" | relLangURL }}" class="bg-bmw-blue hover:bg-blue-600 text-white px-10 py-4 rounded-full uppercase tracking-widest text-sm font-bold transition-all duration-300 transform hover:scale-105 shadow-[0_0_20px_rgba(28,105,212,0.4)] hover:shadow-[0_0_30px_rgba(28,105,212,0.6)]">
             {{ i18n "explore_collection" }}
         </a>
     </div>
@@ -75,21 +75,21 @@
     </div>
 </section>
 
-<!-- Catalog Section -->
+<!-- Featured Products Section -->
 <main id="catalog" class="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-24 flex-1 w-full text-gray-800 dark:text-gray-200">
     <div class="flex items-end justify-between mb-10 md:mb-16 border-b border-gray-200 dark:border-bmw-darkBorder pb-4 md:pb-6">
         <div>
             <span class="text-bmw-blue text-xs md:text-sm font-bold tracking-widest uppercase mb-1 block">{{ i18n "selected_for_you" }}</span>
             <h2 class="text-3xl md:text-4xl font-light tracking-wide text-gray-900 dark:text-white uppercase">{{ i18n "featured_products" }}</h2>
         </div>
-        <a href="#" class="hidden md:inline-flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-bmw-blue dark:hover:text-bmw-blue transition-colors uppercase tracking-wider">
+        <a href="{{ "/products" | relLangURL }}" class="hidden md:inline-flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-bmw-blue dark:hover:text-bmw-blue transition-colors uppercase tracking-wider">
             {{ i18n "view_all" }} 
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
         </a>
     </div>
     
-    {{/* Fetch Products from PocketBase */}}
-    {{ $prodUrl := printf "%sapi/collections/products/records?t=%d" $pbBase now.Unix }}
+    {{/* Fetch Featured Products from PocketBase */}}
+    {{ $prodUrl := printf "%sapi/collections/products/records?limit=4&t=%d" $pbBase now.Unix }}
     {{ $data := dict "items" slice }}
     {{ with try (resources.GetRemote $prodUrl) }}
         {{ with .Err }}
@@ -181,11 +181,12 @@
 
     <!-- Mobile View All Button -->
     <div class="mt-8 text-center md:hidden">
-        <a href="#" class="inline-block border-2 border-gray-900 dark:border-white text-gray-900 dark:text-white px-8 py-3 rounded-full text-sm font-bold uppercase tracking-widest hover:bg-gray-900 hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors">
+        <a href="{{ "/products" | relLangURL }}" class="inline-block border-2 border-gray-900 dark:border-white text-gray-900 dark:text-white px-8 py-3 rounded-full text-sm font-bold uppercase tracking-widest hover:bg-gray-900 hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors">
             {{ i18n "view_all_products" }}
         </a>
     </div>
 </main>
+
 
 <style>
 /* Hide scrollbar for Chrome, Safari and Opera */
