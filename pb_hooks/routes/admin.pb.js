@@ -186,3 +186,55 @@ routerAdd("POST", "/api/cms/orders/:id/update", (e) => {
         return e.json(500, { error: err.toString() });
     }
 }, $apis.requireSuperuserAuth());
+
+// Admin: Approve cancellation and process refund via PortOne
+routerAdd("POST", "/api/cms/orders/{id}/approve-cancel", (e) => {
+    try {
+        const orderId = e.request.pathValue("id");
+        const order = $app.findRecordById("orders", orderId);
+        const currentStatus = order.getString("status");
+
+        // Only cancel_requested or paid orders can be approved for cancellation
+        if (currentStatus !== "cancel_requested" && currentStatus !== "paid") {
+            return e.json(400, { error: "취소 요청 상태이거나 결제완료 상태의 주문만 취소 승인할 수 있습니다." });
+        }
+
+        // Call PortOne V2 cancel API
+        const apiSecret = $os.getenv("PORTONE_API_SECRET");
+        if (!apiSecret) {
+            return e.json(500, { error: "PORTONE_API_SECRET 환경 변수가 설정되지 않았습니다." });
+        }
+
+        // The payment ID used with PortOne is the order ID itself
+        const paymentId = orderId;
+        const storeId = $os.getenv("PORTONE_STORE_ID") || "";
+
+        const cancelBody = JSON.stringify({
+            reason: "관리자 취소 승인",
+            storeId: storeId
+        });
+
+        const res = $http.send({
+            url: "https://api.portone.io/payments/" + encodeURIComponent(paymentId) + "/cancel",
+            method: "POST",
+            headers: {
+                "Authorization": "PortOne " + apiSecret,
+                "Content-Type": "application/json"
+            },
+            body: cancelBody
+        });
+
+        if (res.statusCode !== 200) {
+            const errMsg = res.json ? (res.json.message || JSON.stringify(res.json)) : "Unknown error";
+            return e.json(400, { error: "PortOne 환불 처리 실패: " + errMsg });
+        }
+
+        // Update order status to refunded
+        order.set("status", "refunded");
+        $app.save(order);
+
+        return e.json(200, { message: "환불이 완료되었습니다." });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());

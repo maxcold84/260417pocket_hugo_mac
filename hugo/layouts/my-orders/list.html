@@ -43,8 +43,13 @@
         </a>
     </div>
 
+    <!-- Toast Notification -->
+    <div x-show="toastMsg" x-cloak x-transition
+         class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-lg shadow-xl text-sm font-medium max-w-md text-center"
+         x-text="toastMsg"></div>
+
     <!-- Orders List -->
-    <div x-show="loggedIn && !loading && orders.length > 0" x-cloak class="space-y-4">
+    <div x-show="loggedIn && !loading && orders.length > 0" x-cloak class="space-y-4 pb-24 md:pb-4">
         <template x-for="order in orders" :key="order.id">
             <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder rounded-sm overflow-hidden transition hover:shadow-md">
                 <!-- Order Header -->
@@ -88,19 +93,48 @@
                     </template>
                 </div>
 
-                <!-- Order Footer: Total + Tracking -->
-                <div class="px-6 py-4 bg-gray-50 dark:bg-black/30 border-t border-gray-100 dark:border-bmw-darkBorder flex flex-wrap items-center justify-between gap-4">
-                    <div class="flex items-center gap-4">
-                        <template x-if="order.courier_name || order.tracking_number">
-                            <div class="text-xs text-gray-500 dark:text-gray-400">
-                                <span x-show="order.courier_name" x-text="order.courier_name" class="font-medium"></span>
-                                <span x-show="order.tracking_number" class="ml-1 font-mono" x-text="order.tracking_number"></span>
-                            </div>
-                        </template>
+                <!-- Order Footer: Total + Tracking + Cancel Actions -->
+                <div class="px-6 py-4 bg-gray-50 dark:bg-black/30 border-t border-gray-100 dark:border-bmw-darkBorder">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <template x-if="order.courier_name || order.tracking_number">
+                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                    <span x-show="order.courier_name" x-text="order.courier_name" class="font-medium"></span>
+                                    <span x-show="order.tracking_number" class="ml-1 font-mono" x-text="order.tracking_number"></span>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider mr-2">{{ i18n "subtotal" }}</span>
+                            <span class="text-lg font-bold text-bmw-blue" x-text="'₩' + (order.total_amount || 0).toLocaleString()"></span>
+                        </div>
                     </div>
-                    <div class="text-right">
-                        <span class="text-xs text-gray-400 uppercase tracking-wider mr-2">{{ i18n "subtotal" }}</span>
-                        <span class="text-lg font-bold text-bmw-blue" x-text="'₩' + (order.total_amount || 0).toLocaleString()"></span>
+                    <!-- Cancel Actions -->
+                    <div class="mt-3 flex justify-end gap-2">
+                        <button x-show="order.status === 'paid' && confirmId !== order.id"
+                                @click="confirmId = order.id; confirmAction = 'cancel'"
+                                class="px-4 py-2 text-xs font-medium uppercase tracking-wider border border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20 rounded-sm transition">
+                            결제 취소 요청
+                        </button>
+                        <button x-show="order.status === 'cancel_requested' && confirmId !== order.id"
+                                @click="confirmId = order.id; confirmAction = 'withdraw'"
+                                class="px-4 py-2 text-xs font-medium uppercase tracking-wider border border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700/30 rounded-sm transition">
+                            취소 요청 철회
+                        </button>
+                        <span x-show="order.status === 'cancel_requested' && confirmId !== order.id" class="self-center text-xs text-orange-500 dark:text-orange-400 font-medium">관리자 승인 대기중</span>
+                        <!-- Inline Confirm -->
+                        <div x-show="confirmId === order.id" x-transition class="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-2 rounded-sm">
+                            <span class="text-xs text-red-700 dark:text-red-300 font-medium" x-text="confirmAction === 'cancel' ? '정말 취소 요청하시겠습니까?' : '철회하시겠습니까?'"></span>
+                            <button @click="confirmAction === 'cancel' ? requestCancel(order.id) : withdrawCancel(order.id)"
+                                    :disabled="cancelling"
+                                    class="px-3 py-1 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition"
+                                    x-text="cancelling ? '처리중...' : '확인'">
+                            </button>
+                            <button @click="confirmId = ''; confirmAction = ''"
+                                    class="px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 rounded transition">
+                                닫기
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -116,6 +150,10 @@
                 loading: true,
                 loggedIn: false,
                 error: '',
+                toastMsg: '',
+                confirmId: '',
+                confirmAction: '',
+                cancelling: false,
 
                 async init() {
                     this.pb = new PocketBase(window.location.origin);
@@ -138,6 +176,7 @@
                         });
 
                         this.orders = result.items;
+                        console.log('[my-orders] Loaded orders:', this.orders.length, this.orders.map(o => ({ id: o.id, status: o.status })));
                     } catch (err) {
                         console.error('Failed to fetch orders:', err);
                         if (err.status === 401) {
@@ -159,26 +198,65 @@
 
                 statusClass(status) {
                     const map = {
-                        'pending':   'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-                        'paid':      'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-                        'shipping':  'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-                        'completed': 'bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300',
-                        'cancelled': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-                        'refunded':  'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+                        'pending':           'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+                        'paid':              'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+                        'cancel_requested':  'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+                        'shipping':          'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+                        'completed':         'bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300',
+                        'cancelled':         'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+                        'refunded':          'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
                     };
                     return map[status] || 'bg-gray-100 text-gray-800';
                 },
 
                 statusLabel(status) {
                     const labels = {
-                        'pending':   '결제대기',
-                        'paid':      '결제완료',
-                        'shipping':  '배송중',
-                        'completed': '배송완료',
-                        'cancelled': '취소',
-                        'refunded':  '환불',
+                        'pending':           '결제대기',
+                        'paid':              '결제완료',
+                        'cancel_requested':  '취소 요청됨',
+                        'shipping':          '배송중',
+                        'completed':         '배송완료',
+                        'cancelled':         '취소',
+                        'refunded':          '환불',
                     };
                     return labels[status] || status;
+                },
+
+                showToast(msg) {
+                    this.toastMsg = msg;
+                    setTimeout(() => { this.toastMsg = ''; }, 3000);
+                },
+
+                async requestCancel(orderId) {
+                    this.cancelling = true;
+                    try {
+                        await this.pb.send('/api/orders/' + orderId + '/request-cancel', { method: 'POST' });
+                        const order = this.orders.find(o => o.id === orderId);
+                        if (order) order.status = 'cancel_requested';
+                        this.confirmId = '';
+                        this.confirmAction = '';
+                        this.showToast('취소 요청이 접수되었습니다. 관리자 승인 후 환불이 진행됩니다.');
+                    } catch (err) {
+                        this.showToast(err.data?.error || err.message || '취소 요청 실패');
+                    } finally {
+                        this.cancelling = false;
+                    }
+                },
+
+                async withdrawCancel(orderId) {
+                    this.cancelling = true;
+                    try {
+                        await this.pb.send('/api/orders/' + orderId + '/withdraw-cancel', { method: 'POST' });
+                        const order = this.orders.find(o => o.id === orderId);
+                        if (order) order.status = 'paid';
+                        this.confirmId = '';
+                        this.confirmAction = '';
+                        this.showToast('취소 요청이 철회되었습니다.');
+                    } catch (err) {
+                        this.showToast(err.data?.error || err.message || '철회 실패');
+                    } finally {
+                        this.cancelling = false;
+                    }
                 }
             }
         }

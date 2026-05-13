@@ -88,3 +88,60 @@ routerAdd("GET", "/payment/complete", (c) => {
 
 
 
+// User: Request order cancellation (paid -> cancel_requested)
+routerAdd("POST", "/api/orders/{id}/request-cancel", (e) => {
+    try {
+        if (!e.auth) {
+            return e.json(401, { error: "로그인이 필요합니다." });
+        }
+
+        const orderId = e.request.pathValue("id");
+        const order = $app.findRecordById("orders", orderId);
+
+        // Verify ownership
+        if (order.getString("user") !== e.auth.id) {
+            return e.json(403, { error: "본인의 주문만 취소 요청할 수 있습니다." });
+        }
+
+        // Only 'paid' orders can be cancelled
+        if (order.getString("status") !== "paid") {
+            return e.json(400, { error: "결제완료 상태의 주문만 취소 요청할 수 있습니다." });
+        }
+
+        order.set("status", "cancel_requested");
+        $app.save(order);
+
+        return e.json(200, { message: "취소 요청이 접수되었습니다." });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+});
+
+// User: Withdraw cancellation request (cancel_requested -> paid)
+routerAdd("POST", "/api/orders/{id}/withdraw-cancel", (e) => {
+    try {
+        if (!e.auth) {
+            return e.json(401, { error: "로그인이 필요합니다." });
+        }
+
+        const orderId = e.request.pathValue("id");
+        const order = $app.findRecordById("orders", orderId);
+
+        // Verify ownership
+        if (order.getString("user") !== e.auth.id) {
+            return e.json(403, { error: "본인의 주문만 철회할 수 있습니다." });
+        }
+
+        // Only 'cancel_requested' orders can be withdrawn
+        if (order.getString("status") !== "cancel_requested") {
+            return e.json(400, { error: "취소 요청 상태의 주문만 철회할 수 있습니다." });
+        }
+
+        order.set("status", "paid");
+        $app.save(order);
+
+        return e.json(200, { message: "취소 요청이 철회되었습니다." });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+});

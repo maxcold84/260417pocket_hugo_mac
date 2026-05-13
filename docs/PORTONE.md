@@ -23,3 +23,13 @@
 - The client then calls PortOne SDK with the returned orderId and amount.
 - On successful payment, the client clears localStorage cart and redirects to `/payment/complete`.
 - PortOne webhook independently verifies and updates order status to `paid`.
+
+## Cancel / Refund Flow
+- User requests cancellation from `/my-orders` → order status changes to `cancel_requested`.
+- Admin approves via CMS (`/cms`) → server calls PortOne V2 cancel API.
+- **Cancel API:** `POST https://api.portone.io/payments/{paymentId}/cancel`
+- **Auth header:** `"Authorization": "PortOne " + API_SECRET`
+- **Request body (JSON):** `{ "reason": "관리자 취소 승인" }`
+- On success, order status updates to `refunded`.
+- **Environment variables required:** `PORTONE_API_SECRET`, `PORTONE_STORE_ID`
+- **Rule:** Always use `$http.send()` in JSVM for the cancel API call — never `fetch()` or npm packages.

@@ -178,7 +178,7 @@
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
                                     <template x-for="order in orders" :key="order.id">
-                                        <tr class="hover:bg-gray-50">
+                                        <tr class="hover:bg-gray-50" :class="{'bg-orange-50': order.status === 'cancel_requested'}">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="order.id"></td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="new Date(order.created).toLocaleString()"></td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="order.total_amount.toLocaleString()"></td>
@@ -186,10 +186,14 @@
                                                 <select x-model="order.status" @change="updateOrderStatus(order.id, order.status)" class="border border-gray-300 p-1 text-sm rounded bg-white" :class="{
                                                     'text-yellow-600': order.status === 'pending',
                                                     'text-green-600': order.status === 'paid',
+                                                    'text-orange-600 font-bold': order.status === 'cancel_requested',
                                                     'text-red-600': order.status === 'cancelled' || order.status === 'refunded'
                                                 }">
                                                     <option value="pending">Pending</option>
                                                     <option value="paid">Paid</option>
+                                                    <option value="cancel_requested">🔴 취소요청</option>
+                                                    <option value="shipping">Shipping</option>
+                                                    <option value="completed">Completed</option>
                                                     <option value="cancelled">Cancelled</option>
                                                     <option value="refunded">Refunded</option>
                                                 </select>
@@ -198,7 +202,13 @@
                                                 <div x-text="order.expand?.user?.email || order.guest_info?.email || 'Unknown User'"></div>
                                                 <div class="text-xs text-gray-400" x-show="order.portone_tx_id" x-text="'Tx: ' + order.portone_tx_id"></div>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                                <button x-show="order.status === 'cancel_requested'"
+                                                        @click="approveCancel(order.id)"
+                                                        :disabled="order._approving"
+                                                        class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 text-xs rounded transition"
+                                                        x-text="order._approving ? '처리중...' : '취소 승인(환불)'">
+                                                </button>
                                                 <button @click="deleteOrder(order.id)" class="text-red-600 hover:text-red-900">{{ i18n "delete" }}</button>
                                             </td>
                                         </tr>
@@ -484,6 +494,21 @@
                         } catch (err) {
                             this.handleError(err, '주문 삭제 실패');
                         }
+                    }
+                },
+                async approveCancel(id) {
+                    if (!confirm('이 주문의 취소를 승인하고 PortOne을 통해 환불을 진행하시겠습니까?')) return;
+                    const order = this.orders.find(o => o.id === id);
+                    if (order) order._approving = true;
+                    try {
+                        await pb.send('/api/cms/orders/' + id + '/approve-cancel', { method: 'POST' });
+                        alert('환불이 완료되었습니다.');
+                        this.fetchOrders();
+                    } catch (err) {
+                        const msg = err.data?.error || err.message || '환불 처리 실패';
+                        alert(msg);
+                    } finally {
+                        if (order) order._approving = false;
                     }
                 },
                 openAddProductModal() {

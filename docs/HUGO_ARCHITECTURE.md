@@ -11,7 +11,8 @@ pb_public/              ← Hugo output (static catalog, served by PocketBase)
 pb_hooks/
   main.pb.js            ← Hook loader (requires route files)
   routes/
-    admin.pb.js         ← CMS rebuild route (POST /api/admin/rebuild, syncs products→markdown + runs Hugo)
+    admin.pb.js         ← CMS rebuild route, admin cancel approval (POST /api/cms/orders/{id}/approve-cancel)
+    main.pb.js          ← User-facing routes: order prep, cancel request, cancel withdrawal
   routes.pb.js          ← Dynamic route registration (checkout, orders, order-prep API)
   portone.pb.js         ← PortOne webhook + payment verification routes
   templates/
@@ -31,6 +32,7 @@ hugo/                   ← Hugo source (content, themes, config)
     products/single.html ← Product detail page (Hugo image optimization via GetRemote + Process)
     cms/list.html       ← CMS admin dashboard (Alpine.js + PocketBase JS SDK, superuser-only)
     login/single.html   ← Login/register page (Alpine.js + PocketBase JS SDK)
+    my-orders/list.html ← User order history (Alpine.js + PocketBase SDK, client-side dynamic)
   hugo.toml             ← Hugo config with publishDir = "../pb_public"
 
 ## Build Workflows & Gotchas

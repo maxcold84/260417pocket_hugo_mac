@@ -37,3 +37,9 @@
     - **Example:** `pb.collection('orders').getList(1, 50, { expand: 'order_items_via_order' })` where `order_items` has an `order` field.
 10. **Client-Side Dynamic Page Pattern**:
     - For pages requiring fresh user data (e.g., order history), avoid server-side rendering routes. Instead, create a static Hugo page and use Alpine.js + PocketBase SDK to fetch data on `init()`. This avoids cache staleness and matches the `profile` page pattern.
+11. **Alpine.js Reactivity — Never Add Properties to External Objects**:
+    - Alpine.js only tracks properties that exist at `x-data` initialization time. Dynamically adding properties like `order._flag = true` on objects fetched from PocketBase will NOT trigger `x-show` or other reactive updates.
+    - **Rule:** Always store UI state (confirm dialogs, loading flags, active selections) in **component-level properties** declared in the `x-data` return object (e.g., `confirmId: '', cancelling: false`), not on individual array items from API responses.
+12. **Avoid Native `confirm()` / `alert()` — Use Inline UI**:
+    - Browser extensions (e.g., subtitle tools, ad blockers) can intercept and block `window.confirm()` and `window.alert()`, making buttons appear broken.
+    - **Rule:** Replace `confirm()` with Alpine.js inline confirmation UI (show/hide a confirm box using reactive state). Replace `alert()` with a toast notification (a fixed-position div with `setTimeout` auto-dismiss).
