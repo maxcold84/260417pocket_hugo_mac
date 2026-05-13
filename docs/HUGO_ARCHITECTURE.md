@@ -50,3 +50,7 @@ hugo/                   ← Hugo source (content, themes, config)
     - The rebuild route (`pb_hooks/routes/admin.pb.js`) iterates all products, generates `hugo/content/products/{slug}.md` files with frontmatter (title, price, image URL), then runs `hugo --ignoreCache` to compile fresh static pages into `pb_public/`.
     - **Rule:** Always pass `--ignoreCache` to the Hugo command when rebuilding programmatically, to ensure `resources.GetRemote` (used for product images) fetches fresh data instead of reusing stale cached responses.
     - **Rule:** Product image URLs in Markdown frontmatter must use the full PocketBase file API path: `http://127.0.0.1:8090/api/files/{collectionId}/{recordId}/{filename}`.
+5. **PocketBase SPA Fallback & Trailing Slashes**:
+    - PocketBase's static file server acts as an SPA router. If a requested file is not found, it falls back to serving `index.html` (the homepage).
+    - Hugo generates sections as directories with an `index.html` inside (e.g., `products/index.html`).
+    - **Rule:** When redirecting via JavaScript (`window.location.href`), always use a trailing slash for section routes (e.g., `'/products/'` instead of `'/products'`). Without the trailing slash, PocketBase will look for a file named `products`, fail to find it, and erroneously serve the root homepage due to the SPA fallback.

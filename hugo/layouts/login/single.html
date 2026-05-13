@@ -121,6 +121,10 @@
                         </div>
                         <input type="password" x-model="loginData.password" required class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
                     </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="saveId" x-model="saveId" class="w-4 h-4 bg-[#111] border border-bmw-border rounded text-bmw-blue focus:ring-bmw-blue">
+                        <label for="saveId" class="ml-2 text-sm text-gray-400">아이디 저장</label>
+                    </div>
                     <button type="submit" :disabled="loading" class="w-full bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
                         <span x-show="!loading">{{ i18n "sign_in" }}</span>
                         <span x-show="loading">{{ i18n "authenticating" }}</span>
@@ -214,9 +218,15 @@
                     loginData: { email: '', password: '' },
                     regData: { email: '', password: '', passwordConfirm: '', nickname: '', phone: '', address: '' },
                     resetEmail: '',
+                    saveId: false,
                     
                     init() {
                         this.pb = new PocketBase(window.location.origin);
+                        const savedEmail = localStorage.getItem('savedEmail');
+                        if (savedEmail) {
+                            this.loginData.email = savedEmail;
+                            this.saveId = true;
+                        }
                     },
                     
                     async login() {
@@ -224,8 +234,15 @@
                         this.error = '';
                         try {
                             const authData = await this.pb.collection('users').authWithPassword(this.loginData.email, this.loginData.password);
+                            
+                            if (this.saveId) {
+                                localStorage.setItem('savedEmail', this.loginData.email);
+                            } else {
+                                localStorage.removeItem('savedEmail');
+                            }
+                            
                             document.cookie = 'pb_auth=' + this.pb.authStore.token + '; path=/; max-age=2592000; SameSite=Lax';
-                            window.location.href = '/my-orders';
+                            window.location.href = '/products/';
                         } catch (err) {
                             this.error = err.message || 'Login failed. Please check your credentials.';
                         } finally {
@@ -245,7 +262,7 @@
                             await this.pb.collection('users').create(payload);
                             await this.pb.collection('users').authWithPassword(this.regData.email, this.regData.password);
                             document.cookie = 'pb_auth=' + this.pb.authStore.token + '; path=/; max-age=2592000; SameSite=Lax';
-                            window.location.href = '/my-orders';
+                            window.location.href = '/products/';
                         } catch (err) {
                             this.error = err.message || 'Registration failed. Email might already be in use.';
                         } finally {
@@ -273,7 +290,7 @@
                         try {
                             await this.pb.collection('users').authWithOAuth2({ provider: provider });
                             document.cookie = 'pb_auth=' + this.pb.authStore.token + '; path=/; max-age=2592000; SameSite=Lax';
-                            window.location.href = '/my-orders';
+                            window.location.href = '/products/';
                         } catch (err) {
                             this.error = 'OAuth2 Login Failed: ' + (err.message || '');
                         }

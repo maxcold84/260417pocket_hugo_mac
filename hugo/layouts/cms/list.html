@@ -50,14 +50,14 @@
         <div class="min-h-screen flex items-center justify-center bg-gray-50">
             <div class="max-w-md w-full p-8 bg-white shadow-lg rounded-sm border border-gray-200">
                 <h1 class="text-2xl font-light tracking-widest text-center mb-8 uppercase">{{ i18n "cms_login" }}</h1>
-                <form @submit.prevent="login" class="space-y-6">
+                <form @submit.prevent="login" class="space-y-6" autocomplete="off">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2 uppercase">{{ i18n "admin_email" }}</label>
-                        <input type="email" x-model="email" required class="w-full border border-gray-300 p-3 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition">
+                        <input type="email" x-model="email" autocomplete="off" required class="w-full border border-gray-300 p-3 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2 uppercase">{{ i18n "password" }}</label>
-                        <input type="password" x-model="password" required class="w-full border border-gray-300 p-3 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition">
+                        <input type="password" x-model="password" autocomplete="new-password" required class="w-full border border-gray-300 p-3 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition">
                     </div>
                     <div x-show="error" class="text-red-500 text-sm p-3 bg-red-50 border border-red-200 rounded" x-text="error" style="display: none;"></div>
                     <button type="submit" class="w-full bg-bmw-blue hover:bg-blue-700 text-white p-3 rounded uppercase tracking-wider font-medium transition" :disabled="loading">
@@ -431,6 +431,7 @@
                 logout() {
                     pb.authStore.clear();
                     this.isLoggedIn = false;
+                    window.location.href = '/';
                 },
                 async fetchProducts() {
                     try {
