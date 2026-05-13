@@ -40,6 +40,11 @@
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans antialiased min-h-screen" x-data="cmsApp()">
 
+    <!-- Toast Notification -->
+    <div x-show="toastMsg" x-cloak x-transition
+         class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-6 py-3 rounded-lg shadow-xl text-sm font-medium max-w-md text-center"
+         x-text="toastMsg"></div>
+
     <!-- Login Screen -->
     <template x-if="!isLoggedIn">
         <div class="min-h-screen flex items-center justify-center bg-gray-50">
@@ -203,12 +208,26 @@
                                                 <div class="text-xs text-gray-400" x-show="order.portone_tx_id" x-text="'Tx: ' + order.portone_tx_id"></div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                                <button x-show="order.status === 'cancel_requested'"
-                                                        @click="approveCancel(order.id)"
-                                                        :disabled="order._approving"
-                                                        class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 text-xs rounded transition"
-                                                        x-text="order._approving ? '처리중...' : '취소 승인(환불)'">
-                                                </button>
+                                                <template x-if="order.status === 'cancel_requested' && cancelConfirmId !== order.id">
+                                                    <button @click="cancelConfirmId = order.id"
+                                                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 text-xs rounded transition">
+                                                        취소 승인(환불)
+                                                    </button>
+                                                </template>
+                                                <template x-if="cancelConfirmId === order.id">
+                                                    <div class="inline-flex items-center gap-2 bg-red-50 border border-red-200 px-3 py-1 rounded">
+                                                        <span class="text-xs text-red-700 font-medium">환불 승인?</span>
+                                                        <button @click="approveCancel(order.id)"
+                                                                :disabled="cancelApproving"
+                                                                class="px-2 py-0.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition"
+                                                                x-text="cancelApproving ? '처리중...' : '확인'">
+                                                        </button>
+                                                        <button @click="cancelConfirmId = ''"
+                                                                class="px-2 py-0.5 text-xs text-gray-600 bg-white border border-gray-300 hover:bg-gray-100 rounded transition">
+                                                            닫기
+                                                        </button>
+                                                    </div>
+                                                </template>
                                                 <button @click="deleteOrder(order.id)" class="text-red-600 hover:text-red-900">{{ i18n "delete" }}</button>
                                             </td>
                                         </tr>
@@ -337,6 +356,9 @@
                 products: [],
                 orders: [],
                 orderSearchQuery: '',
+                cancelConfirmId: '',
+                cancelApproving: false,
+                toastMsg: '',
                 showAddModal: false,
                 showEditModal: false,
                 _slugTouched: false,
@@ -496,19 +518,21 @@
                         }
                     }
                 },
+                showToast(msg) {
+                    this.toastMsg = msg;
+                    setTimeout(() => { this.toastMsg = ''; }, 4000);
+                },
                 async approveCancel(id) {
-                    if (!confirm('이 주문의 취소를 승인하고 PortOne을 통해 환불을 진행하시겠습니까?')) return;
-                    const order = this.orders.find(o => o.id === id);
-                    if (order) order._approving = true;
+                    this.cancelApproving = true;
                     try {
                         await pb.send('/api/cms/orders/' + id + '/approve-cancel', { method: 'POST' });
-                        alert('환불이 완료되었습니다.');
+                        this.cancelConfirmId = '';
+                        this.showToast('환불이 완료되었습니다.');
                         this.fetchOrders();
                     } catch (err) {
-                        const msg = err.data?.error || err.message || '환불 처리 실패';
-                        alert(msg);
+                        this.showToast(err.data?.error || err.message || '환불 처리 실패');
                     } finally {
-                        if (order) order._approving = false;
+                        this.cancelApproving = false;
                     }
                 },
                 openAddProductModal() {
