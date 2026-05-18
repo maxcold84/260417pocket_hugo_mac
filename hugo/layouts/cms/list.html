@@ -130,7 +130,7 @@
                                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10"></th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "product_image" }}</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "ui_name" }} / {{ i18n "ui_slug" }}</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "price" }} (₩)</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "price" }} / {{ i18n "discount_price" }} (₩)</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "stock" }}</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "actions" }}</th>
                                     </tr>
@@ -159,7 +159,12 @@
                                                 <div class="text-sm font-medium text-gray-900" x-text="product.name"></div>
                                                 <div class="text-sm text-gray-500" x-text="product.slug"></div>
                                             </td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500" x-text="product.price.toLocaleString()"></td>
+                                            <td class="px-4 py-4 whitespace-nowrap">
+                                                <div class="text-sm font-medium text-gray-900" :class="{'line-through text-gray-400': product.discount_price > 0}" x-text="product.price.toLocaleString()"></div>
+                                                <template x-if="product.discount_price > 0">
+                                                    <div class="text-sm font-bold text-red-600" x-text="product.discount_price.toLocaleString()"></div>
+                                                </template>
+                                            </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 <input type="number" x-model.number="product.stock" @change="updateStock(product.id, product.stock)" class="w-20 border border-gray-300 p-1 text-sm rounded text-center">
                                             </td>
@@ -304,6 +309,10 @@
                                 <input type="number" x-model.number="newProduct.price" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                             </div>
                             <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "discount_price" }} (₩)</label>
+                                <input type="number" x-model.number="newProduct.discount_price" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
+                            </div>
+                            <div class="flex-1">
                                 <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "stock" }}</label>
                                 <input type="number" x-model.number="newProduct.stock" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                             </div>
@@ -378,6 +387,10 @@
                                 <input type="number" x-model.number="editProduct.price" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                             </div>
                             <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "discount_price" }} (₩)</label>
+                                <input type="number" x-model.number="editProduct.discount_price" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
+                            </div>
+                            <div class="flex-1">
                                 <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "stock" }}</label>
                                 <input type="number" x-model.number="editProduct.stock" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                             </div>
@@ -421,6 +434,7 @@
                     slug: '',
                     description: '',
                     price: '',
+                    discount_price: '',
                     stock: ''
                 },
                 editProduct: {
@@ -429,6 +443,7 @@
                     slug: '',
                     description: '',
                     price: '',
+                    discount_price: '',
                     stock: '',
                     _currentImages: []
                 },
@@ -708,7 +723,7 @@
                     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
                 },
                 openAddProductModal() {
-                    this.newProduct = { name: '', slug: '', description: '', price: '', stock: '' };
+                    this.newProduct = { name: '', slug: '', description: '', price: '', discount_price: '', stock: '' };
                     this._slugTouched = false;
                     this._addImageFiles = [];
                     this._addImagePreviews = [];
@@ -722,6 +737,7 @@
                         slug: product.slug,
                         description: product.description,
                         price: product.price,
+                        discount_price: product.discount_price || '',
                         stock: product.stock
                     };
                     // Build unified image list from existing images
@@ -743,6 +759,7 @@
                         formData.append('slug', this.newProduct.slug);
                         formData.append('description', this.newProduct.description);
                         formData.append('price', Number(this.newProduct.price) || 0);
+                        formData.append('discount_price', Number(this.newProduct.discount_price) || 0);
                         formData.append('stock', Number(this.newProduct.stock) || 0);
 
                         // Use stored files from state (not $refs which don't work in x-teleport)
@@ -770,6 +787,7 @@
                         formData.append('slug', this.editProduct.slug);
                         formData.append('description', this.editProduct.description);
                         formData.append('price', Number(this.editProduct.price) || 0);
+                        formData.append('discount_price', Number(this.editProduct.discount_price) || 0);
                         formData.append('stock', Number(this.editProduct.stock) || 0);
 
                         // Send the complete ordered image list.

@@ -18,7 +18,9 @@ routerAdd("POST", "/api/orders/prep", (e) => {
             if (!products || products.length === 0) return e.json(404, { error: "Product not found: " + item.id });
             
             const product = products[0];
-            const price = product.getInt("price");
+            const originalPrice = product.getInt("price");
+            const discountPrice = product.getInt("discount_price");
+            const price = (discountPrice > 0) ? discountPrice : originalPrice;
             const qty = parseInt(item.quantity) || 1;
             
             if (product.getInt("stock") < qty) {

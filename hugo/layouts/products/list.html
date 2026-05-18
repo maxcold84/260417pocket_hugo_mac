@@ -40,11 +40,10 @@
                         </div>
                     {{ end }}
                     
-                    <!-- Quick Add Button (Desktop Hover) -->
                     <button @click="$dispatch('add-to-cart', {
                                 id: {{ .id | jsonify }}, 
                                 name: {{ .name | jsonify }}, 
-                                price: {{ .price }}, 
+                                price: {{ if and .discount_price (gt .discount_price 0) }}{{ .discount_price }}{{ else }}{{ .price }}{{ end }}, 
                                 image: {{ if and .images (gt (len .images) 0) }}{{ printf "/api/files/products/%s/%s" .id (index .images 0) | jsonify }}{{ else }}null{{ end }},
                                 quantity: 1
                             })" 
@@ -73,13 +72,20 @@
                         <h3 class="text-sm md:text-base font-medium line-clamp-2 text-gray-900 dark:text-gray-100 leading-snug">{{ .name }}</h3>
                     </a>
                     <div class="mt-auto pt-3 md:pt-4 flex items-end justify-between">
-                        <div class="text-base md:text-lg font-bold text-gray-900 dark:text-white tracking-tight">₩{{ lang.FormatNumberCustom 0 .price }}</div>
+                        <div class="text-base md:text-lg font-bold text-gray-900 dark:text-white tracking-tight">
+                            {{ if and .discount_price (gt .discount_price 0) }}
+                                <span class="line-through text-gray-400 text-sm font-normal mr-1">₩{{ lang.FormatNumberCustom 0 .price }}</span>
+                                <span class="text-red-500">₩{{ lang.FormatNumberCustom 0 .discount_price }}</span>
+                            {{ else }}
+                                ₩{{ lang.FormatNumberCustom 0 .price }}
+                            {{ end }}
+                        </div>
                         
                         <!-- Mobile Add to Cart Icon Button -->
                         <button @click="$dispatch('add-to-cart', {
                                 id: {{ .id | jsonify }}, 
                                 name: {{ .name | jsonify }}, 
-                                price: {{ .price }}, 
+                                price: {{ if and .discount_price (gt .discount_price 0) }}{{ .discount_price }}{{ else }}{{ .price }}{{ end }}, 
                                 image: {{ if and .images (gt (len .images) 0) }}{{ printf "/api/files/products/%s/%s" .id (index .images 0) | jsonify }}{{ else }}null{{ end }},
                                 quantity: 1
                             })"

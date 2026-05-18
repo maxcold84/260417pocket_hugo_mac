@@ -95,7 +95,8 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
             }
 
             const sortOrder = p.getInt("sort_order");
-            const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + '\nweight: ' + sortOrder + imageLine + '\n---\n' + description + '\n';
+            const discountPrice = p.getInt("discount_price");
+            const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + '\ndiscount_price: ' + discountPrice + '\nweight: ' + sortOrder + imageLine + '\n---\n' + description + '\n';
             $os.writeFile("hugo/content/products/" + slug + ".md", content, 0o644);
             syncedCount++;
         }

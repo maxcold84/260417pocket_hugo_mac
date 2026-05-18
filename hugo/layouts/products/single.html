@@ -33,7 +33,14 @@
         </div>
         <div class="flex flex-col justify-center">
             <h1 class="text-4xl font-light mb-4">{{ .Title }}</h1>
-            <div class="text-2xl font-medium text-gray-900 dark:text-white mb-6">₩{{ lang.FormatNumberCustom 0 .Params.price }}</div>
+            <div class="text-2xl font-medium text-gray-900 dark:text-white mb-6">
+                {{ if and .Params.discount_price (gt .Params.discount_price 0) }}
+                    <span class="line-through text-gray-400 text-lg font-normal mr-2">₩{{ lang.FormatNumberCustom 0 .Params.price }}</span>
+                    <span class="text-red-500 font-bold">₩{{ lang.FormatNumberCustom 0 .Params.discount_price }}</span>
+                {{ else }}
+                    ₩{{ lang.FormatNumberCustom 0 .Params.price }}
+                {{ end }}
+            </div>
             <div class="prose prose-invert text-gray-500 dark:text-gray-400 mb-8 max-w-none">
                 {{ .Content }}
             </div>
@@ -42,7 +49,7 @@
                 @click="$dispatch('add-to-cart', {
                     id: {{ .Params.id | jsonify }}, 
                     name: {{ .Title | jsonify }}, 
-                    price: {{ .Params.price }}, 
+                    price: {{ if and .Params.discount_price (gt .Params.discount_price 0) }}{{ .Params.discount_price }}{{ else }}{{ .Params.price }}{{ end }},
                     image: {{ if .Params.images }}{{ index .Params.images 0 | jsonify }}{{ else if .Params.image }}{{ .Params.image | jsonify }}{{ else }}null{{ end }},
                     quantity: 1
                 })"
