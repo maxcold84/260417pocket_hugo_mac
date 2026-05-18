@@ -43,3 +43,13 @@
 12. **Avoid Native `confirm()` / `alert()` — Use Inline UI**:
     - Browser extensions (e.g., subtitle tools, ad blockers) can intercept and block `window.confirm()` and `window.alert()`, making buttons appear broken.
     - **Rule:** Replace `confirm()` with Alpine.js inline confirmation UI (show/hide a confirm box using reactive state). Replace `alert()` with a toast notification (a fixed-position div with `setTimeout` auto-dismiss).
+13. **`x-ref` Does Not Work Inside `<template x-teleport>`**:
+    - Alpine.js `$refs` bindings are scoped to the component's original DOM tree. Elements inside `<template x-teleport="body">` are moved out of the component's scope, making `$refs` return `undefined`.
+    - **Rule:** For file inputs inside teleported modals, use `@change` event handlers to capture files into component state arrays (e.g., `_addImageFiles`), then build `FormData` from that state on submit. Never rely on `$refs` or `document.getElementById()` for teleported elements.
+14. **Native HTML5 Drag-and-Drop Pattern**:
+    - For reorderable lists without external libraries, use the native `draggable="true"` attribute with `@dragstart`, `@dragover.prevent`, `@drop.prevent`, and `@dragend` Alpine.js event handlers.
+    - **Rule:** Store the dragged item index in component state (e.g., `_draggedIndex`). On drop, splice the item from its old position and insert at the new position. Always reassign the array (`this.list = [...list]`) to trigger Alpine reactivity.
+    - **Rule:** Add `pointer-events-none` to child elements (images, badges) to prevent them from interfering with drag events on the parent container.
+15. **PocketBase v0.36 REST API Sort Limitation**:
+    - Multi-field sort parameters (e.g., `sort=sort_order,created`) cause a 500 error in PocketBase v0.36. Only single-field sort is supported via the REST API.
+    - **Rule:** Always use single-field sort in `pb.collection().getList()` options: `{ sort: 'sort_order' }`. If secondary sorting is needed, sort client-side after fetching.

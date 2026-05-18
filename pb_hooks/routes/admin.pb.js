@@ -1,7 +1,7 @@
 routerAdd("POST", "/api/cms/rebuild", (e) => {
     try {
         // Step 1: Get all current products from DB — collect slugs and image filenames
-        const products = $app.findRecordsByFilter("products", "1=1", "", 1000, 0);
+        const products = $app.findRecordsByFilter("products", "1=1", "sort_order", 1000, 0);
         const dbSlugs = {};
         const usedImagePrefixes = []; // original image filenames used by active products
         for (let p of products) {
@@ -94,7 +94,8 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
                 imageLine = '\nimages: [' + imageUrls.join(', ') + ']\nimage: ' + imageUrls[0];
             }
 
-            const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + imageLine + '\n---\n' + description + '\n';
+            const sortOrder = p.getInt("sort_order");
+            const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + '\nweight: ' + sortOrder + imageLine + '\n---\n' + description + '\n';
             $os.writeFile("hugo/content/products/" + slug + ".md", content, 0o644);
             syncedCount++;
         }

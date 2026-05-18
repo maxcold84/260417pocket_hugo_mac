@@ -2,7 +2,7 @@
 
 ## PocketBase Collections (DB Schema)
 - `users` (auth collection): email, name, nickname, address, phone
-- `products`: name, slug, description, price, images (file), stock, category (relation) — **listRule/viewRule: public**
+- `products`: name, slug, description, price, images (file, max 5), stock, sort_order, category (relation) — **listRule/viewRule: public**
 - `categories`: name, slug, sort_order — **listRule/viewRule: public**
 - `orders`: user (relation→users), status (pending/paid/cancel_requested/cancelled/refunded/shipping/completed), total_amount, portone_tx_id, guest_info (JSON), tracking_number, courier_name, created
 - `order_items`: order (relation→orders), product (relation→products), quantity, unit_price

@@ -11,18 +11,16 @@ pb_public/              ← Hugo output (static catalog, served by PocketBase)
 pb_hooks/
   main.pb.js            ← Hook loader (requires route files)
   routes/
-    admin.pb.js         ← CMS rebuild route, admin cancel approval (POST /api/cms/orders/{id}/approve-cancel)
+    admin.pb.js         ← CMS rebuild route (POST /api/cms/rebuild), admin cancel approval (POST /api/cms/orders/{id}/approve-cancel)
     main.pb.js          ← User-facing routes: order prep, cancel request, cancel withdrawal
   routes.pb.js          ← Dynamic route registration (checkout, orders, order-prep API)
   portone.pb.js         ← PortOne webhook + payment verification routes
-  templates/
-    layout.js           ← Base HTML layout with dark mode + Alpine.js cart sidebar
-    checkout.js         ← Checkout page (reads localStorage cart, calls /api/orders/prep, invokes PortOne SDK)
-    order-complete.js   ← Order completion page
-    my-orders.js        ← User order history
-  helpers/
-    render.js           ← Simple layout-slot string replacement function
-    portone-verify.js   ← HMAC-SHA256 webhook signature verifier
+  views/
+    admin/
+      dashboard.html    ← CMS admin dashboard entry point
+      order-detail.html ← Order detail view
+  utils/
+    render.js           ← HTML layout rendering utility
 pb_data/                ← SQLite DB + uploaded files (gitignored)
 pb_migrations/          ← Schema and seed data migrations
 hugo/                   ← Hugo source (content, themes, config)
@@ -46,11 +44,23 @@ hugo/                   ← Hugo source (content, themes, config)
     - By default, Hugo caches the response of `resources.GetRemote` based strictly on the URL. If a static build needs to pull fresh data from the PocketBase REST API, it will reuse old cached data if the URL is identical.
     - **Rule:** Append a timestamp query parameter to the URL to bypass Hugo's cache on every rebuild. E.g., `{{ $url := printf "http://127.0.0.1:8090/api/collections/products/records?t=%d" now.Unix }}`.
 4. **CMS Rebuild Workflow — Product-to-Markdown Sync**:
-    - The CMS admin dashboard (`/cms/`) allows superusers to manage products and trigger a full site rebuild via `POST /api/admin/rebuild`.
-    - The rebuild route (`pb_hooks/routes/admin.pb.js`) iterates all products, generates `hugo/content/products/{slug}.md` files with frontmatter (title, price, image URL), then runs `hugo --ignoreCache` to compile fresh static pages into `pb_public/`.
+    - The CMS admin dashboard (`/cms/`) allows superusers to manage products and trigger a full site rebuild via `POST /api/cms/rebuild`.
+    - The rebuild route (`pb_hooks/routes/admin.pb.js`) iterates all products **sorted by `sort_order`**, generates `hugo/content/products/{slug}.md` files with frontmatter (title, price, weight, image URL), then runs `hugo --ignoreCache` to compile fresh static pages into `pb_public/`.
     - **Rule:** Always pass `--ignoreCache` to the Hugo command when rebuilding programmatically, to ensure `resources.GetRemote` (used for product images) fetches fresh data instead of reusing stale cached responses.
     - **Rule:** Product image URLs in Markdown frontmatter must use the full PocketBase file API path: `http://127.0.0.1:8090/api/files/{collectionId}/{recordId}/{filename}`.
-5. **PocketBase SPA Fallback & Trailing Slashes**:
+    - **Rule:** The `weight` frontmatter field maps to the product's `sort_order` value, enabling consistent ordering across CMS and frontend via Hugo's `.Pages.ByWeight`.
+5. **Product Ordering**:
+    - Products have a `sort_order` field (NumberField) that controls display order across all views.
+    - **CMS**: Drag-and-drop reordering on product table rows. Saves `sort_order` to DB immediately.
+    - **Homepage**: `resources.GetRemote` API call includes `?sort=sort_order` parameter.
+    - **Product List** (`/products/`): Hugo template uses `.Pages.ByWeight` (weight = sort_order from rebuild).
+    - **Rule:** After reordering in CMS, click "동기화 및 사이트 빌드" to sync order to the static frontend.
+6. **CMS Image Management**:
+    - **Add Product**: Multi-image selection via file picker. Images accumulate in Alpine.js state (`_addImageFiles` array). Sent as `images` in FormData.
+    - **Edit Product**: Unified image list (`_editImageList`) combining existing and new images. Drag-and-drop reordering supported. On save, entire ordered list is sent as `images` field (existing filenames as strings + new File objects).
+    - **Rule:** Never use `x-ref` inside `<template x-teleport>` for file inputs — use `id`-based selectors or `@change` event handlers with component state instead.
+    - **Rule:** PocketBase multi-field sort (e.g., `sort_order,created`) is NOT supported in v0.36 REST API. Use single-field sort only.
+7. **PocketBase SPA Fallback & Trailing Slashes**:
     - PocketBase's static file server acts as an SPA router. If a requested file is not found, it falls back to serving `index.html` (the homepage).
     - Hugo generates sections as directories with an `index.html` inside (e.g., `products/index.html`).
     - **Rule:** When redirecting via JavaScript (`window.location.href`), always use a trailing slash for section routes (e.g., `'/products/'` instead of `'/products'`). Without the trailing slash, PocketBase will look for a file named `products`, fail to find it, and erroneously serve the root homepage due to the SPA fallback.

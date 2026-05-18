@@ -68,7 +68,7 @@
     <main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full">
         <h1 class="text-3xl font-light mb-8 border-b border-bmw-border pb-4">{{ .Title }}</h1>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {{ range .Pages }}
+            {{ range .Pages.ByWeight }}
             <a href="{{ .RelPermalink }}" class="block group bg-bmw-surface border border-bmw-border overflow-hidden">
                 <div class="aspect-[4/3] bg-black flex items-center justify-center border-b border-bmw-border">
                     <span class="text-gray-600 tracking-widest uppercase text-xs">Image Placeholder</span>

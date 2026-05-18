@@ -36,6 +36,13 @@
         input[type="number"] {
             -moz-appearance: textfield; /* Firefox */
         }
+        /* Drag and drop image reorder */
+        .img-drag-item { cursor: grab; user-select: none; }
+        .img-drag-item:active { cursor: grabbing; }
+        /* Drag and drop product row reorder */
+        .product-drag-row { transition: background-color 0.1s ease; }
+        .product-drag-row.dragging-row { opacity: 0.4; background-color: #f3f4f6; }
+        .product-drag-row.drag-over-row { border-top: 2px solid #1C69D4; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans antialiased min-h-screen" x-data="cmsApp()">
@@ -120,40 +127,50 @@
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "product_image" }}</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "ui_name" }} / {{ i18n "ui_slug" }}</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "price" }} (₩)</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "stock" }}</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "actions" }}</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10"></th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "product_image" }}</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "ui_name" }} / {{ i18n "ui_slug" }}</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "price" }} (₩)</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "stock" }}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "actions" }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
-                                    <template x-for="product in products" :key="product.id">
-                                        <tr class="hover:bg-gray-50">
-                                            <td class="px-6 py-4 whitespace-nowrap">
+                                    <template x-for="(product, pIdx) in products" :key="product.id">
+                                        <tr class="hover:bg-gray-50 product-drag-row"
+                                            draggable="true"
+                                            @dragstart="_productDragStart(pIdx, $event)"
+                                            @dragover.prevent="_productDragOver(pIdx, $event)"
+                                            @dragleave="$event.currentTarget.classList.remove('drag-over-row')"
+                                            @drop.prevent="_productDrop(pIdx, $event)"
+                                            @dragend="_productDragEnd($event)">
+                                            <td class="px-3 py-4 text-gray-400 cursor-grab active:cursor-grabbing">
+                                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+                                            </td>
+                                            <td class="px-4 py-4 whitespace-nowrap">
                                                 <template x-if="product.images && product.images.length > 0">
-                                                    <img :src="'/api/files/products/' + product.id + '/' + product.images[0]" class="w-12 h-12 object-cover rounded border border-gray-200">
+                                                    <img :src="'/api/files/products/' + product.id + '/' + product.images[0]" class="w-12 h-12 object-cover rounded border border-gray-200 pointer-events-none">
                                                 </template>
                                                 <template x-if="!product.images || product.images.length === 0">
                                                     <div class="w-12 h-12 bg-gray-100 flex items-center justify-center text-xs text-gray-400 rounded border border-gray-200">IMG</div>
                                                 </template>
                                             </td>
-                                            <td class="px-6 py-4">
+                                            <td class="px-4 py-4">
                                                 <div class="text-sm font-medium text-gray-900" x-text="product.name"></div>
                                                 <div class="text-sm text-gray-500" x-text="product.slug"></div>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="product.price.toLocaleString()"></td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500" x-text="product.price.toLocaleString()"></td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 <input type="number" x-model.number="product.stock" @change="updateStock(product.id, product.stock)" class="w-20 border border-gray-300 p-1 text-sm rounded text-center">
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                                            <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
                                                 <button @click="openEditProductModal(product)" class="text-bmw-blue hover:text-blue-900 font-medium">{{ i18n "edit_product" }}</button>
                                                 <button @click="deleteProduct(product.id)" class="text-red-600 hover:text-red-900">{{ i18n "delete" }}</button>
                                             </td>
                                         </tr>
                                     </template>
                                     <template x-if="products.length === 0">
-                                        <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">{{ i18n "no_products_found" }}</td></tr>
+                                        <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">{{ i18n "no_products_found" }}</td></tr>
                                     </template>
                                 </tbody>
                             </table>
@@ -247,7 +264,7 @@
     <!-- Add Product Modal -->
         <template x-teleport="body">
             <div x-show="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-                <div @click.away="showAddModal = false" class="bg-white p-8 rounded shadow-2xl w-full max-w-lg border border-gray-200">
+                <div @click.away="showAddModal = false" class="bg-white p-8 rounded shadow-2xl w-full max-w-lg border border-gray-200 max-h-[90vh] overflow-y-auto">
                     <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                         <h3 class="text-xl font-light tracking-wide uppercase">{{ i18n "add_product" }}</h3>
                         <button @click="showAddModal = false" class="text-gray-400 hover:text-gray-900 text-2xl leading-none">&times;</button>
@@ -267,7 +284,19 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "product_image" }}</label>
-                            <input type="file" x-ref="imageInput" multiple accept="image/jpeg, image/png, image/webp" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
+                            <!-- Preview selected images -->
+                            <template x-if="_addImagePreviews.length > 0">
+                                <div class="mb-3 flex flex-wrap gap-2">
+                                    <template x-for="(preview, index) in _addImagePreviews" :key="index">
+                                        <div class="relative group">
+                                            <img :src="preview" class="w-16 h-16 object-cover rounded border border-gray-200">
+                                            <button type="button" @click="removeAddImage(index)" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition">&times;</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <input type="file" id="cms-add-image-input" multiple accept="image/jpeg, image/png, image/webp" @change="onAddImageChange($event)" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
+                            <p class="text-xs text-gray-400 mt-1">여러 이미지를 한 번에 선택할 수 있습니다 (Ctrl/Cmd + 클릭)</p>
                         </div>
                         <div class="flex gap-4">
                             <div class="flex-1">
@@ -291,7 +320,7 @@
     <!-- Edit Product Modal -->
         <template x-teleport="body">
             <div x-show="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-                <div @click.away="showEditModal = false" class="bg-white p-8 rounded shadow-2xl w-full max-w-lg border border-gray-200">
+                <div @click.away="showEditModal = false" class="bg-white p-8 rounded shadow-2xl w-full max-w-lg border border-gray-200 max-h-[90vh] overflow-y-auto">
                     <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                         <h3 class="text-xl font-light tracking-wide uppercase">{{ i18n "edit_product" }}</h3>
                         <button @click="showEditModal = false" class="text-gray-400 hover:text-gray-900 text-2xl leading-none">&times;</button>
@@ -311,16 +340,37 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "product_image" }}</label>
-                            <template x-if="editProduct._currentImages && editProduct._currentImages.length > 0">
-                                <div class="mb-3 flex flex-wrap gap-2">
-                                    <template x-for="(imgUrl, index) in editProduct._currentImages" :key="index">
-                                        <div class="relative">
-                                            <img :src="imgUrl" class="w-16 h-16 object-cover rounded border border-gray-200">
-                                        </div>
-                                    </template>
+                            <!-- Unified image list with drag-and-drop reorder -->
+                            <template x-if="_editImageList.length > 0">
+                                <div class="mb-3">
+                                    <p class="text-xs text-gray-500 font-medium mb-2">드래그하여 순서 변경, × 버튼으로 삭제:</p>
+                                    <div class="flex flex-wrap gap-3">
+                                        <template x-for="(img, index) in _editImageList" :key="img._key">
+                                            <div class="relative img-drag-item"
+                                                 draggable="true"
+                                                 @dragstart="_dragStart(index, $event)"
+                                                 @dragover.prevent="_onDragOver(index, $event)"
+                                                 @dragleave="$event.currentTarget.classList.remove('drag-over')"
+                                                 @drop.prevent="_onDrop(index, $event)"
+                                                 @dragend="_onDragEnd($event)">
+                                                <!-- Thumbnail -->
+                                                <div class="relative group">
+                                                    <img :src="img.preview" class="w-20 h-20 object-cover rounded border-2 pointer-events-none" :class="img.type === 'new' ? 'border-bmw-blue' : 'border-gray-200'">
+
+                                                    <!-- Delete button -->
+                                                    <button type="button" @click.stop="removeEditImage(index)" class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow" title="삭제">&times;</button>
+                                                    <!-- NEW badge -->
+                                                    <template x-if="img.type === 'new'">
+                                                        <span class="absolute bottom-0 left-0 right-0 bg-bmw-blue/80 text-white text-[9px] text-center py-px pointer-events-none">NEW</span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
                                 </div>
                             </template>
-                            <input type="file" x-ref="editImageInput" multiple accept="image/jpeg, image/png, image/webp" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
+                            <input type="file" id="cms-edit-image-input" multiple accept="image/jpeg, image/png, image/webp" @change="onEditImageChange($event)" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
+                            <p class="text-xs text-gray-400 mt-1">여러 이미지를 한 번에 선택할 수 있습니다 (Ctrl/Cmd + 클릭)</p>
                         </div>
                         <div class="flex gap-4">
                             <div class="flex-1">
@@ -362,6 +412,10 @@
                 showAddModal: false,
                 showEditModal: false,
                 _slugTouched: false,
+                _addImageFiles: [],
+                _addImagePreviews: [],
+                _editImageList: [],
+                _editImageKeyCounter: 0,
                 newProduct: {
                     name: '',
                     slug: '',
@@ -401,7 +455,7 @@
                 async rebuildSite() {
                     this.isRebuilding = true;
                     try {
-                        const data = await pb.send('/api/admin/rebuild', {
+                        const data = await pb.send('/api/cms/rebuild', {
                             method: 'POST'
                         });
                         alert('{{ i18n "site_rebuilt_success" }}\n' + (data.message || ''));
@@ -435,7 +489,7 @@
                 },
                 async fetchProducts() {
                     try {
-                        const result = await pb.collection('products').getList(1, 50);
+                        const result = await pb.collection('products').getList(1, 50, { sort: 'sort_order' });
                         this.products = result.items;
                     } catch (err) {
                         if (err.status === 401) this.logout();
@@ -477,6 +531,46 @@
                     } catch (err) {
                         this.handleError(err, '재고 업데이트 실패');
                         this.fetchProducts();
+                    }
+                },
+                // --- Product row drag-and-drop reorder ---
+                _productDragIdx: null,
+                _productDragStart(index, event) {
+                    this._productDragIdx = index;
+                    event.currentTarget.classList.add('dragging-row');
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', String(index));
+                },
+                _productDragOver(index, event) {
+                    if (this._productDragIdx === null || this._productDragIdx === index) return;
+                    event.dataTransfer.dropEffect = 'move';
+                    event.currentTarget.classList.add('drag-over-row');
+                },
+                _productDrop(targetIndex, event) {
+                    event.currentTarget.classList.remove('drag-over-row');
+                    const fromIndex = this._productDragIdx;
+                    if (fromIndex === null || fromIndex === targetIndex) return;
+                    const list = [...this.products];
+                    const [moved] = list.splice(fromIndex, 1);
+                    list.splice(targetIndex, 0, moved);
+                    this.products = list;
+                    this._productDragIdx = null;
+                    this.saveProductOrder();
+                },
+                _productDragEnd(event) {
+                    event.currentTarget.classList.remove('dragging-row');
+                    this._productDragIdx = null;
+                    document.querySelectorAll('.drag-over-row').forEach(el => el.classList.remove('drag-over-row'));
+                },
+                async saveProductOrder() {
+                    try {
+                        const updates = this.products.map((p, i) => ({ id: p.id, sort_order: i }));
+                        for (const u of updates) {
+                            await pb.collection('products').update(u.id, { sort_order: u.sort_order });
+                        }
+                        this.showToast('상품 순서가 저장되었습니다.');
+                    } catch (err) {
+                        this.handleError(err, '순서 저장 실패');
                     }
                 },
                 async updateOrderStatus(id, newStatus) {
@@ -536,31 +630,109 @@
                         this.cancelApproving = false;
                     }
                 },
+                // --- Image handling for Add Product ---
+                onAddImageChange(event) {
+                    const files = Array.from(event.target.files);
+                    if (files.length === 0) return;
+                    // Accumulate files (allows adding more images via multiple file picker invocations)
+                    this._addImageFiles = [...this._addImageFiles, ...files];
+                    // Generate previews
+                    for (const file of files) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            this._addImagePreviews = [...this._addImagePreviews, e.target.result];
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                    // Reset the input so the same files can be re-selected if needed
+                    event.target.value = '';
+                },
+                removeAddImage(index) {
+                    this._addImageFiles.splice(index, 1);
+                    this._addImagePreviews.splice(index, 1);
+                    // Force Alpine reactivity
+                    this._addImageFiles = [...this._addImageFiles];
+                    this._addImagePreviews = [...this._addImagePreviews];
+                },
+                // --- Image handling for Edit Product (unified list) ---
+                onEditImageChange(event) {
+                    const files = Array.from(event.target.files);
+                    if (files.length === 0) return;
+                    for (const file of files) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            this._editImageKeyCounter++;
+                            this._editImageList = [...this._editImageList, {
+                                type: 'new',
+                                file: file,
+                                preview: e.target.result,
+                                _key: 'new-' + this._editImageKeyCounter
+                            }];
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                    event.target.value = '';
+                },
+                removeEditImage(index) {
+                    this._editImageList.splice(index, 1);
+                    this._editImageList = [...this._editImageList];
+                },
+                // --- Drag and drop reorder ---
+                _draggedIndex: null,
+                _dragStart(index, event) {
+                    this._draggedIndex = index;
+                    event.currentTarget.classList.add('dragging');
+                    event.dataTransfer.effectAllowed = 'move';
+                    // Required for Firefox
+                    event.dataTransfer.setData('text/plain', String(index));
+                },
+                _onDragOver(index, event) {
+                    if (this._draggedIndex === null || this._draggedIndex === index) return;
+                    event.dataTransfer.dropEffect = 'move';
+                    event.currentTarget.classList.add('drag-over');
+                },
+                _onDrop(targetIndex, event) {
+                    event.currentTarget.classList.remove('drag-over');
+                    const fromIndex = this._draggedIndex;
+                    if (fromIndex === null || fromIndex === targetIndex) return;
+                    const list = [...this._editImageList];
+                    const [moved] = list.splice(fromIndex, 1);
+                    list.splice(targetIndex, 0, moved);
+                    this._editImageList = list;
+                    this._draggedIndex = null;
+                },
+                _onDragEnd(event) {
+                    event.currentTarget.classList.remove('dragging');
+                    this._draggedIndex = null;
+                    // Clean up any lingering drag-over classes
+                    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                },
                 openAddProductModal() {
                     this.newProduct = { name: '', slug: '', description: '', price: '', stock: '' };
                     this._slugTouched = false;
-                    if (this.$refs.imageInput) {
-                        this.$refs.imageInput.value = '';
-                    }
+                    this._addImageFiles = [];
+                    this._addImagePreviews = [];
                     this.showAddModal = true;
                 },
                 openEditProductModal(product) {
+                    this._editImageKeyCounter = 0;
                     this.editProduct = {
                         id: product.id,
                         name: product.name,
                         slug: product.slug,
                         description: product.description,
                         price: product.price,
-                        stock: product.stock,
-                        _currentImages: (product.images && product.images.length > 0)
-                            ? product.images.map(img => '/api/files/products/' + product.id + '/' + img)
-                            : []
+                        stock: product.stock
                     };
-                    this.$nextTick(() => {
-                        if (this.$refs.editImageInput) {
-                            this.$refs.editImageInput.value = '';
-                        }
-                    });
+                    // Build unified image list from existing images
+                    this._editImageList = (product.images && product.images.length > 0)
+                        ? product.images.map((img, i) => ({
+                            type: 'existing',
+                            filename: img,
+                            preview: '/api/files/products/' + product.id + '/' + img,
+                            _key: 'existing-' + i
+                        }))
+                        : [];
                     this.showEditModal = true;
                 },
                 async createProduct() {
@@ -573,16 +745,17 @@
                         formData.append('price', Number(this.newProduct.price) || 0);
                         formData.append('stock', Number(this.newProduct.stock) || 0);
 
-                        const fileInput = this.$refs.imageInput;
-                        if (fileInput && fileInput.files.length > 0) {
-                            for (let i = 0; i < fileInput.files.length; i++) {
-                                formData.append('images', fileInput.files[i]);
-                            }
+                        // Use stored files from state (not $refs which don't work in x-teleport)
+                        for (const file of this._addImageFiles) {
+                            formData.append('images', file);
                         }
 
                         await pb.collection('products').create(formData);
                         this.showAddModal = false;
+                        this._addImageFiles = [];
+                        this._addImagePreviews = [];
                         this.fetchProducts();
+                        this.showToast('상품이 등록되었습니다.');
                     } catch (err) {
                         this.handleError(err, '상품 등록 실패');
                     } finally {
@@ -599,16 +772,23 @@
                         formData.append('price', Number(this.editProduct.price) || 0);
                         formData.append('stock', Number(this.editProduct.stock) || 0);
 
-                        const fileInput = this.$refs.editImageInput;
-                        if (fileInput && fileInput.files.length > 0) {
-                            for (let i = 0; i < fileInput.files.length; i++) {
-                                formData.append('images', fileInput.files[i]);
+                        // Send the complete ordered image list.
+                        // Existing images: send filename string to keep them.
+                        // New images: send File object to upload.
+                        // The order in FormData determines the final order.
+                        for (const img of this._editImageList) {
+                            if (img.type === 'existing') {
+                                formData.append('images', img.filename);
+                            } else {
+                                formData.append('images', img.file);
                             }
                         }
 
                         await pb.collection('products').update(this.editProduct.id, formData);
                         this.showEditModal = false;
+                        this._editImageList = [];
                         this.fetchProducts();
+                        this.showToast('상품이 수정되었습니다.');
                     } catch (err) {
                         this.handleError(err, '상품 수정 실패');
                     } finally {
