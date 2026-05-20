@@ -51,3 +51,12 @@
           e.app.save(collection);
       });
       ```
+8. **Reading UTF-8 Files from JSVM**:
+    - `$os.readFile("path/to/file")` returns a Go `[]byte` slice. Passing this directly to a template or JSON response can result in a comma-separated array of numbers (e.g., `98,97,115...`).
+    - Using `String()` does NOT properly decode UTF-8 characters like Korean, causing encoding corruption.
+    - **Rule:** To properly read a UTF-8 file into a JavaScript string inside Goja, map the byte array using `String.fromCharCode`, then decode it:
+      ```javascript
+      const bytes = $os.readFile("hugo/hugo.toml");
+      const binaryStr = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
+      const tomlStr = decodeURIComponent(escape(binaryStr));
+      ```

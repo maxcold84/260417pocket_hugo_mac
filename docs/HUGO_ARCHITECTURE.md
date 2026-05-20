@@ -64,3 +64,8 @@ hugo/                   ← Hugo source (content, themes, config)
     - PocketBase's static file server acts as an SPA router. If a requested file is not found, it falls back to serving `index.html` (the homepage).
     - Hugo generates sections as directories with an `index.html` inside (e.g., `products/index.html`).
     - **Rule:** When redirecting via JavaScript (`window.location.href`), always use a trailing slash for section routes (e.g., `'/products/'` instead of `'/products'`). Without the trailing slash, PocketBase will look for a file named `products`, fail to find it, and erroneously serve the root homepage due to the SPA fallback.
+8. **CMS `hugo.toml` Settings Management**:
+    - The CMS provides a dual-interface for managing the `hugo.toml` configuration:
+      1. **Server-Side Rendered View**: Accessed via `/cms/settings` (served via HTMX from `pb_hooks/routes/admin.pb.js`), rendering `pb_hooks/views/admin/settings.html`.
+      2. **Alpine.js SPA View**: Accessed within the SPA dashboard (`currentTab = 'settings'`), making a GET request to `/api/cms/settings`.
+    - Saving changes POSTs the TOML text to `/api/cms/settings/update`, which writes back to `hugo/hugo.toml` and automatically triggers a `hugo --ignoreCache` rebuild to instantly reflect site-wide changes (e.g., dynamic navigation menus).

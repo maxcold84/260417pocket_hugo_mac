@@ -96,6 +96,11 @@
                                 class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase">
                             {{ i18n "orders" }}
                         </button>
+                        <button @click="currentTab = 'settings'; fetchSettings()" 
+                                :class="{'bg-bmw-blue text-white': currentTab === 'settings', 'text-gray-300 hover:bg-bmw-surface hover:text-white': currentTab !== 'settings'}"
+                                class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase">
+                            사이트 설정
+                        </button>
                     </nav>
                 </div>
                 <div class="p-4 border-t border-bmw-darkBorder bg-black">
@@ -261,6 +266,22 @@
                             </table>
                         </div>
                     </template>
+                    <!-- Settings Tab -->
+                    <template x-if="currentTab === 'settings'">
+                        <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden p-8">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">사이트 설정 (hugo.toml)</h3>
+                            <p class="text-sm text-gray-500 mb-6">아래 편집기에서 hugo.toml 내용을 직접 수정하여 메뉴, 사이트 이름 등을 변경할 수 있습니다. <br/><strong>주의:</strong> TOML 문법이 올바르지 않으면 사이트 빌드가 실패할 수 있습니다. 저장 시 사이트가 자동으로 재빌드됩니다.</p>
+                            
+                            <textarea x-model="tomlContent" rows="20" class="w-full font-mono text-sm p-4 border border-gray-300 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition bg-gray-50 text-gray-800" spellcheck="false"></textarea>
+                            
+                            <div class="mt-6 flex justify-end">
+                                <button @click="saveSettings" :disabled="loading" class="bg-bmw-blue hover:bg-blue-700 text-white font-medium py-2 px-6 rounded transition flex items-center gap-2">
+                                    <span x-show="!loading">저장 및 재빌드</span>
+                                    <span x-show="loading">저장 중...</span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </main>
         </div>
@@ -422,6 +443,7 @@
                 cancelConfirmId: '',
                 cancelApproving: false,
                 toastMsg: '',
+                tomlContent: '',
                 showAddModal: false,
                 showEditModal: false,
                 _slugTouched: false,
@@ -537,6 +559,30 @@
                     } catch (err) {
                         if (err.status === 401) this.logout();
                         console.error('Error fetching orders:', err);
+                    }
+                },
+                async fetchSettings() {
+                    try {
+                        const data = await pb.send('/api/cms/settings', { method: 'GET' });
+                        this.tomlContent = data.toml || '';
+                    } catch (err) {
+                        if (err.status === 401) this.logout();
+                        console.error('Error fetching settings:', err);
+                        this.handleError(err, '설정 불러오기 실패');
+                    }
+                },
+                async saveSettings() {
+                    this.loading = true;
+                    try {
+                        await pb.send('/api/cms/settings/update', { 
+                            method: 'POST',
+                            body: { toml: this.tomlContent }
+                        });
+                        this.showToast('설정이 저장되었고 사이트가 재빌드되었습니다.');
+                    } catch (err) {
+                        this.handleError(err, '설정 저장 실패');
+                    } finally {
+                        this.loading = false;
                     }
                 },
                 async updateStock(id, newStock) {

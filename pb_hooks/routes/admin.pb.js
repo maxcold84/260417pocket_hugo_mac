@@ -124,6 +124,63 @@ routerAdd("GET", "/cms", (e) => {
     }
 }, $apis.requireSuperuserAuth());
 
+routerAdd("GET", "/cms/settings", (e) => {
+    try {
+        const renderUtil = require(`${__hooks}/utils/render.js`);
+        let tomlStr = "";
+        try {
+            const bytes = $os.readFile("hugo/hugo.toml");
+            const binaryStr = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
+            tomlStr = decodeURIComponent(escape(binaryStr));
+        } catch (err) {
+            console.error("Failed to read hugo.toml", err);
+        }
+        const partialHtml = $template.loadFiles(`${__hooks}/views/admin/settings.html`).render({
+            toml: tomlStr
+        });
+        return renderUtil.render(e, partialHtml, { title: "사이트 설정 - CMS" });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());
+
+routerAdd("GET", "/api/cms/settings", (e) => {
+    try {
+        let tomlStr = "";
+        try {
+            const bytes = $os.readFile("hugo/hugo.toml");
+            const binaryStr = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
+            tomlStr = decodeURIComponent(escape(binaryStr));
+        } catch (err) {
+            console.error("Failed to read hugo.toml", err);
+        }
+        return e.json(200, { toml: tomlStr });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());
+
+routerAdd("POST", "/api/cms/settings/update", (e) => {
+    try {
+        const formData = e.requestInfo().body;
+        const newToml = formData.toml;
+        if (typeof newToml !== "string") {
+            return e.json(400, { error: "Invalid TOML data" });
+        }
+        
+        $os.writeFile("hugo/hugo.toml", newToml, 0o644);
+        
+        // Trigger Hugo rebuild
+        const hugoCmd = $os.cmd("hugo", "--ignoreCache");
+        hugoCmd.dir = "hugo";
+        hugoCmd.run();
+        
+        return e.json(200, { message: "Settings saved successfully" });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());
+
 routerAdd("GET", "/cms/orders", (e) => {
     try {
         const renderUtil = require(`${__hooks}/utils/render.js`);
