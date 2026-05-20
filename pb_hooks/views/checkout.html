@@ -40,6 +40,36 @@
                             <input x-show="memoSelect === 'custom'" type="text" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none transition duration-150" placeholder="배송 요청사항을 직접 입력해주세요" x-model="shippingMemo" />
                         </div>
                     </div>
+                    <div class="space-y-2 pt-2">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="rememberShipping" x-model="rememberShipping" @change="saveShippingLocally()" class="h-4 w-4 rounded border-gray-300 dark:border-bmw-darkBorder text-bmw-blue focus:ring-bmw-blue bg-white dark:bg-black" />
+                            <label for="rememberShipping" class="text-sm text-gray-500 dark:text-gray-400 cursor-pointer select-none font-medium">이 배송지 정보 기억하기 (다음 결제 시 자동 완성)</label>
+                        </div>
+                        
+                        <!-- Storage Status Indicator / Testing Assistant -->
+                        <div x-show="hasSavedDetails" x-transition class="text-xs flex flex-wrap items-center gap-2 text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-950/10 px-3 py-2 rounded border border-green-100 dark:border-green-900/20 w-fit">
+                            <span class="flex items-center gap-1">
+                                <span class="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                <strong>최근 배송지 정보가 자동 적용되었습니다.</strong>
+                            </span>
+                            <span class="text-gray-300 dark:text-gray-700">|</span>
+                            <button type="button" @click="clearSavedShipping" class="underline text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 font-semibold focus:outline-none transition duration-150">
+                                저장 정보 삭제 (초기화)
+                            </button>
+                        </div>
+                        <div x-show="!hasSavedDetails && rememberShipping" x-transition class="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5 px-3 py-2 bg-gray-50/50 dark:bg-bmw-darkBorder/10 rounded border border-gray-100 dark:border-bmw-darkBorder/20 w-fit">
+                            <svg class="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>새 배송 정보를 입력하면 브라우저에 안전하게 자동 저장됩니다.</span>
+                        </div>
+                        <div x-show="!rememberShipping" x-transition class="text-xs text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/10 px-3 py-2 rounded border border-amber-100 dark:border-amber-900/20 w-fit flex items-center gap-1.5">
+                            <svg class="h-3.5 w-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span>배송 정보 기억하기가 비활성화되었습니다. (브라우저 캐시 삭제됨)</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -93,6 +123,47 @@
                     <span x-show="processing">PROCESSING...</span>
                 </button>
             </div>
+
+            <!-- Interactive QA Debug Panel for Verification -->
+            <div class="mt-12 pt-6 border-t border-dashed border-gray-200 dark:border-bmw-darkBorder">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-400 dark:text-gray-500 font-mono tracking-wider">DEBUG ASSISTANT (QA & VERIFICATION)</span>
+                    <button type="button" @click="showDebugPanel = !showDebugPanel" class="text-xs text-bmw-blue hover:underline focus:outline-none font-medium flex items-center gap-1">
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span x-text="showDebugPanel ? '디버그 패널 숨기기' : '저장 기능 검증 패널 열기'"></span>
+                    </button>
+                </div>
+                
+                <div x-show="showDebugPanel" x-transition class="mt-4 p-4 bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-bmw-darkBorder rounded-sm space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Action Side -->
+                        <div class="space-y-3">
+                            <h4 class="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">저장 기능 즉시 테스트 도구</h4>
+                            <p class="text-xs text-gray-500">배송지를 매번 입력하지 않고도 저장 로직이 정상 작동하는지 원클릭으로 체크(테스트)할 수 있습니다.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" @click="injectTestData()" class="bg-bmw-blue hover:bg-blue-600 text-white text-xs px-3 py-2 rounded font-medium transition duration-150 shadow-sm">
+                                    ⚡ 테스트 주소 정보 자동 주입
+                                </button>
+                                <button type="button" @click="clearSavedShipping()" class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-2 rounded font-medium transition duration-150 shadow-sm">
+                                    🗑️ 캐시 완전 삭제 & 초기화
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Console/Log Side -->
+                        <div class="space-y-2">
+                            <h4 class="text-xs font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5 uppercase tracking-wider">
+                                <span class="h-2.5 w-2.5 rounded-full" :class="hasSavedDetails ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></span>
+                                <span>실시간 LocalStorage 모니터 (`guest_shipping_details`)</span>
+                            </h4>
+                            <pre class="bg-gray-950 text-green-400 p-2.5 rounded text-xs font-mono overflow-x-auto border border-gray-800 dark:border-bmw-darkBorder max-h-32" x-text="savedDetailsRaw"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </template>
 </div>
@@ -109,21 +180,36 @@ function checkoutPage() {
         shippingAddressDetail: '',
         shippingMemo: '',
         memoSelect: '',
+        rememberShipping: true,
+        hasSavedDetails: false,
+        showDebugPanel: false,
+        savedDetailsRaw: '',
         
         async init() {
-            // Load saved guest shipping details from localStorage as baseline
+            // Check user's saving preference from localStorage
             try {
-                const savedShipping = localStorage.getItem('guest_shipping_details');
-                if (savedShipping) {
-                    const parsed = JSON.parse(savedShipping);
-                    if (parsed.recipientName) this.recipientName = parsed.recipientName;
-                    if (parsed.recipientPhone) this.recipientPhone = parsed.recipientPhone;
-                    if (parsed.shippingAddress) this.shippingAddress = parsed.shippingAddress;
-                    if (parsed.shippingAddressDetail) this.shippingAddressDetail = parsed.shippingAddressDetail;
-                    if (parsed.shippingMemo) this.shippingMemo = parsed.shippingMemo;
+                const opt = localStorage.getItem('remember_shipping');
+                this.rememberShipping = opt !== 'false';
+            } catch(e) {
+                this.rememberShipping = true;
+            }
+
+            // Load saved guest shipping details from localStorage as baseline if preferred
+            if (this.rememberShipping) {
+                try {
+                    const savedShipping = localStorage.getItem('guest_shipping_details');
+                    if (savedShipping) {
+                        const parsed = JSON.parse(savedShipping);
+                        if (parsed.recipientName) this.recipientName = parsed.recipientName;
+                        if (parsed.recipientPhone) this.recipientPhone = parsed.recipientPhone;
+                        if (parsed.shippingAddress) this.shippingAddress = parsed.shippingAddress;
+                        if (parsed.shippingAddressDetail) this.shippingAddressDetail = parsed.shippingAddressDetail;
+                        if (parsed.shippingMemo) this.shippingMemo = parsed.shippingMemo;
+                        this.hasSavedDetails = true;
+                    }
+                } catch (e) {
+                    console.error("Failed to load saved shipping details:", e);
                 }
-            } catch (e) {
-                console.error("Failed to load saved shipping details:", e);
             }
 
             try {
@@ -168,18 +254,101 @@ function checkoutPage() {
                 this.saveShippingLocally();
                 this.updateMemoSelect();
             });
+            this.$watch('rememberShipping', value => this.saveShippingLocally());
+
+            // Initialize debug raw logs
+            this.updateDebugRaw();
         },
         
         saveShippingLocally() {
             try {
-                localStorage.setItem('guest_shipping_details', JSON.stringify({
-                    recipientName: this.recipientName,
-                    recipientPhone: this.recipientPhone,
-                    shippingAddress: this.shippingAddress,
-                    shippingAddressDetail: this.shippingAddressDetail,
-                    shippingMemo: this.shippingMemo
-                }));
+                localStorage.setItem('remember_shipping', this.rememberShipping ? 'true' : 'false');
+                if (this.rememberShipping) {
+                    const details = {
+                        recipientName: this.recipientName,
+                        recipientPhone: this.recipientPhone,
+                        shippingAddress: this.shippingAddress,
+                        shippingAddressDetail: this.shippingAddressDetail,
+                        shippingMemo: this.shippingMemo
+                    };
+                    const hasAnyValue = Object.values(details).some(val => val && val.trim() !== '');
+                    if (hasAnyValue) {
+                        localStorage.setItem('guest_shipping_details', JSON.stringify(details));
+                        this.hasSavedDetails = true;
+                    } else {
+                        localStorage.removeItem('guest_shipping_details');
+                        this.hasSavedDetails = false;
+                    }
+                } else {
+                    localStorage.removeItem('guest_shipping_details');
+                    this.hasSavedDetails = false;
+                }
             } catch(e) {}
+            this.updateDebugRaw();
+        },
+
+        clearSavedShipping() {
+            try {
+                localStorage.removeItem('guest_shipping_details');
+                this.hasSavedDetails = false;
+                this.recipientName = '';
+                this.recipientPhone = '';
+                this.shippingAddress = '';
+                this.shippingAddressDetail = '';
+                this.shippingMemo = '';
+                this.memoSelect = '';
+                
+                // Alert completion using a sleek, premium toast notification
+                const toast = document.createElement('div');
+                toast.className = "fixed bottom-5 right-5 bg-gray-900 dark:bg-white text-white dark:text-black px-4 py-3 rounded shadow-lg text-sm transition-opacity duration-300 z-50 border border-gray-800 dark:border-gray-200 font-medium tracking-wide";
+                toast.innerText = "저장된 배송지 정보가 삭제되고 입력란이 초기화되었습니다.";
+                document.body.appendChild(toast);
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 300);
+                }, 2500);
+            } catch(e) {}
+            this.updateDebugRaw();
+        },
+
+        injectTestData() {
+            try {
+                this.recipientName = "홍길동 (테스트)";
+                this.recipientPhone = "010-1234-5678";
+                this.shippingAddress = "경기도 성남시 분당구 판교역로 166";
+                this.shippingAddressDetail = "아크로타워 101동 202호";
+                this.shippingMemo = "문 앞에 놓아주세요";
+                this.memoSelect = "문 앞에 놓아주세요";
+                this.rememberShipping = true;
+                
+                this.saveShippingLocally();
+                
+                // Alert test completion
+                const toast = document.createElement('div');
+                toast.className = "fixed bottom-5 right-5 bg-green-600 text-white px-4 py-3 rounded shadow-lg text-sm transition-opacity duration-300 z-50 font-medium tracking-wide";
+                toast.innerText = "QA 테스트용 배송지 정보가 입력되었으며, 브라우저 캐시에 반영되었습니다.";
+                document.body.appendChild(toast);
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 300);
+                }, 2500);
+            } catch(e) {}
+        },
+
+        updateDebugRaw() {
+            try {
+                const details = localStorage.getItem('guest_shipping_details');
+                const opt = localStorage.getItem('remember_shipping');
+                
+                const debugObj = {
+                    "remember_shipping": opt !== 'false',
+                    "hasSavedDetails": this.hasSavedDetails,
+                    "guest_shipping_details": details ? JSON.parse(details) : null
+                };
+                this.savedDetailsRaw = JSON.stringify(debugObj, null, 2);
+            } catch(e) {
+                this.savedDetailsRaw = "Error reading localStorage data.";
+            }
         },
 
         updateMemoSelect() {

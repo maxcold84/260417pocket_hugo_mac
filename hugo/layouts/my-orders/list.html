@@ -203,7 +203,8 @@
                 formatDate(dateStr) {
                     if (!dateStr) return '';
                     const d = new Date(dateStr);
-                    return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+                    return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+                         + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
                 },
 
                 statusClass(status) {

@@ -19,6 +19,32 @@ onBootstrap((e) => {
             }
         }
 
+        // Ensure 'created' and 'updated' autodate fields exist
+        let hasCreated = false;
+        let hasUpdated = false;
+        for (let i = 0; i < fields.length; i++) {
+            if (fields[i].name === "created") hasCreated = true;
+            if (fields[i].name === "updated") hasUpdated = true;
+        }
+        if (!hasCreated) {
+            orders.fields.add(new AutodateField({
+                id: "autodate_created",
+                name: "created",
+                onCreate: true,
+                onUpdate: false,
+            }));
+            console.log("[bootstrap] Added 'created' autodate field to orders");
+        }
+        if (!hasUpdated) {
+            orders.fields.add(new AutodateField({
+                id: "autodate_updated",
+                name: "updated",
+                onCreate: true,
+                onUpdate: true,
+            }));
+            console.log("[bootstrap] Added 'updated' autodate field to orders");
+        }
+
         orders.listRule = '@request.auth.id != "" && user = @request.auth.id';
         orders.viewRule = '@request.auth.id != "" && user = @request.auth.id';
         e.app.save(orders);
