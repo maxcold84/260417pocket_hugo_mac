@@ -93,28 +93,138 @@
             <div class="bg-white dark:bg-bmw-surface rounded-xl border border-gray-200 dark:border-bmw-darkBorder p-6 shadow-sm">
                 <h2 class="font-bold mb-6">주문 관리</h2>
                 
-                <form hx-post="/api/cms/orders/{{.order.id}}/update" hx-swap="none" hx-on::after-request="if(event.detail.successful) alert('저장되었습니다.'); else alert('오류가 발생했습니다.');" class="space-y-6">
+                <form hx-post="/api/cms/orders/{{.order.id}}/update" 
+                      hx-swap="none" 
+                      hx-on::after-request="if(event.detail.successful) alert('저장되었습니다.'); else alert('오류가 발생했습니다.');" 
+                      @submit="if(!validateForm($event)) $event.preventDefault();"
+                      x-data="{
+                          selectedCourier: '{{.order.courier_name}}',
+                          customCourier: '',
+                          trackingNumber: '{{.order.tracking_number}}',
+                          status: '{{.order.status}}',
+                          isCustom: false,
+                          couriers: [
+                              { name: 'CJ대한통운', url: 'https://www.doortodoor.co.kr/parcel/doortodoor.do?fsp_action=Parcel_Query&fsp_cmd=retrieve_parcel_detail&invc_no=' },
+                              { name: '우체국택배', url: 'https://service.epost.go.kr/trace.RetrieveDomconsDepliv.postal?sid1=' },
+                              { name: '한진택배', url: 'https://www.hanjin.com/ko/delivery/delivery/track.do?wblnum=' },
+                              { name: '롯데택배', url: 'https://www.lotteglogis.com/home/reservation/tracking/linkSubmit?InvNo=' },
+                              { name: '로젠택배', url: 'https://www.ilogen.com/m/personal/trace/' },
+                              { name: '경동택배', url: 'https://kdexp.com/hb/deliverySearch.do?barcode=' },
+                              { name: '대신택배', url: 'https://www.daesinpetrus.co.kr/web/page/gc_tracking.jsp?billno=' },
+                              { name: 'CVSnet 편의점택배', url: 'https://www.cvsnet.co.kr/invoice/tracking.do?invoice_no=' }
+                          ],
+                          init() {
+                              const standardCouriers = this.couriers.map(c => c.name);
+                              if (this.selectedCourier) {
+                                  if (!standardCouriers.includes(this.selectedCourier)) {
+                                      this.isCustom = true;
+                                      this.customCourier = this.selectedCourier;
+                                      this.selectedCourier = 'custom';
+                                  }
+                              }
+                          },
+                          get trackingUrl() {
+                              if (!this.trackingNumber) return '';
+                              const cleanNum = this.trackingNumber.replace(/[^0-9]/g, '');
+                              if (this.selectedCourier === 'custom') return '';
+                              const courier = this.couriers.find(c => c.name === this.selectedCourier);
+                              return courier ? courier.url + cleanNum : '';
+                          },
+                          getCourierName() {
+                              return this.selectedCourier === 'custom' ? this.customCourier : this.selectedCourier;
+                          },
+                          validateForm(e) {
+                              const finalCourier = this.getCourierName().trim();
+                              const cleanTrack = this.trackingNumber.replace(/[^0-9]/g, '').trim();
+                              
+                              if (this.status === 'shipping' || this.status === 'completed') {
+                                  if (!finalCourier) {
+                                      alert('배송중 또는 배송완료 상태로 설정하려면 택배사 입력이 필요합니다.');
+                                      return false;
+                                  }
+                                  if (!cleanTrack) {
+                                      alert('배송중 또는 배송완료 상태로 설정하려면 운송장 번호 입력이 필요합니다.');
+                                      return false;
+                                  }
+                                  if (cleanTrack.length < 8) {
+                                      if (!confirm('입력된 운송장 번호가 비정상적으로 짧거나 유효하지 않아 보입니다. 그대로 저장하시겠습니까?')) {
+                                          return false;
+                                      }
+                                  }
+                              }
+                              return true;
+                          }
+                      }"
+                      class="space-y-6">
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">주문 상태</label>
-                        <select name="status" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
-                            <option value="pending" {{if eq .order.status "pending"}}selected{{end}}>Pending (대기)</option>
-                            <option value="paid" {{if eq .order.status "paid"}}selected{{end}}>Paid (결제완료)</option>
-                            <option value="shipping" {{if eq .order.status "shipping"}}selected{{end}}>Shipping (배송중)</option>
-                            <option value="completed" {{if eq .order.status "completed"}}selected{{end}}>Completed (배송완료)</option>
-                            <option value="cancel_requested" {{if eq .order.status "cancel_requested"}}selected{{end}}>Cancel Requested (취소요청)</option>
-                            <option value="cancelled" {{if eq .order.status "cancelled"}}selected{{end}}>Cancelled (취소)</option>
-                            <option value="refunded" {{if eq .order.status "refunded"}}selected{{end}}>Refunded (환불)</option>
+                        <select name="status" x-model="status" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                            <option value="pending">Pending (대기)</option>
+                            <option value="paid">Paid (결제완료)</option>
+                            <option value="shipping">Shipping (배송중)</option>
+                            <option value="completed">Completed (배송완료)</option>
+                            <option value="cancel_requested">Cancel Requested (취소요청)</option>
+                            <option value="cancelled">Cancelled (취소)</option>
+                            <option value="refunded">Refunded (환불)</option>
                         </select>
+                    </div>
+
+                    <!-- Dynamic Alert Banner for missing shipping info -->
+                    <div x-show="(status === 'shipping' || status === 'completed') && (!getCourierName().trim() || !trackingNumber.trim())" 
+                         x-transition 
+                         class="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2 animate-pulse">
+                        <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        <div>
+                            <p class="font-bold">배송 정보 입력 필요</p>
+                            <p class="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">주문 상태가 '배송중' 또는 '배송완료'일 때는 택배사와 운송장 번호를 모두 입력해야 합니다.</p>
+                        </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">택배사</label>
-                        <input type="text" name="courier_name" value="{{.order.courier_name}}" placeholder="예: CJ대한통운" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                        <select x-model="selectedCourier" @change="isCustom = (selectedCourier === 'custom')" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                            <option value="">택배사 선택</option>
+                            <option value="CJ대한통운">CJ대한통운</option>
+                            <option value="우체국택배">우체국택배</option>
+                            <option value="한진택배">한진택배</option>
+                            <option value="롯데택배">롯데택배</option>
+                            <option value="로젠택배">로젠택배</option>
+                            <option value="경동택배">경동택배</option>
+                            <option value="대신택배">대신택배</option>
+                            <option value="CVSnet 편의점택배">CVSnet 편의점택배</option>
+                            <option value="custom">직접 입력</option>
+                        </select>
+                        
+                        <!-- Custom Courier input - only visible when 'custom' is selected -->
+                        <div x-show="isCustom" x-transition class="mt-2">
+                            <label class="block text-[11px] font-semibold text-gray-400 mb-1">택배사 이름 직접 입력</label>
+                            <input type="text" x-model="customCourier" placeholder="예: 경동택배" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                        </div>
+                        
+                        <!-- Hidden input to submit the actual courier name to the server -->
+                        <input type="hidden" name="courier_name" :value="getCourierName()">
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">운송장 번호</label>
-                        <input type="text" name="tracking_number" value="{{.order.tracking_number}}" placeholder="숫자만 입력" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                        <input type="text" name="tracking_number" x-model="trackingNumber" @input="trackingNumber = trackingNumber.replace(/[^0-9]/g, '')" placeholder="숫자만 입력" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                        
+                        <!-- Real-time Tracking Button / Link -->
+                        <div class="mt-2 flex items-center justify-between" x-show="trackingNumber.trim() !== ''">
+                            <template x-if="trackingUrl">
+                                <a :href="trackingUrl" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-semibold text-bmw-blue hover:text-blue-700 transition dark:hover:text-blue-400">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                    </svg>
+                                    실시간 배송 조회 (<span x-text="selectedCourier"></span>)
+                                </a>
+                            </template>
+                            <template x-if="!trackingUrl && selectedCourier === 'custom' && customCourier.trim() !== ''">
+                                <span class="text-xs text-gray-400 dark:text-gray-500">직접 입력한 택배사는 자동 조회가 지원되지 않습니다.</span>
+                            </template>
+                        </div>
                     </div>
 
                     <hr class="border-gray-200 dark:border-bmw-darkBorder my-4">
@@ -163,7 +273,7 @@
                 <button type="button" 
                     hx-post="/api/cms/orders/{{.order.id}}/approve-cancel" 
                     hx-swap="none" 
-                    hx-on::after-request="if(event.detail.successful) { alert('환불이 완료되었습니다.'); window.location.reload(); } else { alert(JSON.parse(event.detail.xhr.responseText).error || '오류가 발생했습니다.'); }"
+                    hx-on::after-request="if(event.detail.successful) { alert('환불이 완료되었습니다.'); window.location.href = '/cms/orders'; } else { alert(JSON.parse(event.detail.xhr.responseText).error || '오류가 발생했습니다.'); }"
                     hx-confirm="정말 이 주문을 취소하고 환불하시겠습니까?"
                     class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded transition duration-300">
                     결제 취소 및 환불 승인

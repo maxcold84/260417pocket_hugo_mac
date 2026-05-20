@@ -153,6 +153,9 @@
                         <input type="text" x-model="regData.phone" class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition mb-4" />
                         
                         {{ partial "form/address.html" (dict "model" "regData.address" "theme" "dark" "Page" .) }}
+                        <div class="mt-2">
+                            <input type="text" x-model="regData.address_detail" class="w-full bg-[#111] border border-bmw-border text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" placeholder="상세 주소 (동·호수 등)" />
+                        </div>
                     </div>
 
                     <button type="submit" :disabled="loading" class="w-full bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
@@ -216,7 +219,7 @@
                     success: '',
                     pb: null,
                     loginData: { email: '', password: '' },
-                    regData: { email: '', password: '', passwordConfirm: '', nickname: '', phone: '', address: '' },
+                    regData: { email: '', password: '', passwordConfirm: '', nickname: '', phone: '', address: '', address_detail: '' },
                     resetEmail: '',
                     saveId: false,
                     

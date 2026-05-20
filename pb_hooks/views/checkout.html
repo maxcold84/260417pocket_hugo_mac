@@ -162,6 +162,7 @@ function checkoutPage() {
                             if (user.name && !this.recipientName) this.recipientName = user.name;
                             if (user.phone && !this.recipientPhone) this.recipientPhone = user.phone;
                             if (user.address && !this.shippingAddress) this.shippingAddress = user.address;
+                            if (user.address_detail && !this.shippingAddressDetail) this.shippingAddressDetail = user.address_detail;
                             
                             // Update local storage with fresh data just in case
                             authData.record = user;
@@ -348,9 +349,30 @@ function checkoutPage() {
                 }
                 // End of payMethod assignment
 
-                PortOne.requestPayment(paymentOptions).then(function(response) {
+                PortOne.requestPayment(paymentOptions).then(async function(response) {
                     if (response.code !== undefined) {
                         alert("Payment failed: " + response.message);
+                        
+                        // Delete the pending order since payment failed/cancelled
+                        try {
+                            const headers = { 'Content-Type': 'application/json' };
+                            const authStr = localStorage.getItem('pocketbase_auth');
+                            if (authStr) {
+                                try {
+                                    const authData = JSON.parse(authStr);
+                                    if (authData.token) {
+                                        headers['Authorization'] = 'Bearer ' + authData.token;
+                                    }
+                                } catch(e) {}
+                            }
+                            await fetch('/api/orders/' + data.orderId + '/cancel-pending', {
+                                method: 'POST',
+                                headers: headers
+                            });
+                        } catch (e) {
+                            console.error("Failed to delete pending order:", e);
+                        }
+
                         window.dispatchEvent(new CustomEvent('payment-failed'));
                         return;
                     }

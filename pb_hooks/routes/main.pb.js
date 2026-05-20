@@ -66,6 +66,24 @@ routerAdd("POST", "/api/orders/prep", (e) => {
 });
 
 
+routerAdd("POST", "/api/orders/{id}/cancel-pending", (e) => {
+    try {
+        const orderId = e.request.pathValue("id");
+        const order = $app.findRecordById("orders", orderId);
+        
+        // Only allow deleting 'pending' orders
+        if (order.getString("status") === "pending") {
+            $app.delete(order);
+            return e.json(200, { message: "Pending order deleted successfully" });
+        }
+        return e.json(400, { error: "Only pending orders can be deleted" });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+});
+
+
+
 routerAdd("GET", "/checkout", (c) => {
     try {
         const renderUtil = require(`${__hooks}/utils/render.js`);
@@ -93,10 +111,42 @@ routerAdd("GET", "/checkout", (c) => {
 
 routerAdd("GET", "/payment/complete", (c) => {
     try {
+        const query = c.request.url.query();
+        const paymentId = query.get("paymentId") || query.get("payment_id") || "Unknown";
+        const code = query.get("code");
+        const message = query.get("message");
+
+        // If there's an error code or message in redirect, it means payment failed or was cancelled.
+        if (code || message) {
+            if (paymentId && paymentId !== "Unknown") {
+                try {
+                    const order = $app.findRecordById("orders", paymentId);
+                    if (order && order.getString("status") === "pending") {
+                        $app.delete(order);
+                    }
+                } catch (e) {
+                    console.error("Failed to delete pending order on payment failure:", e);
+                }
+            }
+            
+            const renderUtil = require(`${__hooks}/utils/render.js`);
+            const failHtml = '<div class="max-w-4xl mx-auto text-center py-20">' +
+                '<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-600 text-white mb-6">' +
+                    '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
+                        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>' +
+                    '</svg>' +
+                '</div>' +
+                '<h1 class="text-4xl font-light mb-4 text-gray-900 dark:text-white">PAYMENT CANCELLED</h1>' +
+                '<p class="text-gray-500 dark:text-gray-400 mb-8">결제가 취소되었거나 실패하였습니다: ' + (message || "사용자 취소") + '</p>' +
+                '<div class="mt-12">' +
+                    '<a href="/checkout" class="bg-bmw-blue text-white hover:bg-blue-700 px-8 py-3 uppercase tracking-widest text-sm font-medium transition duration-300">다시 결제하기</a>' +
+                '</div>' +
+            '</div>';
+            return renderUtil.render(c, failHtml, { title: "Payment Failed - D'roll Shop" });
+        }
+
         const renderUtil = require(`${__hooks}/utils/render.js`);
         let partialHtml = $template.loadFiles(`${__hooks}/views/order-complete.html`).render({});
-        
-        const paymentId = c.request.url.query().get("paymentId") || "Unknown";
         partialHtml = partialHtml.replace("{{.paymentId}}", paymentId);
         
         return renderUtil.render(c, partialHtml, { title: "Order Complete - D'roll Shop" });

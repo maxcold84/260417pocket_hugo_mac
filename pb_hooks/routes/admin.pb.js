@@ -325,9 +325,8 @@ routerAdd("POST", "/api/cms/orders/{id}/approve-cancel", (e) => {
             return e.json(400, { error: "PortOne 환불 처리 실패: " + errMsg });
         }
 
-        // Update order status to refunded
-        order.set("status", "refunded");
-        $app.save(order);
+        // Delete the order entirely so it's not stored in the database / order history
+        $app.delete(order);
 
         return e.json(200, { message: "환불이 완료되었습니다." });
     } catch (err) {

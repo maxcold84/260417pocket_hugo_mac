@@ -30,6 +30,9 @@
                     <input type="text" x-model="infoData.phone" class="w-full bg-white dark:bg-[#111] border border-gray-300 dark:border-bmw-darkBorder text-gray-900 dark:text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
                 </div>
                 {{ partial "form/address.html" (dict "model" "infoData.address" "Page" .) }}
+                <div class="mt-2">
+                    <input type="text" x-model="infoData.address_detail" class="w-full bg-white dark:bg-[#111] border border-gray-300 dark:border-bmw-darkBorder text-gray-900 dark:text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" placeholder="상세 주소 (동·호수 등)" />
+                </div>
                 <button type="submit" :disabled="infoLoading" class="w-full bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
                     <span x-show="!infoLoading">{{ i18n "save_changes" }}</span>
                     <span x-show="infoLoading">{{ i18n "processing" }}</span>
@@ -80,7 +83,7 @@
                 infoLoading: false,
                 infoSuccess: '',
                 infoError: '',
-                infoData: { email: '', nickname: '', phone: '', address: '' },
+                infoData: { email: '', nickname: '', phone: '', address: '', address_detail: '' },
                 
                 pwdLoading: false,
                 pwdSuccess: '',
@@ -101,6 +104,7 @@
                         this.infoData.nickname = this.user.nickname || '';
                         this.infoData.phone = this.user.phone || '';
                         this.infoData.address = this.user.address || '';
+                        this.infoData.address_detail = this.user.address_detail || '';
                     } catch (e) {
                         this.pb.authStore.clear();
                         window.location.href = '/login';
@@ -115,7 +119,8 @@
                         const updated = await this.pb.collection('users').update(this.user.id, {
                             nickname: this.infoData.nickname,
                             phone: this.infoData.phone,
-                            address: this.infoData.address
+                            address: this.infoData.address,
+                            address_detail: this.infoData.address_detail
                         });
                         this.user = updated;
                         this.infoSuccess = '{{ i18n "profile_updated" }}';
