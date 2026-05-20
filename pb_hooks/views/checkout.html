@@ -7,22 +7,55 @@
     </template>
 
     <template x-if="items.length > 0">
-        <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-6 rounded-sm">
-            <h2 class="text-xl font-light mb-6 text-gray-900 dark:text-white">Payment Details</h2>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">Order Total</label>
-                    <div class="text-2xl font-medium text-gray-900 dark:text-white" x-text="'₩' + subtotal.toLocaleString()"></div>
+        <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-6 rounded-sm space-y-8">
+            <!-- Delivery Information Section -->
+            <div>
+                <h2 class="text-xl font-light mb-6 text-gray-900 dark:text-white pb-2 border-b border-gray-100 dark:border-bmw-darkBorder">배송지 정보 (Delivery Details)</h2>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">수령인 성함 <span class="text-red-500">*</span></label>
+                            <input type="text" id="recipientName" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none transition duration-150" placeholder="홍길동" x-model="recipientName" required />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">연락처 <span class="text-red-500">*</span></label>
+                            <input type="tel" id="recipientPhone" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none transition duration-150" placeholder="010-1234-5678" x-model="recipientPhone" required />
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <div id="address-form-placeholder"></div>
+                        <input type="text" id="shippingAddressDetail" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none transition duration-150" placeholder="상세 주소 (동·호수 등)" x-model="shippingAddressDetail" />
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">배송 요청사항 (선택)</label>
+                        <input type="text" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none transition duration-150" placeholder="문 앞에 놓아주세요, 배송 전 연락 바랍니다 등" x-model="shippingMemo" />
+                    </div>
                 </div>
-                <!-- Buyer Email (required for Inicis/KCP) -->
-                <div class="mt-4" x-show="selectedMethod !== 'kakaopay'">
-                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">구매자 이메일</label>
-                    <input type="email" class="w-full border rounded-sm p-2 mb-4" placeholder="example@domain.com" x-model="buyerEmail" required />
-                    
-                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">구매자 휴대폰 번호</label>
-                    <input type="tel" class="w-full border rounded-sm p-2" placeholder="010-1234-5678" x-model="buyerPhone" required />
+            </div>
+
+            <!-- Payment Details Section -->
+            <div>
+                <h2 class="text-xl font-light mb-6 text-gray-900 dark:text-white pb-2 border-b border-gray-100 dark:border-bmw-darkBorder">결제 금액</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">최종 결제 금액</label>
+                        <div class="text-3xl font-bold text-bmw-blue" x-text="'₩' + subtotal.toLocaleString()"></div>
+                    </div>
+                    <!-- Buyer Email (required for Inicis/KCP) -->
+                    <div class="mt-4" x-show="selectedMethod !== 'kakaopay'">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">결제용 이메일 <span class="text-red-500">*</span></label>
+                                <input type="email" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="example@domain.com" x-model="buyerEmail" required />
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">결제용 휴대폰 번호 <span class="text-red-500">*</span></label>
+                                <input type="tel" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="010-1234-5678" x-model="buyerPhone" required />
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                </div>
+            </div>
             
             <h2 class="text-xl font-light mb-6 text-gray-900 dark:text-white">Payment Method</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -60,6 +93,11 @@ function checkoutPage() {
         items: JSON.parse(localStorage.getItem('cart') || '[]'),
         buyerEmail: '',
         buyerPhone: '',
+        recipientName: '',
+        recipientPhone: '',
+        shippingAddress: '',
+        shippingAddressDetail: '',
+        shippingMemo: '',
         
         async init() {
             try {
@@ -77,6 +115,9 @@ function checkoutPage() {
                         const user = await res.json();
                         if (user.phone && !this.buyerPhone) this.buyerPhone = user.phone;
                         if (user.email && !this.buyerEmail) this.buyerEmail = user.email;
+                        if (user.name && !this.recipientName) this.recipientName = user.name;
+                        if (user.phone && !this.recipientPhone) this.recipientPhone = user.phone;
+                        if (user.address && !this.shippingAddress) this.shippingAddress = user.address;
                         
                         // Update local storage with fresh data just in case
                         authData.record = user;
@@ -109,6 +150,26 @@ function checkoutPage() {
             const channelKey = this.channelKeys[this.selectedMethod];
             if (!channelKey) {
                 alert("선택하신 결제 수단의 채널 키가 설정되지 않았습니다.");
+                return;
+            }
+
+            // Delivery validation
+            if (!this.recipientName) {
+                alert("수령인 성함은 필수 입력입니다.");
+                const nameInput = document.getElementById('recipientName');
+                if (nameInput) nameInput.focus();
+                return;
+            }
+            if (!this.recipientPhone) {
+                alert("수령인 연락처는 필수 입력입니다.");
+                const phoneInput = document.getElementById('recipientPhone');
+                if (phoneInput) phoneInput.focus();
+                return;
+            }
+            if (!this.shippingAddress) {
+                alert("배송지 주소는 필수 입력입니다.");
+                const addrInput = document.getElementById('shippingAddress');
+                if (addrInput) addrInput.focus();
                 return;
             }
 
@@ -146,7 +207,19 @@ function checkoutPage() {
                 const res = await fetch('/api/orders/prep', {
                     method: 'POST',
                     headers: headers,
-                    body: JSON.stringify({ cart: this.items })
+                    body: JSON.stringify({ 
+                        cart: this.items,
+                        recipientName: this.recipientName,
+                        recipientPhone: this.recipientPhone,
+                        shippingAddress: this.shippingAddress,
+                        shippingAddressDetail: this.shippingAddressDetail,
+                        shippingMemo: this.shippingMemo,
+                        guestInfo: {
+                            name: this.recipientName,
+                            phone: this.recipientPhone,
+                            address: this.shippingAddress + " " + this.shippingAddressDetail
+                        }
+                    })
                 });
                 
                 const data = await res.json();
@@ -164,7 +237,7 @@ function checkoutPage() {
                     totalAmount: data.amount,
                     currency: "CURRENCY_KRW",
                     customer: {
-                        fullName: "고객"
+                        fullName: this.recipientName || "고객"
                     },
                     redirectUrl: window.location.origin + "/payment/complete",
                 // (PortOne requires email for these methods)

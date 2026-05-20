@@ -189,7 +189,7 @@
 
                     <!-- Orders Tab -->
                     <template x-if="currentTab === 'orders'">
-                        <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden">
+                        <div class="bg-white shadow-sm rounded border border-gray-200 overflow-x-auto">
                             <!-- Search Bar -->
                             <div class="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                                 <div class="relative w-full max-w-md">
@@ -197,7 +197,7 @@
                                     <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                                 </div>
                             </div>
-                            <table class="min-w-full divide-y divide-gray-200">
+                            <table class="min-w-full divide-y divide-gray-200 min-w-[950px]">
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
@@ -221,13 +221,13 @@
                                                     'text-orange-600 font-bold': order.status === 'cancel_requested',
                                                     'text-red-600': order.status === 'cancelled' || order.status === 'refunded'
                                                 }">
-                                                    <option value="pending">Pending</option>
-                                                    <option value="paid">Paid</option>
+                                                    <option value="pending">결제대기</option>
+                                                    <option value="paid">결제완료</option>
                                                     <option value="cancel_requested">🔴 취소요청</option>
-                                                    <option value="shipping">Shipping</option>
-                                                    <option value="completed">Completed</option>
-                                                    <option value="cancelled">Cancelled</option>
-                                                    <option value="refunded">Refunded</option>
+                                                    <option value="shipping">배송중</option>
+                                                    <option value="completed">배송완료</option>
+                                                    <option value="cancelled">취소</option>
+                                                    <option value="refunded">환불</option>
                                                 </select>
                                             </td>
                                             <td class="px-6 py-4 text-sm text-gray-500">
@@ -235,6 +235,9 @@
                                                 <div class="text-xs text-gray-400" x-show="order.portone_tx_id" x-text="'Tx: ' + order.portone_tx_id"></div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                                <a :href="'/cms/orders/' + order.id" class="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition duration-200">
+                                                    상세보기
+                                                </a>
                                                 <template x-if="order.status === 'cancel_requested' && cancelConfirmId !== order.id">
                                                     <button @click="cancelConfirmId = order.id"
                                                             class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 text-xs rounded transition">
@@ -426,7 +429,7 @@
         </template>
 
     <script>
-        const pb = new PocketBase('http://127.0.0.1:8090');
+        const pb = new PocketBase(window.location.origin);
 
         function cmsApp() {
             return {
@@ -471,6 +474,7 @@
                 },
                 init() {
                     if (this.isLoggedIn) {
+                        document.cookie = pb.authStore.exportToCookie({ secure: false, httpOnly: false });
                         this.fetchProducts();
                     }
                     // Auto-slugify new product name (supports Korean IME)
@@ -511,6 +515,8 @@
                         } else {
                             await pb.admins.authWithPassword(this.email, this.password);
                         }
+                        // Save authentication state in a cookie for SSR routes
+                        document.cookie = pb.authStore.exportToCookie({ secure: false, httpOnly: false });
                         this.isLoggedIn = true;
                         this.fetchProducts();
                     } catch (err) {
@@ -521,6 +527,7 @@
                 },
                 logout() {
                     pb.authStore.clear();
+                    document.cookie = 'pb_auth=; Max-Age=0; path=/';
                     this.isLoggedIn = false;
                     window.location.href = '/';
                 },

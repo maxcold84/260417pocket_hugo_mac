@@ -8,7 +8,7 @@ routerAdd("POST", "/api/orders/prep", (e) => {
             return e.json(400, { error: "Cart is empty" });
         }
 
-        const userId = e.auth ? e.auth.id : null;
+        const userId = (e.auth && e.auth.collection().name === "users") ? e.auth.id : null;
         let subtotal = 0;
         let itemsToSave = [];
 
@@ -36,6 +36,11 @@ routerAdd("POST", "/api/orders/prep", (e) => {
         let newOrder = new Record(ordersCollection);
         newOrder.set("total_amount", subtotal);
         newOrder.set("status", "pending");
+        newOrder.set("recipient_name", data.recipientName || "");
+        newOrder.set("recipient_phone", data.recipientPhone || "");
+        newOrder.set("shipping_address", data.shippingAddress || "");
+        newOrder.set("shipping_address_detail", data.shippingAddressDetail || "");
+        newOrder.set("shipping_memo", data.shippingMemo || "");
         if (userId) {
             newOrder.set("user", userId);
         } else {
@@ -64,7 +69,9 @@ routerAdd("POST", "/api/orders/prep", (e) => {
 routerAdd("GET", "/checkout", (c) => {
     try {
         const renderUtil = require(`${__hooks}/utils/render.js`);
-        const partialHtml = $template.loadFiles(`${__hooks}/views/checkout.html`).render({
+        const addressCompiler = require(`${__hooks}/utils/address_compiler.js`);
+        
+        let partialHtml = $template.loadFiles(`${__hooks}/views/checkout.html`).render({
             portoneStoreId: $os.getenv("PORTONE_STORE_ID") || "store-placeholder",
             channelKeyKakaopay: $os.getenv("PORTONE_CHANNEL_KEY_KAKAOPAY") || "",
             channelKeyInicis: $os.getenv("PORTONE_CHANNEL_KEY_INICIS") || "",
@@ -72,6 +79,14 @@ routerAdd("GET", "/checkout", (c) => {
             userEmail: c.auth ? c.auth.getString("email") : "",
             userPhone: c.auth ? c.auth.getString("phone") : ""
         });
+        
+        // Dynamic Lang selection & compile
+        const lang = c.request.url.query().get("lang") || "ko-kr";
+        const addressHtml = addressCompiler.compile("shippingAddress", "light", lang);
+        
+        // Inject Hugo compiled address search HTML into placeholder
+        partialHtml = partialHtml.replace('<div id="address-form-placeholder"></div>', addressHtml);
+        
         return renderUtil.render(c, partialHtml, { title: "Checkout - D'roll Shop" });
     } catch(err) { return c.json(500, { error: err.toString() }); }
 });

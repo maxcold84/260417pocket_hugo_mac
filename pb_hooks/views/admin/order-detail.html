@@ -61,21 +61,29 @@
                     <div>
                         <p class="text-gray-500 mb-1">수령인</p>
                         <p class="font-medium text-gray-900 dark:text-white">
-                            {{if .order.user}} {{.order.expand.user.name}} {{else}} {{.order.guest_info.name}} {{end}}
+                            {{if .order.recipient_name}}{{.order.recipient_name}}{{else if .order.user}} {{.order.expand.user.name}} {{else}} {{.order.guest_info.name}} {{end}}
                         </p>
                     </div>
                     <div>
                         <p class="text-gray-500 mb-1">연락처</p>
                         <p class="font-medium text-gray-900 dark:text-white">
-                            {{if .order.user}} {{.order.expand.user.phone}} {{else}} {{.order.guest_info.phone}} {{end}}
+                            {{if .order.recipient_phone}}{{.order.recipient_phone}}{{else if .order.user}} {{.order.expand.user.phone}} {{else}} {{.order.guest_info.phone}} {{end}}
                         </p>
                     </div>
                     <div class="col-span-2">
                         <p class="text-gray-500 mb-1">주소</p>
                         <p class="font-medium text-gray-900 dark:text-white">
-                            {{if .order.user}} {{.order.expand.user.address}} {{else}} {{.order.guest_info.address}} {{end}}
+                            {{if .order.shipping_address}}{{.order.shipping_address}} {{.order.shipping_address_detail}}{{else if .order.user}} {{.order.expand.user.address}} {{else}} {{.order.guest_info.address}} {{end}}
                         </p>
                     </div>
+                    {{if .order.shipping_memo}}
+                    <div class="col-span-2">
+                        <p class="text-gray-500 mb-1">배송 메모</p>
+                        <p class="font-medium text-gray-900 dark:text-white font-italic">
+                            {{.order.shipping_memo}}
+                        </p>
+                    </div>
+                    {{end}}
                 </div>
             </div>
         </div>
@@ -93,6 +101,7 @@
                             <option value="paid" {{if eq .order.status "paid"}}selected{{end}}>Paid (결제완료)</option>
                             <option value="shipping" {{if eq .order.status "shipping"}}selected{{end}}>Shipping (배송중)</option>
                             <option value="completed" {{if eq .order.status "completed"}}selected{{end}}>Completed (배송완료)</option>
+                            <option value="cancel_requested" {{if eq .order.status "cancel_requested"}}selected{{end}}>Cancel Requested (취소요청)</option>
                             <option value="cancelled" {{if eq .order.status "cancelled"}}selected{{end}}>Cancelled (취소)</option>
                             <option value="refunded" {{if eq .order.status "refunded"}}selected{{end}}>Refunded (환불)</option>
                         </select>
@@ -108,13 +117,37 @@
                         <input type="text" name="tracking_number" value="{{.order.tracking_number}}" placeholder="숫자만 입력" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
                     </div>
 
+                    <hr class="border-gray-200 dark:border-bmw-darkBorder my-4">
+                    <h3 class="text-xs font-bold uppercase text-gray-500 mb-2">배송지 편집</h3>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">수령인 성함</label>
+                        <input type="text" name="recipient_name" value="{{.order.recipient_name}}" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">연락처</label>
+                        <input type="text" name="recipient_phone" value="{{.order.recipient_phone}}" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">배송지 주소</label>
+                        <input type="text" name="shipping_address" value="{{.order.shipping_address}}" placeholder="기본 주소" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm mb-2">
+                        <input type="text" name="shipping_address_detail" value="{{.order.shipping_address_detail}}" placeholder="상세 주소" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">배송 요청사항</label>
+                        <textarea name="shipping_memo" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm" rows="2">{{.order.shipping_memo}}</textarea>
+                    </div>
+
                     <button type="submit" class="w-full bg-bmw-blue hover:bg-blue-700 text-white font-bold py-3 rounded transition duration-300">
                         변경사항 저장
                     </button>
                 </form>
             </div>
 
-            <div class="bg-gray-50 dark:bg-black/30 rounded-xl p-6 border border-dashed border-gray-200 dark:border-bmw-darkBorder">
+            <div class="bg-gray-50 dark:bg-black/30 rounded-xl p-6 border border-dashed border-gray-200 dark:border-bmw-darkBorder mt-8">
                 <h3 class="text-xs font-bold uppercase text-gray-500 mb-4">결제 정보</h3>
                 <div class="space-y-2 text-xs">
                     <p class="flex justify-between"><span class="text-gray-400">주문 ID:</span> <span class="font-mono">{{.order.id}}</span></p>
@@ -122,6 +155,21 @@
                     <p class="flex justify-between"><span class="text-gray-400">주문일시:</span> <span>{{.order.created}}</span></p>
                 </div>
             </div>
+
+            {{if or (eq .order.status "paid") (eq .order.status "cancel_requested")}}
+            <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-6 border border-red-200 dark:border-red-900/50 mt-8">
+                <h3 class="text-xs font-bold uppercase text-red-600 dark:text-red-400 mb-4">환불 / 취소 처리</h3>
+                <p class="text-xs text-red-600 dark:text-red-400 mb-4">포트원 결제 취소 API를 호출하여 고객에게 실제 환불 처리를 진행합니다.</p>
+                <button type="button" 
+                    hx-post="/api/cms/orders/{{.order.id}}/approve-cancel" 
+                    hx-swap="none" 
+                    hx-on::after-request="if(event.detail.successful) { alert('환불이 완료되었습니다.'); window.location.reload(); } else { alert(JSON.parse(event.detail.xhr.responseText).error || '오류가 발생했습니다.'); }"
+                    hx-confirm="정말 이 주문을 취소하고 환불하시겠습니까?"
+                    class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded transition duration-300">
+                    결제 취소 및 환불 승인
+                </button>
+            </div>
+            {{end}}
         </div>
     </div>
 </div>

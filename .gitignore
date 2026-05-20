@@ -17,3 +17,5 @@ hugo/content/products/
 # Misc
 *.bak
 .env
+token.json
+

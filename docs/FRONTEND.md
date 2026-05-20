@@ -53,3 +53,11 @@
 15. **PocketBase v0.36 REST API Sort Limitation**:
     - Multi-field sort parameters (e.g., `sort=sort_order,created`) cause a 500 error in PocketBase v0.36. Only single-field sort is supported via the REST API.
     - **Rule:** Always use single-field sort in `pb.collection().getList()` options: `{ sort: 'sort_order' }`. If secondary sorting is needed, sort client-side after fetching.
+
+16. **JS SDK Cookie Export (`exportToCookie`) & SSR Integration Gotchas**:
+    - By default, calling `pb.authStore.exportToCookie({ secure: false })` outputs a cookie header string that sets `HttpOnly` to `true`. Browsers **strictly prevent** client-side JavaScript (`document.cookie = ...`) from writing `HttpOnly` cookies.
+    - **Rule:** When exporting cookies client-side for SSR route verification, you **must explicitly pass `httpOnly: false`**:
+      ```javascript
+      document.cookie = pb.authStore.exportToCookie({ secure: false, httpOnly: false });
+      ```
+    - **Rule:** In single-page app (SPA) environments where Alpine.js restores credentials directly from `localStorage` on page load, the manual `login()` function is completely bypassed. Ensure cookie exports are also placed inside the Alpine.js component's `init()` method to guarantee session synchronization whenever the admin refreshes or directly navigates to an SSR page.

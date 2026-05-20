@@ -95,6 +95,16 @@
 
                 <!-- Order Footer: Total + Tracking + Cancel Actions -->
                 <div class="px-6 py-4 bg-gray-50 dark:bg-black/30 border-t border-gray-100 dark:border-bmw-darkBorder">
+                    <!-- Delivery Details inside Order -->
+                    <div class="mb-4 text-xs border-b border-gray-200/50 dark:border-bmw-darkBorder/50 pb-3 space-y-1 text-gray-600 dark:text-gray-400" x-show="order.recipient_name || order.shipping_address">
+                        <div class="font-bold text-gray-700 dark:text-gray-300 mb-1">배송지 정보</div>
+                        <div>수령인: <span class="text-gray-900 dark:text-white" x-text="order.recipient_name || ''"></span> <template x-if="order.recipient_phone"><span x-text="'(' + order.recipient_phone + ')'"></span></template></div>
+                        <div>배송 주소: <span class="text-gray-900 dark:text-white" x-text="(order.shipping_address || '') + ' ' + (order.shipping_address_detail || '')"></span></div>
+                        <template x-if="order.shipping_memo">
+                            <div>배송 요청사항: <span class="italic text-gray-900 dark:text-white" x-text="order.shipping_memo || ''"></span></div>
+                        </template>
+                    </div>
+
                     <div class="flex flex-wrap items-center justify-between gap-4">
                         <div class="flex items-center gap-4">
                             <template x-if="order.courier_name || order.tracking_number">

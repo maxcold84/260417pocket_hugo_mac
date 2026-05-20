@@ -8,7 +8,8 @@
     </div>
 
     <div class="bg-white dark:bg-bmw-surface rounded-xl border border-gray-200 dark:border-bmw-darkBorder overflow-hidden shadow-sm">
-        <table class="w-full text-left border-collapse">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse min-w-[800px]">
             <thead>
                 <tr class="bg-gray-50 dark:bg-black/50 border-b border-gray-200 dark:border-bmw-darkBorder">
                     <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">주문일시</th>
@@ -50,7 +51,9 @@
                         </span>
                     </td>
                     <td class="px-6 py-4 text-sm">
-                        <a href="/cms/orders/{{.id}}" class="text-bmw-blue hover:underline font-medium">상세보기</a>
+                        <a href="/cms/orders/{{.id}}" class="inline-flex items-center justify-center px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition duration-200 shadow-sm">
+                            상세보기
+                        </a>
                     </td>
                 </tr>
                 {{else}}
@@ -60,5 +63,6 @@
                 {{end}}
             </tbody>
         </table>
+        </div>
     </div>
 </div>

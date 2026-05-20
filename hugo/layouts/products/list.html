@@ -15,7 +15,7 @@
 <!-- Catalog Section -->
 <main id="catalog" class="max-w-7xl mx-auto px-4 md:px-8 py-12 md:py-20 flex-1 w-full text-gray-800 dark:text-gray-200">
     {{/* Fetch Products from PocketBase */}}
-    {{ $prodUrl := printf "%sapi/collections/products/records?t=%d" $pbBase now.Unix }}
+    {{ $prodUrl := printf "%sapi/collections/products/records?sort=sort_order&t=%d" $pbBase now.Unix }}
     {{ $data := dict "items" slice }}
     {{ with try (resources.GetRemote $prodUrl) }}
         {{ with .Err }}
