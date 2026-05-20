@@ -28,7 +28,17 @@
                     </div>
                     <div>
                         <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">배송 요청사항 (선택)</label>
-                        <input type="text" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none transition duration-150" placeholder="문 앞에 놓아주세요, 배송 전 연락 바랍니다 등" x-model="shippingMemo" />
+                        <div class="space-y-2">
+                            <select x-model="memoSelect" @change="if (memoSelect !== 'custom') { shippingMemo = memoSelect; } else { shippingMemo = ''; }" class="w-full border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none transition duration-150">
+                                <option value="">배송 요청사항을 선택해주세요</option>
+                                <option value="문 앞에 놓아주세요">문 앞에 놓아주세요</option>
+                                <option value="배송 전 연락 바랍니다">배송 전 연락 바랍니다</option>
+                                <option value="경비실에 맡겨주세요">경비실에 맡겨주세요</option>
+                                <option value="택배함에 넣어주세요">택배함에 넣어주세요</option>
+                                <option value="custom">직접 입력 (상세 입력)</option>
+                            </select>
+                            <input x-show="memoSelect === 'custom'" type="text" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none transition duration-150" placeholder="배송 요청사항을 직접 입력해주세요" x-model="shippingMemo" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -98,34 +108,88 @@ function checkoutPage() {
         shippingAddress: '',
         shippingAddressDetail: '',
         shippingMemo: '',
+        memoSelect: '',
         
         async init() {
+            // Load saved guest shipping details from localStorage as baseline
+            try {
+                const savedShipping = localStorage.getItem('guest_shipping_details');
+                if (savedShipping) {
+                    const parsed = JSON.parse(savedShipping);
+                    if (parsed.recipientName) this.recipientName = parsed.recipientName;
+                    if (parsed.recipientPhone) this.recipientPhone = parsed.recipientPhone;
+                    if (parsed.shippingAddress) this.shippingAddress = parsed.shippingAddress;
+                    if (parsed.shippingAddressDetail) this.shippingAddressDetail = parsed.shippingAddressDetail;
+                    if (parsed.shippingMemo) this.shippingMemo = parsed.shippingMemo;
+                }
+            } catch (e) {
+                console.error("Failed to load saved shipping details:", e);
+            }
+
             try {
                 const authStr = localStorage.getItem('pocketbase_auth');
-                if (!authStr) return;
-                const authData = JSON.parse(authStr);
-                const token = authData.token;
-                const userId = authData.record?.id || authData.model?.id;
-                
-                if (token && userId) {
-                    const res = await fetch('/api/collections/users/records/' + userId, {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
-                    if (res.ok) {
-                        const user = await res.json();
-                        if (user.phone && !this.buyerPhone) this.buyerPhone = user.phone;
-                        if (user.email && !this.buyerEmail) this.buyerEmail = user.email;
-                        if (user.name && !this.recipientName) this.recipientName = user.name;
-                        if (user.phone && !this.recipientPhone) this.recipientPhone = user.phone;
-                        if (user.address && !this.shippingAddress) this.shippingAddress = user.address;
-                        
-                        // Update local storage with fresh data just in case
-                        authData.record = user;
-                        localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
+                if (!authStr) {
+                    this.updateMemoSelect();
+                } else {
+                    const authData = JSON.parse(authStr);
+                    const token = authData.token;
+                    const userId = authData.record?.id || authData.model?.id;
+                    
+                    if (token && userId) {
+                        const res = await fetch('/api/collections/users/records/' + userId, {
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        });
+                        if (res.ok) {
+                            const user = await res.json();
+                            if (user.phone && !this.buyerPhone) this.buyerPhone = user.phone;
+                            if (user.email && !this.buyerEmail) this.buyerEmail = user.email;
+                            if (user.name && !this.recipientName) this.recipientName = user.name;
+                            if (user.phone && !this.recipientPhone) this.recipientPhone = user.phone;
+                            if (user.address && !this.shippingAddress) this.shippingAddress = user.address;
+                            
+                            // Update local storage with fresh data just in case
+                            authData.record = user;
+                            localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
+                        }
                     }
+                    this.updateMemoSelect();
                 }
             } catch (err) {
                 console.error("Failed to fetch fresh user data:", err);
+                this.updateMemoSelect();
+            }
+
+            // Watch fields to save them locally reactively
+            this.$watch('recipientName', value => this.saveShippingLocally());
+            this.$watch('recipientPhone', value => this.saveShippingLocally());
+            this.$watch('shippingAddress', value => this.saveShippingLocally());
+            this.$watch('shippingAddressDetail', value => this.saveShippingLocally());
+            this.$watch('shippingMemo', value => {
+                this.saveShippingLocally();
+                this.updateMemoSelect();
+            });
+        },
+        
+        saveShippingLocally() {
+            try {
+                localStorage.setItem('guest_shipping_details', JSON.stringify({
+                    recipientName: this.recipientName,
+                    recipientPhone: this.recipientPhone,
+                    shippingAddress: this.shippingAddress,
+                    shippingAddressDetail: this.shippingAddressDetail,
+                    shippingMemo: this.shippingMemo
+                }));
+            } catch(e) {}
+        },
+
+        updateMemoSelect() {
+            const standards = ["문 앞에 놓아주세요", "배송 전 연락 바랍니다", "경비실에 맡겨주세요", "택배함에 넣어주세요"];
+            if (!this.shippingMemo) {
+                this.memoSelect = "";
+            } else if (standards.includes(this.shippingMemo)) {
+                this.memoSelect = this.shippingMemo;
+            } else {
+                this.memoSelect = "custom";
             }
         },
         
