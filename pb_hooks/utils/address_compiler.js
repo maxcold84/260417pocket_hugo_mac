@@ -87,6 +87,11 @@ module.exports = {
         mainMarkup = mainMarkup.replace(/\{\{\s*\$model\s*\}\}/g, model);
 
         // Stitch markup and script block back together
-        return mainMarkup + "\n" + scriptBlock;
+        let compiled = mainMarkup + "\n" + scriptBlock;
+
+        // 7. Remove any leftover Hugo/Go template curly braces {{ ... }} globally
+        compiled = compiled.replace(/\{\{[\s\S]*?\}\}/g, "");
+
+        return compiled;
     }
 };
