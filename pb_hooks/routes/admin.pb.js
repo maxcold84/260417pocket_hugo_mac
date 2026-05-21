@@ -1,8 +1,19 @@
-
 routerAdd("POST", "/api/cms/rebuild", (e) => {
     try {
+        const cmsUtil = require(`${__hooks}/utils/cms.js`);
+
+        // Step 0: Sync categories from hugo.toml to DB first
+        try {
+            const tomlBytes = $os.readFile("hugo/hugo.toml");
+            const tomlBinaryStr = Array.from(tomlBytes).map(b => String.fromCharCode(b)).join('');
+            const tomlStr = decodeURIComponent(escape(tomlBinaryStr));
+            cmsUtil.syncCategoriesFromToml($app, tomlStr);
+        } catch (catErr) {
+            console.error("Failed to sync categories during rebuild:", catErr);
+        }
+
         // Step 1: Get all current products from DB — collect slugs and image filenames
-        const products = $app.findRecordsByFilter("products", "1=1", "+sort_order", 1000, 0);
+        const products = $app.findRecordsByFilter("products", "1=1", "sort_order", 1000, 0);
         const dbSlugs = {};
         const usedImagePrefixes = []; // original image filenames used by active products
         for (let p of products) {
@@ -97,15 +108,23 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
 
             const sortOrder = p.getInt("sort_order");
             const discountPrice = p.getInt("discount_price");
-            const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + '\ndiscount_price: ' + discountPrice + '\nweight: ' + sortOrder + imageLine + '\n---\n' + description + '\n';
+            const categoryId = p.getString("category");
+            let categorySlug = "";
+            if (categoryId) {
+                try {
+                    const catRec = $app.findRecordById("categories", categoryId);
+                    categorySlug = catRec.getString("slug");
+                } catch (e) {
+                    console.error("Failed to find category for product", e);
+                }
+            }
+            const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + '\ndiscount_price: ' + discountPrice + '\nweight: ' + sortOrder + '\ncategory: "' + categorySlug + '"' + imageLine + '\n---\n' + description + '\n';
             $os.writeFile("hugo/content/products/" + slug + ".md", content, 0o644);
             syncedCount++;
         }
 
         // Step 6: Run Hugo with --ignoreCache
-        const hugoCmd = $os.cmd("hugo", "--ignoreCache");
-        hugoCmd.dir = "hugo";
-        hugoCmd.run();
+        cmsUtil.runHugo();
 
         return e.json(200, {
             message: "Sync complete: " + syncedCount + " products synced, " + deletedProductCount + " pages removed, " + deletedImageCount + " orphaned images cleaned."
@@ -115,45 +134,6 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
         return e.json(500, { error: String(err) });
     }
 }, $apis.requireSuperuserAuth());
-routerAdd("GET", "/cms", (e) => {
-    try {
-        const authUtil = require(`${__hooks}/utils/auth.js`);
-        const superuser = authUtil.getSuperuserFromCookie(e);
-        if (!superuser) {
-            return e.json(401, { error: "The request requires valid record authorization token." });
-        }
-        const renderUtil = require(`${__hooks}/utils/render.js`);
-        const partialHtml = $template.loadFiles(`${__hooks}/views/admin/dashboard.html`).render({});
-        return renderUtil.render(e, partialHtml, { title: "CMS 통합 관리" });
-    } catch (err) {
-        return e.json(500, { error: err.toString() });
-    }
-});
-
-routerAdd("GET", "/cms/settings", (e) => {
-    try {
-        const authUtil = require(`${__hooks}/utils/auth.js`);
-        const superuser = authUtil.getSuperuserFromCookie(e);
-        if (!superuser) {
-            return e.json(401, { error: "The request requires valid record authorization token." });
-        }
-        const renderUtil = require(`${__hooks}/utils/render.js`);
-        let tomlStr = "";
-        try {
-            const bytes = $os.readFile("hugo/hugo.toml");
-            const binaryStr = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
-            tomlStr = decodeURIComponent(escape(binaryStr));
-        } catch (err) {
-            console.error("Failed to read hugo.toml", err);
-        }
-        const partialHtml = $template.loadFiles(`${__hooks}/views/admin/settings.html`).render({
-            toml: tomlStr
-        });
-        return renderUtil.render(e, partialHtml, { title: "사이트 설정 - CMS" });
-    } catch (err) {
-        return e.json(500, { error: err.toString() });
-    }
-});
 
 routerAdd("GET", "/api/cms/settings", (e) => {
     try {
@@ -173,6 +153,7 @@ routerAdd("GET", "/api/cms/settings", (e) => {
 
 routerAdd("POST", "/api/cms/settings/update", (e) => {
     try {
+        const cmsUtil = require(`${__hooks}/utils/cms.js`);
         const formData = e.requestInfo().body;
         const newToml = formData.toml;
         if (typeof newToml !== "string") {
@@ -180,43 +161,28 @@ routerAdd("POST", "/api/cms/settings/update", (e) => {
         }
         
         $os.writeFile("hugo/hugo.toml", newToml, 0o644);
+
+        // Sync categories to database!
+        try {
+            cmsUtil.syncCategoriesFromToml($app, newToml);
+        } catch (catErr) {
+            console.error("Failed to sync categories from TOML:", catErr);
+        }
         
         // Trigger Hugo rebuild
-        const hugoCmd = $os.cmd("hugo", "--ignoreCache");
-        hugoCmd.dir = "hugo";
-        hugoCmd.run();
+        let hugoWarning = "";
+        try {
+            cmsUtil.runHugo();
+        } catch (hugoErr) {
+            console.error("Hugo build failed after settings update:", hugoErr);
+            hugoWarning = " (주의: 설정이 저장되었으나 사이트 자동 빌드에 실패했습니다. 환경 설정을 확인하거나 수동 빌드를 시도하세요.)";
+        }
         
-        return e.json(200, { message: "Settings saved successfully" });
+        return e.json(200, { message: "Settings saved successfully." + hugoWarning });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }
 }, $apis.requireSuperuserAuth());
-
-routerAdd("GET", "/cms/orders", (e) => {
-    try {
-        const authUtil = require(`${__hooks}/utils/auth.js`);
-        const superuser = authUtil.getSuperuserFromCookie(e);
-        if (!superuser) {
-            return e.json(401, { error: "The request requires valid record authorization token." });
-        }
-        const renderUtil = require(`${__hooks}/utils/render.js`);
-        const orders = $app.findRecordsByFilter("orders", "1=1", "-id", 100, 0);
-        const plainOrders = orders.map(order => {
-            try { $app.expandRecord(order, ["user"], null); } catch (e) {}
-            const plain = order.publicExport();
-            plain.expand = {
-                user: order.expandedOne("user") ? order.expandedOne("user").publicExport() : null
-            };
-            return plain;
-        });
-        const partialHtml = $template.loadFiles(`${__hooks}/views/admin/order-list.html`).render({
-            orders: plainOrders
-        });
-        return renderUtil.render(e, partialHtml, { title: "주문 관리 - CMS" });
-    } catch (err) {
-        return e.json(500, { error: err.toString() });
-    }
-});
 
 routerAdd("GET", "/cms/orders/{id}", (e) => {
     try {
@@ -248,11 +214,11 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
             return plain;
         });
 
-        const partialHtml = $template.loadFiles(`${__hooks}/views/admin/order-detail.html`).render({
+        const fullHtml = $template.loadFiles(`${__hooks}/views/admin/order-detail.html`).render({
             order: plainOrder,
             items: itemsWithTotals
         });
-        return renderUtil.render(e, partialHtml, { title: "주문 상세 - CMS" });
+        return e.html(200, fullHtml);
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }
@@ -329,6 +295,115 @@ routerAdd("POST", "/api/cms/orders/{id}/approve-cancel", (e) => {
         $app.delete(order);
 
         return e.json(200, { message: "환불이 완료되었습니다." });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());
+
+routerAdd("POST", "/api/cms/categories/add", (e) => {
+    try {
+        const cmsUtil = require(`${__hooks}/utils/cms.js`);
+        const formData = e.requestInfo().body;
+        const name = formData.name;
+        const nameEn = formData.nameEn || name;
+        const slug = formData.slug ? formData.slug.toLowerCase().replace(/[^a-z0-9-]+/g, '-') : "";
+        const icon = formData.icon || "lightning";
+
+        if (!name || !slug) {
+            return e.json(400, { error: "카테고리 명과 슬러그는 필수 입력 항목입니다." });
+        }
+
+        // Read hugo.toml
+        const tomlBytes = $os.readFile("hugo/hugo.toml");
+        const tomlBinaryStr = Array.from(tomlBytes).map(b => String.fromCharCode(b)).join('');
+        const tomlStr = decodeURIComponent(escape(tomlBinaryStr));
+
+        // Check duplicate slug
+        if (tomlStr.includes('slug = "' + slug + '"')) {
+            return e.json(400, { error: "이미 존재하는 카테고리 슬러그입니다." });
+        }
+
+        // Append new category block
+        const newBlock = `\n[[params.categories]]\nname = "${name}"\nnameEn = "${nameEn}"\nslug = "${slug}"\nicon = "${icon}"\n`;
+        const updatedToml = tomlStr + newBlock;
+        $os.writeFile("hugo/hugo.toml", updatedToml, 0o644);
+
+        // Sync and Rebuild
+        cmsUtil.syncCategoriesFromToml($app, updatedToml);
+
+        let hugoWarning = "";
+        try {
+            cmsUtil.runHugo();
+        } catch (hugoErr) {
+            console.error("Hugo build failed after category add:", hugoErr);
+            hugoWarning = " (주의: 카테고리는 DB와 hugo.toml에 추가되었으나 사이트 자동 빌드에 실패했습니다. 환경 설정을 확인하거나 수동 빌드를 시도하세요.)";
+        }
+
+        return e.json(200, { message: "카테고리가 추가되었습니다." + hugoWarning });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());
+
+routerAdd("POST", "/api/cms/categories/delete", (e) => {
+    try {
+        const cmsUtil = require(`${__hooks}/utils/cms.js`);
+        const formData = e.requestInfo().body;
+        const id = formData.id;
+
+        if (!id) {
+            return e.json(400, { error: "카테고리 ID가 제공되지 않았습니다." });
+        }
+
+        // Find database record
+        const catRec = $app.findRecordById("categories", id);
+        const slug = catRec.getString("slug");
+
+        // Read hugo.toml
+        const tomlBytes = $os.readFile("hugo/hugo.toml");
+        const tomlBinaryStr = Array.from(tomlBytes).map(b => String.fromCharCode(b)).join('');
+        const tomlStr = decodeURIComponent(escape(tomlBinaryStr));
+
+        // Remove block matching slug
+        const parts = tomlStr.split("[[params.categories]]");
+        const header = parts[0];
+        const remainingBlocks = [];
+        for (let i = 1; i < parts.length; i++) {
+            const block = parts[i];
+            const slugMatch = block.match(/slug\s*=\s*"([^"]+)"/);
+            if (slugMatch && slugMatch[1] === slug) {
+                continue; // Skip this block (delete)
+            }
+            remainingBlocks.push(block);
+        }
+
+        let updatedToml = header;
+        if (remainingBlocks.length > 0) {
+            updatedToml += "[[params.categories]]" + remainingBlocks.join("[[params.categories]]");
+        }
+
+        $os.writeFile("hugo/hugo.toml", updatedToml, 0o644);
+
+        // Clear category relation on products
+        const products = $app.findRecordsByFilter("products", "category = '" + id + "'", "", 1000, 0);
+        for (let p of products) {
+            p.set("category", "");
+            $app.save(p);
+        }
+
+        // Delete from database
+        $app.delete(catRec);
+
+        // Rebuild site
+        let hugoWarning = "";
+        try {
+            cmsUtil.runHugo();
+        } catch (hugoErr) {
+            console.error("Hugo build failed after category delete:", hugoErr);
+            hugoWarning = " (주의: 카테고리는 삭제되었으나 사이트 자동 빌드에 실패했습니다. 환경 설정을 확인하거나 수동 빌드를 시도하세요.)";
+        }
+
+        return e.json(200, { message: "카테고리가 삭제되었습니다." + hugoWarning });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }

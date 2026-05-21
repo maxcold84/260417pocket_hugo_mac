@@ -1,7 +1,16 @@
 // Auto-set API rules and ensure cancel_requested status option exists
+
 onBootstrap((e) => {
     e.next();
     try {
+        // Sync categories from TOML first using the new utility module
+        try {
+            const cmsUtil = require(`${__hooks}/utils/cms.js`);
+            cmsUtil.syncCategoriesFromToml(e.app);
+        } catch (catErr) {
+            console.error("[bootstrap] Failed to sync categories from TOML:", catErr);
+        }
+
         // Set orders collection rules: authenticated user can only view their own
         const orders = e.app.findCollectionByNameOrId("orders");
 

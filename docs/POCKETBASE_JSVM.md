@@ -90,3 +90,18 @@
       }
       ```
 
+10. **Sorting Field Name Syntax Error (`GoError: invalid sort field "+field"`)**:
+    - **Issue**: Attempting to sort queries using a leading positive sign `"+"` (e.g. `"+sort_order"`) in `$app.findRecordsByFilter` or client-side fetch sort options triggers a fatal GoError `invalid sort field "+field"` and aborts database transactions.
+    - **Rule**: Never use a `+` prefix for ascending sorting in PocketBase. Ascending sorting is specified by the field name alone without any prefix (e.g. `"sort_order"`). Descending sorting is specified by a `-` prefix (e.g. `"-sort_order"`).
+
+11. **Goja Root Scope Function Deallocation (`ReferenceError: <funcName> is not defined` inside Route/Event Callbacks)**:
+    - **Issue**: Because Goja (PocketBase's JSVM) processes requests in concurrent, sandboxed context threads, functions declared globally at the root scope of `.pb.js` hook files can lose their scope/reference bindings at runtime. This causes fatal `ReferenceError` crashes when async router or event hook callbacks try to invoke them.
+    - **Rule**: Never define helper functions at the root scope of hook files if they are meant to be called inside route/event handlers. Instead:
+      - Define helper functions directly inside the callback handler's local scope, or
+      - Place helper functions in a dedicated module file in `pb_hooks/utils/` (using standard CommonJS `module.exports`), and `require()` them inside the callback scope at execution time (e.g., `const cmsUtil = require(`${__hooks}/utils/cms.js`);`).
+
+12. **Command Environment PATH Mismatch in PocketBase (`$os.cmd` throws executable file not found in $PATH)**:
+    - **Issue**: PocketBase runs inside an isolated, minimal process environment. Path values for custom tools (e.g., Apple Silicon macOS Homebrew path `/opt/homebrew/bin` or standard Linux `/usr/local/bin`) are not present in the process's `$PATH` variable. Running `$os.cmd("executable")` will throw an error and fail.
+    - **Rule**: When executing shell commands from JSVM:
+      - Provide a list of candidate absolute binary paths (e.g., `/opt/homebrew/bin/hugo`, `/usr/local/bin/hugo`) and test/execute them sequentially inside a `try/catch` loop.
+      - **Transaction Safety**: Always wrap external command executions in a local `try/catch` block inside database route handlers (like creation, deletion, or settings updates) to prevent command failures from aborting crucial database transactions. Return a clean `200 OK` with a non-blocking warning message if the tool fails, rather than a fatal `500 Internal Server Error`.

@@ -27,6 +27,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
     <style>
+        [x-cloak] { display: none !important; }
         /* Hide number input spin buttons */
         input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button {
@@ -129,12 +130,29 @@
                     <!-- Products Tab -->
                     <template x-if="currentTab === 'products'">
                         <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden">
+                            <!-- Product Search and Filter Bar -->
+                            <div class="p-4 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-4 items-center justify-between">
+                                <div class="relative w-full max-w-md">
+                                    <input type="text" x-model="productSearchQuery" @input.debounce.500ms="fetchProducts()" placeholder="상품명 또는 슬러그로 검색" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition text-sm bg-white">
+                                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <label class="text-sm font-medium text-gray-600">카테고리 필터:</label>
+                                    <select x-model="cmsCategoryFilter" @change="fetchProducts()" class="border border-gray-300 p-2 py-1.5 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition text-sm bg-white min-w-[150px]">
+                                        <option value="">전체보기</option>
+                                        <template x-for="cat in dbCategories" :key="cat.id">
+                                            <option :value="cat.id" x-text="cat.name"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </div>
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10"></th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "product_image" }}</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "ui_name" }} / {{ i18n "ui_slug" }}</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">카테고리</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "price" }} / {{ i18n "discount_price" }} (₩)</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "stock" }}</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "actions" }}</th>
@@ -165,6 +183,9 @@
                                                 <div class="text-sm text-gray-500" x-text="product.slug"></div>
                                             </td>
                                             <td class="px-4 py-4 whitespace-nowrap">
+                                                <span x-text="product.expand?.category?.name || '미분류'" class="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded"></span>
+                                            </td>
+                                            <td class="px-4 py-4 whitespace-nowrap">
                                                 <div class="text-sm font-medium text-gray-900" :class="{'line-through text-gray-400': product.discount_price > 0}" x-text="product.price.toLocaleString()"></div>
                                                 <template x-if="product.discount_price > 0">
                                                     <div class="text-sm font-bold text-red-600" x-text="product.discount_price.toLocaleString()"></div>
@@ -174,13 +195,24 @@
                                                 <input type="number" x-model.number="product.stock" @change="updateStock(product.id, product.stock)" class="w-20 border border-gray-300 p-1 text-sm rounded text-center">
                                             </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
-                                                <button @click="openEditProductModal(product)" class="text-bmw-blue hover:text-blue-900 font-medium">{{ i18n "edit_product" }}</button>
-                                                <button @click="deleteProduct(product.id)" class="text-red-600 hover:text-red-900">{{ i18n "delete" }}</button>
+                                                <template x-if="deleteProductConfirmId !== product.id">
+                                                    <div class="inline-flex gap-3">
+                                                        <button @click="openEditProductModal(product)" class="text-bmw-blue hover:text-blue-900 font-medium">{{ i18n "edit_product" }}</button>
+                                                        <button @click="deleteProductConfirmId = product.id" class="text-red-600 hover:text-red-900">{{ i18n "delete" }}</button>
+                                                    </div>
+                                                </template>
+                                                <template x-if="deleteProductConfirmId === product.id">
+                                                    <div class="inline-flex items-center gap-2 bg-red-50 border border-red-200 p-1.5 rounded">
+                                                        <span class="text-xs text-red-700 font-medium">정말 삭제할까요?</span>
+                                                        <button @click="deleteProduct(product.id)" class="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded shadow">삭제</button>
+                                                        <button @click="deleteProductConfirmId = ''" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded">취소</button>
+                                                    </div>
+                                                </template>
                                             </td>
                                         </tr>
                                     </template>
                                     <template x-if="products.length === 0">
-                                        <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">{{ i18n "no_products_found" }}</td></tr>
+                                        <tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">{{ i18n "no_products_found" }}</td></tr>
                                     </template>
                                 </tbody>
                             </table>
@@ -341,6 +373,71 @@
                                 <input type="number" x-model.number="newProduct.stock" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                             </div>
                         </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-sm font-medium text-gray-700 uppercase">카테고리</label>
+                                <button type="button" @click="showCatMgmt = !showCatMgmt" class="px-2.5 py-1 text-xs font-medium text-bmw-blue bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition duration-150 flex items-center gap-1 focus:outline-none shadow-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span x-show="!showCatMgmt">카테고리 관리</span>
+                                    <span x-show="showCatMgmt">관리 닫기</span>
+                                </button>
+                            </div>
+                            <select x-model="newProduct.category" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none bg-white">
+                                <option value="">— 선택 안 함 —</option>
+                                <template x-for="cat in dbCategories" :key="cat.id">
+                                    <option :value="cat.id" x-text="cat.name"></option>
+                                </template>
+                            </select>
+
+                            <!-- Inline Category Management Panel -->
+                            <div x-show="showCatMgmt" x-cloak class="mt-3 p-4 bg-gray-50 border border-gray-200 rounded text-sm space-y-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2 text-xs uppercase tracking-wider">새 카테고리 추가</h4>
+                                    <div class="space-y-2">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-[10px] text-gray-500 font-medium mb-1">한글 카테고리 명</label>
+                                                <input type="text" placeholder="예: 신규 상품" x-model="newCatName" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] text-gray-500 font-medium mb-1">영문 카테고리 명</label>
+                                                <input type="text" placeholder="예: New Arrivals" x-model="newCatNameEn" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-[10px] text-gray-500 font-medium mb-1">슬러그 (영문/숫자/대시)</label>
+                                                <input type="text" placeholder="예: new-arrivals" x-model="newCatSlug" @input="_catSlugTouched = true" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] text-gray-500 font-medium mb-1">아이콘 명 (Heroicons)</label>
+                                                <input type="text" placeholder="예: lightning" x-model="newCatIcon" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-end pt-1">
+                                            <button type="button" @click="categoryAdd" class="bg-bmw-blue hover:bg-blue-700 text-white px-3 py-1.5 text-xs rounded transition font-medium" :disabled="isCatSaving">카테고리 등록</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="border-t border-gray-200 pt-3">
+                                    <h4 class="font-semibold text-gray-800 mb-2 text-xs uppercase tracking-wider">카테고리 목록 (삭제 시 상품 연결 해제)</h4>
+                                    <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                        <template x-for="cat in dbCategories" :key="cat.id">
+                                            <div class="flex justify-between items-center bg-white p-2 rounded border border-gray-200 text-xs">
+                                                <div>
+                                                    <span class="font-semibold text-gray-700" x-text="cat.name"></span>
+                                                    <span class="text-gray-400 text-[10px]" x-text="'(' + cat.slug + ')'"></span>
+                                                </div>
+                                                <button type="button" @click="categoryDelete(cat.id, cat.name)" class="text-red-500 hover:text-red-700 font-medium" :disabled="isCatDeleting">삭제</button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="pt-4 flex justify-end gap-3">
                             <button type="button" @click="showAddModal = false" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded uppercase">{{ i18n "cancel" }}</button>
                             <button type="submit" class="px-4 py-2 text-sm text-white bg-bmw-blue hover:bg-blue-700 rounded transition uppercase" :disabled="loading">{{ i18n "add_product" }}</button>
@@ -419,6 +516,71 @@
                                 <input type="number" x-model.number="editProduct.stock" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none">
                             </div>
                         </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-sm font-medium text-gray-700 uppercase">카테고리</label>
+                                <button type="button" @click="showCatMgmt = !showCatMgmt" class="px-2.5 py-1 text-xs font-medium text-bmw-blue bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition duration-150 flex items-center gap-1 focus:outline-none shadow-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span x-show="!showCatMgmt">카테고리 관리</span>
+                                    <span x-show="showCatMgmt">관리 닫기</span>
+                                </button>
+                            </div>
+                            <select x-model="editProduct.category" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none bg-white">
+                                <option value="">— 선택 안 함 —</option>
+                                <template x-for="cat in dbCategories" :key="cat.id">
+                                    <option :value="cat.id" x-text="cat.name"></option>
+                                </template>
+                            </select>
+
+                            <!-- Inline Category Management Panel -->
+                            <div x-show="showCatMgmt" x-cloak class="mt-3 p-4 bg-gray-50 border border-gray-200 rounded text-sm space-y-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2 text-xs uppercase tracking-wider">새 카테고리 추가</h4>
+                                    <div class="space-y-2">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-[10px] text-gray-500 font-medium mb-1">한글 카테고리 명</label>
+                                                <input type="text" placeholder="예: 신규 상품" x-model="newCatName" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] text-gray-500 font-medium mb-1">영문 카테고리 명</label>
+                                                <input type="text" placeholder="예: New Arrivals" x-model="newCatNameEn" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-[10px] text-gray-500 font-medium mb-1">슬러그 (영문/숫자/대시)</label>
+                                                <input type="text" placeholder="예: new-arrivals" x-model="newCatSlug" @input="_catSlugTouched = true" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] text-gray-500 font-medium mb-1">아이콘 명 (Heroicons)</label>
+                                                <input type="text" placeholder="예: lightning" x-model="newCatIcon" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-end pt-1">
+                                            <button type="button" @click="categoryAdd" class="bg-bmw-blue hover:bg-blue-700 text-white px-3 py-1.5 text-xs rounded transition font-medium" :disabled="isCatSaving">카테고리 등록</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="border-t border-gray-200 pt-3">
+                                    <h4 class="font-semibold text-gray-800 mb-2 text-xs uppercase tracking-wider">카테고리 목록 (삭제 시 상품 연결 해제)</h4>
+                                    <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                        <template x-for="cat in dbCategories" :key="cat.id">
+                                            <div class="flex justify-between items-center bg-white p-2 rounded border border-gray-200 text-xs">
+                                                <div>
+                                                    <span class="font-semibold text-gray-700" x-text="cat.name"></span>
+                                                    <span class="text-gray-400 text-[10px]" x-text="'(' + cat.slug + ')'"></span>
+                                                </div>
+                                                <button type="button" @click="categoryDelete(cat.id, cat.name)" class="text-red-500 hover:text-red-700 font-medium" :disabled="isCatDeleting">삭제</button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="pt-4 flex justify-end gap-3">
                             <button type="button" @click="showEditModal = false" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded uppercase">{{ i18n "cancel" }}</button>
                             <button type="submit" class="px-4 py-2 text-sm text-white bg-bmw-blue hover:bg-blue-700 rounded transition uppercase" :disabled="loading">{{ i18n "save_changes" }}</button>
@@ -443,7 +605,10 @@
                 products: [],
                 orders: [],
                 orderSearchQuery: '',
+                productSearchQuery: '',
+                cmsCategoryFilter: '',
                 cancelConfirmId: '',
+                deleteProductConfirmId: '',
                 cancelApproving: false,
                 toastMsg: '',
                 tomlContent: '',
@@ -454,13 +619,23 @@
                 _addImagePreviews: [],
                 _editImageList: [],
                 _editImageKeyCounter: 0,
+                // Category management state
+                showCatMgmt: false,
+                newCatName: '',
+                newCatNameEn: '',
+                newCatSlug: '',
+                newCatIcon: 'lightning',
+                isCatSaving: false,
+                isCatDeleting: false,
+                _catSlugTouched: false,
                 newProduct: {
                     name: '',
                     slug: '',
                     description: '',
                     price: '',
                     discount_price: '',
-                    stock: ''
+                    stock: '',
+                    category: ''
                 },
                 editProduct: {
                     id: '',
@@ -470,12 +645,15 @@
                     price: '',
                     discount_price: '',
                     stock: '',
+                    category: '',
                     _currentImages: []
                 },
+                dbCategories: [],
                 init() {
                     if (this.isLoggedIn) {
                         document.cookie = pb.authStore.exportToCookie({ secure: false, httpOnly: false });
                         this.fetchProducts();
+                        this.fetchDbCategories();
                     }
                     // Auto-slugify new product name (supports Korean IME)
                     this.$watch('newProduct.name', val => {
@@ -483,6 +661,77 @@
                             this.newProduct.slug = val.toLowerCase().replace(/[^a-z0-9가-힣ㄱ-ㅎㅏ-ㅣ]+/g, '-').replace(/-+/g, '-').replace(/(^-|-$)+/g, '');
                         }
                     });
+                    // Auto-slugify new category english name
+                    this.$watch('newCatNameEn', val => {
+                        if (!this._catSlugTouched) {
+                            this.newCatSlug = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/(^-|-$)+/g, '');
+                        }
+                    });
+                },
+                async fetchDbCategories() {
+                    try {
+                        const result = await pb.collection('categories').getFullList({ sort: 'sort_order' });
+                        this.dbCategories = result;
+                    } catch (err) {
+                        console.error('카테고리 로드 실패:', err);
+                    }
+                },
+                async categoryAdd() {
+                    if (!this.newCatName || !this.newCatSlug) {
+                        alert('카테고리 이름과 슬러그는 필수입니다.');
+                        return;
+                    }
+                    this.isCatSaving = true;
+                    try {
+                        const response = await pb.send('/api/cms/categories/add', {
+                            method: 'POST',
+                            body: {
+                                name: this.newCatName,
+                                nameEn: this.newCatNameEn || this.newCatName,
+                                slug: this.newCatSlug,
+                                icon: this.newCatIcon || 'lightning'
+                            }
+                        });
+                        this.newCatName = '';
+                        this.newCatNameEn = '';
+                        this.newCatSlug = '';
+                        this.newCatIcon = 'lightning';
+                        this._catSlugTouched = false;
+                        await this.fetchDbCategories();
+                        this.showToast(response.message || '카테고리가 추가되었습니다.');
+                    } catch (err) {
+                        this.handleError(err, '카테고리 추가 실패');
+                    } finally {
+                        this.isCatSaving = false;
+                    }
+                },
+                async categoryDelete(id, name) {
+                    if (!confirm(`"${name}" 카테고리를 정말 삭제하시겠습니까?\n삭제 시 해당 카테고리를 사용 중인 상품들의 카테고리 연결이 자동으로 해제됩니다.`)) {
+                        return;
+                    }
+                    this.isCatDeleting = true;
+                    try {
+                        const response = await pb.send('/api/cms/categories/delete', {
+                            method: 'POST',
+                            body: { id }
+                        });
+                        
+                        // Clear selected category on modals if it matches deleted ID
+                        if (this.newProduct.category === id) {
+                            this.newProduct.category = '';
+                        }
+                        if (this.editProduct.category === id) {
+                            this.editProduct.category = '';
+                        }
+                        
+                        await this.fetchDbCategories();
+                        await this.fetchProducts(); // Refresh products to display updated category bindings
+                        this.showToast(response.message || '카테고리가 삭제되었습니다.');
+                    } catch (err) {
+                        this.handleError(err, '카테고리 삭제 실패');
+                    } finally {
+                        this.isCatDeleting = false;
+                    }
                 },
                 handleError(err, defaultMsg = '오류가 발생했습니다') {
                     if (err.status === 401 || err.status === 403) {
@@ -533,8 +782,23 @@
                 },
                 async fetchProducts() {
                     try {
-                        const result = await pb.collection('products').getList(1, 50, { sort: 'sort_order' });
+                        let filters = [];
+                        if (this.productSearchQuery) {
+                            filters.push(`(name ~ "${this.productSearchQuery.replace(/"/g, '\\"')}" || slug ~ "${this.productSearchQuery.replace(/"/g, '\\"')}")`);
+                        }
+                        if (this.cmsCategoryFilter) {
+                            filters.push(`category = "${this.cmsCategoryFilter}"`);
+                        }
+                        const filterStr = filters.join(' && ');
+
+                        const result = await pb.collection('products').getList(1, 50, { 
+                            sort: 'sort_order',
+                            expand: 'category',
+                            filter: filterStr || undefined
+                        });
                         this.products = result.items;
+                        // 상품 목록 갱신 시 기존 삭제 확인 ID 초기화
+                        this.deleteProductConfirmId = '';
                     } catch (err) {
                         if (err.status === 401) this.logout();
                         console.error('Error fetching products:', err);
@@ -650,19 +914,19 @@
                     }
                 },
                 async deleteProduct(id) {
-                    if (confirm('{{ i18n "confirm_delete" }}')) {
-                        try {
-                            const orderItems = await pb.collection('order_items').getFullList({
-                                filter: `product = "${id}"`
-                            });
-                            for (const item of orderItems) {
-                                await pb.collection('order_items').delete(item.id);
-                            }
-                            await pb.collection('products').delete(id);
-                            this.fetchProducts();
-                        } catch (err) {
-                            this.handleError(err, '상품 삭제 실패');
+                    try {
+                        const orderItems = await pb.collection('order_items').getFullList({
+                            filter: `product = "${id}"`
+                        });
+                        for (const item of orderItems) {
+                            await pb.collection('order_items').delete(item.id);
                         }
+                        await pb.collection('products').delete(id);
+                        this.deleteProductConfirmId = '';
+                        this.fetchProducts();
+                        this.showToast('상품이 삭제되었습니다.');
+                    } catch (err) {
+                        this.handleError(err, '상품 삭제 실패');
                     }
                 },
                 async deleteOrder(id) {
@@ -776,7 +1040,7 @@
                     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
                 },
                 openAddProductModal() {
-                    this.newProduct = { name: '', slug: '', description: '', price: '', discount_price: '', stock: '' };
+                    this.newProduct = { name: '', slug: '', description: '', price: '', discount_price: '', stock: '', category: '' };
                     this._slugTouched = false;
                     this._addImageFiles = [];
                     this._addImagePreviews = [];
@@ -791,7 +1055,8 @@
                         description: product.description,
                         price: product.price,
                         discount_price: product.discount_price || '',
-                        stock: product.stock
+                        stock: product.stock,
+                        category: product.category || ''
                     };
                     // Build unified image list from existing images
                     this._editImageList = (product.images && product.images.length > 0)
@@ -805,6 +1070,16 @@
                     this.showEditModal = true;
                 },
                 async createProduct() {
+                    // 유효성 검증 (보안 및 데이터 정합성 강화)
+                    if (Number(this.newProduct.price) < 0 || Number(this.newProduct.stock) < 0) {
+                        alert('가격과 재고는 0 이상이어야 합니다.');
+                        return;
+                    }
+                    if (Number(this.newProduct.discount_price) > 0 && Number(this.newProduct.discount_price) >= Number(this.newProduct.price)) {
+                        alert('할인 가격은 원래 가격보다 작아야 합니다.');
+                        return;
+                    }
+
                     this.loading = true;
                     try {
                         const formData = new FormData();
@@ -814,6 +1089,9 @@
                         formData.append('price', Number(this.newProduct.price) || 0);
                         formData.append('discount_price', Number(this.newProduct.discount_price) || 0);
                         formData.append('stock', Number(this.newProduct.stock) || 0);
+                        if (this.newProduct.category) {
+                            formData.append('category', this.newProduct.category);
+                        }
 
                         // Use stored files from state (not $refs which don't work in x-teleport)
                         for (const file of this._addImageFiles) {
@@ -833,6 +1111,16 @@
                     }
                 },
                 async updateProduct() {
+                    // 유효성 검증 (보안 및 데이터 정합성 강화)
+                    if (Number(this.editProduct.price) < 0 || Number(this.editProduct.stock) < 0) {
+                        alert('가격과 재고는 0 이상이어야 합니다.');
+                        return;
+                    }
+                    if (Number(this.editProduct.discount_price) > 0 && Number(this.editProduct.discount_price) >= Number(this.editProduct.price)) {
+                        alert('할인 가격은 원래 가격보다 작아야 합니다.');
+                        return;
+                    }
+
                     this.loading = true;
                     try {
                         const formData = new FormData();
@@ -842,6 +1130,8 @@
                         formData.append('price', Number(this.editProduct.price) || 0);
                         formData.append('discount_price', Number(this.editProduct.discount_price) || 0);
                         formData.append('stock', Number(this.editProduct.stock) || 0);
+                        // Send category (empty string clears the relation)
+                        formData.append('category', this.editProduct.category || '');
 
                         // Send the complete ordered image list.
                         // Existing images: send filename string to keep them.

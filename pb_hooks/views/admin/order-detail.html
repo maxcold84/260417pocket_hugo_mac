@@ -1,285 +1,764 @@
-<div class="max-w-4xl mx-auto px-4 py-8">
-    <div class="mb-8 flex items-center justify-between">
-        <a href="/cms/orders" class="text-sm text-gray-500 hover:text-bmw-blue flex items-center gap-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-            주문 목록으로 돌아가기
-        </a>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">주문 상세 관리</h1>
-    </div>
+<!DOCTYPE html>
+<html lang="ko-kr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주문 상세 - D'ROLL SHOP CMS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        bmw: {
+                            blue: '#1C69D4',
+                            dark: '#111111',
+                            surface: '#1A1A1A',
+                            border: '#e5e7eb',
+                            darkBorder: '#333333'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        // Set light theme specifically as we cleaned dark classes for clean look
+        document.documentElement.classList.remove('dark');
+    </script>
+    <script src="https://unpkg.com/htmx.org@2.0.0"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
+    <style>
+        body { 
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans antialiased min-h-screen" x-data="orderDetailApp()">
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-bmw-dark text-white flex flex-col flex-shrink-0">
+            <div class="h-16 flex items-center px-6 border-b border-bmw-darkBorder bg-black">
+                <span class="text-lg font-bold tracking-widest text-white">D'ROLL SHOP CMS</span>
+            </div>
+            <div class="flex-1 overflow-y-auto py-4">
+                <nav class="space-y-1 px-3">
+                    <a href="/cms" 
+                       class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase text-gray-300 hover:bg-bmw-surface hover:text-white">
+                        CATALOG
+                    </a>
+                    <a href="/cms" 
+                       class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase bg-bmw-blue text-white">
+                        ORDERS
+                    </a>
+                    <a href="/cms" 
+                       class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase text-gray-300 hover:bg-bmw-surface hover:text-white">
+                        사이트 설정
+                    </a>
+                </nav>
+            </div>
+            <div class="p-4 border-t border-bmw-darkBorder bg-black">
+                <button @click="logout" class="w-full text-left text-sm text-gray-400 hover:text-white transition uppercase">LOGOUT</button>
+            </div>
+        </aside>
+
         <!-- Main Content -->
-        <div class="md:col-span-2 space-y-8">
-            <!-- Order Items -->
-            <div class="bg-white dark:bg-bmw-surface rounded-xl border border-gray-200 dark:border-bmw-darkBorder overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-bmw-darkBorder">
-                    <h2 class="font-bold">주문 상품</h2>
-                </div>
-                <div class="p-6">
-                    <table class="w-full">
-                        <tbody class="divide-y divide-gray-100 dark:divide-bmw-darkBorder">
-                            {{range .items}}
-                            <tr class="py-4">
-                                <td class="py-4">
-                                    <div class="flex items-center gap-4">
-                                        <div class="w-12 h-12 bg-gray-100 dark:bg-black rounded border border-gray-200 dark:border-bmw-darkBorder flex items-center justify-center overflow-hidden">
-                                            {{if .expand.product.images}}
-                                                <img src="/api/files/{{.expand.product.collectionId}}/{{.expand.product.id}}/{{index .expand.product.images 0}}" class="w-full h-full object-cover">
-                                            {{else}}
-                                                <span class="text-[10px] text-gray-400">IMG</span>
+        <main class="flex-1 overflow-y-auto bg-gray-100 focus:outline-none">
+            <!-- Header -->
+            <div class="h-16 flex items-center px-8 border-b border-gray-200 bg-white justify-between sticky top-0 z-10 shadow-sm">
+                <h2 class="text-xl font-light tracking-wide uppercase text-gray-800">주문 상세</h2>
+            </div>
+
+            <!-- Content Area -->
+            <div class="p-8">
+                <div class="max-w-4xl mx-auto">
+                    <!-- Top Actions Bar -->
+                    <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-200 pb-6">
+                        <div class="flex items-center gap-4">
+                            <a href="/cms" class="text-sm text-gray-500 hover:text-bmw-blue flex items-center gap-1 shrink-0 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                                목록으로 돌아가기
+                            </a>
+                            <h1 class="text-2xl font-bold text-gray-900">주문 상세 관리</h1>
+                        </div>
+                        <button type="button" onclick="printInvoice()" class="inline-flex items-center justify-center gap-2 bg-black hover:bg-gray-800 text-white font-bold px-4 py-2.5 rounded text-xs tracking-wider uppercase transition duration-300 shadow-sm border border-gray-200 shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h8z"/>
+                            </svg>
+                            송장/영수증 출력 (A4)
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <!-- Main Panel -->
+                        <div class="md:col-span-2 space-y-8">
+                            <!-- Order Items -->
+                            <div class="bg-white rounded border border-gray-200 overflow-hidden shadow-sm">
+                                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                                    <h2 class="font-bold text-gray-900">주문 상품</h2>
+                                </div>
+                                <div class="p-6">
+                                    <table class="w-full">
+                                        <tbody class="divide-y divide-gray-100">
+                                            {{range .items}}
+                                            <tr class="py-4">
+                                                <td class="py-4">
+                                                    <div class="flex items-center gap-4">
+                                                        <div class="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center overflow-hidden">
+                                                            {{if .expand.product.images}}
+                                                                <img src="/api/files/{{.expand.product.collectionId}}/{{.expand.product.id}}/{{index .expand.product.images 0}}" class="w-full h-full object-cover">
+                                                            {{else}}
+                                                                <span class="text-[10px] text-gray-400">IMG</span>
+                                                            {{end}}
+                                                        </div>
+                                                        <div>
+                                                            <p class="text-sm font-medium text-gray-900">{{.expand.product.name}}</p>
+                                                            <p class="text-xs text-gray-500">단가: ₩{{.unit_price}}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="py-4 text-right text-sm text-gray-600">
+                                                    {{.quantity}}개
+                                                </td>
+                                                <td class="py-4 text-right text-sm font-medium text-gray-900">
+                                                    ₩{{.total_price}}
+                                                </td>
+                                            </tr>
                                             {{end}}
-                                        </div>
+                                        </tbody>
+                                        <tfoot>
+                                            <tr class="border-t border-gray-200">
+                                                <td colspan="2" class="pt-6 text-sm text-gray-500 uppercase tracking-wider font-bold">총 결제 금액</td>
+                                                <td class="pt-6 text-right text-xl font-bold text-bmw-blue">₩{{.order.total_amount}}</td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Shipping Info -->
+                            <div class="bg-white rounded border border-gray-200 p-6 shadow-sm">
+                                <div class="border-b border-gray-100 pb-3 mb-4">
+                                    <h2 class="font-bold text-gray-900">배송지 정보</h2>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p class="text-gray-500 mb-1">수령인</p>
+                                        <p class="font-medium text-gray-900">
+                                            {{if .order.recipient_name}}{{.order.recipient_name}}{{else if .order.user}} {{.order.expand.user.name}} {{else}} {{.order.guest_info.name}} {{end}}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500 mb-1">연락처</p>
+                                        <p class="font-medium text-gray-900">
+                                            {{if .order.recipient_phone}}{{.order.recipient_phone}}{{else if .order.user}} {{.order.expand.user.phone}} {{else}} {{.order.guest_info.phone}} {{end}}
+                                        </p>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <p class="text-gray-500 mb-1">주소</p>
+                                        <p class="font-medium text-gray-900">
+                                            {{if .order.shipping_address}}{{.order.shipping_address}} {{.order.shipping_address_detail}}{{else if .order.user}} {{.order.expand.user.address}} {{else}} {{.order.guest_info.address}} {{end}}
+                                        </p>
+                                    </div>
+                                    {{if .order.shipping_memo}}
+                                    <div class="col-span-2">
+                                        <p class="text-gray-500 mb-1">배송 메모</p>
+                                        <p class="font-medium text-gray-900 italic text-gray-700">
+                                            {{.order.shipping_memo}}
+                                        </p>
+                                    </div>
+                                    {{end}}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sidebar Actions -->
+                        <div class="space-y-8">
+                            <div class="bg-white rounded border border-gray-200 p-6 shadow-sm">
+                                <h2 class="font-bold text-gray-900 mb-6 border-b border-gray-100 pb-3">주문 관리</h2>
+                                
+                                <form hx-post="/api/cms/orders/{{.order.id}}/update" 
+                                      hx-swap="none" 
+                                      hx-on::after-request="if(event.detail.successful) alert('변경사항이 저장되었습니다.'); else alert('오류가 발생했습니다.');" 
+                                      @submit="if(!validateForm($event)) $event.preventDefault();"
+                                      x-data="{
+                                          selectedCourier: '{{.order.courier_name}}',
+                                          customCourier: '',
+                                          trackingNumber: '{{.order.tracking_number}}',
+                                          status: '{{.order.status}}',
+                                          isCustom: false,
+                                          couriers: [
+                                              { name: 'CJ대한통운', url: 'https://www.doortodoor.co.kr/parcel/doortodoor.do?fsp_action=Parcel_Query&fsp_cmd=retrieve_parcel_detail&invc_no=' },
+                                              { name: '우체국택배', url: 'https://service.epost.go.kr/trace.RetrieveDomconsDepliv.postal?sid1=' },
+                                              { name: '한진택배', url: 'https://www.hanjin.com/ko/delivery/delivery/track.do?wblnum=' },
+                                              { name: '롯데택배', url: 'https://www.lotteglogis.com/home/reservation/tracking/linkSubmit?InvNo=' },
+                                              { name: '로젠택배', url: 'https://www.ilogen.com/m/personal/trace/' },
+                                              { name: '경동택배', url: 'https://kdexp.com/hb/deliverySearch.do?barcode=' },
+                                              { name: '대신택배', url: 'https://www.daesinpetrus.co.kr/web/page/gc_tracking.jsp?billno=' },
+                                              { name: 'CVSnet 편의점택배', url: 'https://www.cvsnet.co.kr/invoice/tracking.do?invoice_no=' }
+                                          ],
+                                          init() {
+                                              const standardCouriers = this.couriers.map(c => c.name);
+                                              if (this.selectedCourier) {
+                                                  if (!standardCouriers.includes(this.selectedCourier)) {
+                                                      this.isCustom = true;
+                                                      this.customCourier = this.selectedCourier;
+                                                      this.selectedCourier = 'custom';
+                                                  }
+                                              }
+                                          },
+                                          get trackingUrl() {
+                                              if (!this.trackingNumber) return '';
+                                              const cleanNum = this.trackingNumber.replace(/[^0-9]/g, '');
+                                              if (this.selectedCourier === 'custom') return '';
+                                              const courier = this.couriers.find(c => c.name === this.selectedCourier);
+                                              return courier ? courier.url + cleanNum : '';
+                                          },
+                                          getCourierName() {
+                                              return this.selectedCourier === 'custom' ? this.customCourier : this.selectedCourier;
+                                          },
+                                          validateForm(e) {
+                                              const finalCourier = this.getCourierName().trim();
+                                              const cleanTrack = this.trackingNumber.replace(/[^0-9]/g, '').trim();
+                                              
+                                              if (this.status === 'shipping' || this.status === 'completed') {
+                                                  if (!finalCourier) {
+                                                      alert('배송중 또는 배송완료 상태로 설정하려면 택배사 입력이 필요합니다.');
+                                                      return false;
+                                                  }
+                                                  if (!cleanTrack) {
+                                                      alert('배송중 또는 배송완료 상태로 설정하려면 운송장 번호 입력이 필요합니다.');
+                                                      return false;
+                                                  }
+                                                  if (cleanTrack.length < 8) {
+                                                      if (!confirm('입력된 운송장 번호가 비정상적으로 짧거나 유효하지 않아 보입니다. 그대로 저장하시겠습니까?')) {
+                                                          return false;
+                                                      }
+                                                  }
+                                              }
+                                              return true;
+                                          }
+                                      }"
+                                      class="space-y-6">
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">주문 상태</label>
+                                        <select name="status" x-model="status" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-800 focus:ring-1 focus:ring-bmw-blue outline-none transition">
+                                            <option value="pending">Pending (대기)</option>
+                                            <option value="paid">Paid (결제완료)</option>
+                                            <option value="shipping">Shipping (배송중)</option>
+                                            <option value="completed">Completed (배송완료)</option>
+                                            <option value="cancel_requested">Cancel Requested (취소요청)</option>
+                                            <option value="cancelled">Cancelled (취소)</option>
+                                            <option value="refunded">Refunded (환불)</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Dynamic Alert Banner for missing shipping info -->
+                                    <div x-show="(status === 'shipping' || status === 'completed') && (!getCourierName().trim() || !trackingNumber.trim())" 
+                                         x-transition 
+                                         class="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-700 flex items-start gap-2 animate-pulse">
+                                        <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                        </svg>
                                         <div>
-                                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{.expand.product.name}}</p>
-                                            <p class="text-xs text-gray-500">단가: ₩{{.unit_price}}</p>
+                                            <p class="font-bold">배송 정보 입력 필요</p>
+                                            <p class="mt-0.5 text-[11px] text-amber-600">주문 상태가 '배송중' 또는 '배송완료'일 때는 택배사와 운송장 번호를 모두 입력해야 합니다.</p>
                                         </div>
                                     </div>
-                                </td>
-                                <td class="py-4 text-right text-sm text-gray-600 dark:text-gray-400">
-                                    {{.quantity}}개
-                                </td>
-                                <td class="py-4 text-right text-sm font-medium text-gray-900 dark:text-white">
-                                    ₩{{.total_price}}
-                                </td>
-                            </tr>
+
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">택배사</label>
+                                        <select x-model="selectedCourier" @change="isCustom = (selectedCourier === 'custom')" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-800 focus:ring-1 focus:ring-bmw-blue outline-none transition">
+                                            <option value="">택배사 선택</option>
+                                            <option value="CJ대한통운">CJ대한통운</option>
+                                            <option value="우체국택배">우체국택배</option>
+                                            <option value="한진택배">한진택배</option>
+                                            <option value="롯데택배">롯데택배</option>
+                                            <option value="로젠택배">로젠택배</option>
+                                            <option value="경동택배">경동택배</option>
+                                            <option value="대신택배">대신택배</option>
+                                            <option value="CVSnet 편의점택배">CVSnet 편의점택배</option>
+                                            <option value="custom">직접 입력</option>
+                                        </select>
+                                        
+                                        <!-- Custom Courier input -->
+                                        <div x-show="isCustom" x-transition class="mt-2">
+                                            <label class="block text-[11px] font-semibold text-gray-400 mb-1">택배사 이름 직접 입력</label>
+                                            <input type="text" x-model="customCourier" placeholder="예: 경동택배" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-bmw-blue outline-none">
+                                        </div>
+                                        
+                                        <input type="hidden" name="courier_name" :value="getCourierName()">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">운송장 번호</label>
+                                        <input type="text" name="tracking_number" x-model="trackingNumber" @input="trackingNumber = trackingNumber.replace(/[^0-9]/g, '')" placeholder="숫자만 입력" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-800 focus:ring-1 focus:ring-bmw-blue outline-none">
+                                        
+                                        <!-- Real-time Tracking Link -->
+                                        <div class="mt-2 flex items-center justify-between" x-show="trackingNumber.trim() !== ''">
+                                            <template x-if="trackingUrl">
+                                                <a :href="trackingUrl" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-semibold text-bmw-blue hover:text-blue-700 transition">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                                    </svg>
+                                                    실시간 배송 조회 (<span x-text="selectedCourier"></span>)
+                                                </a>
+                                            </template>
+                                            <template x-if="!trackingUrl && selectedCourier === 'custom' && customCourier.trim() !== ''">
+                                                <span class="text-xs text-gray-400">직접 입력한 택배사는 자동 조회가 지원되지 않습니다.</span>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <hr class="border-gray-100 my-4">
+                                    <h3 class="text-xs font-bold uppercase text-gray-400 mb-2">배송지 편집</h3>
+
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">수령인 성함</label>
+                                        <input type="text" name="recipient_name" value="{{.order.recipient_name}}" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-800 focus:ring-1 focus:ring-bmw-blue outline-none">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">연락처</label>
+                                        <input type="text" name="recipient_phone" value="{{.order.recipient_phone}}" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-800 focus:ring-1 focus:ring-bmw-blue outline-none">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">배송지 주소</label>
+                                        <input type="text" name="shipping_address" value="{{.order.shipping_address}}" placeholder="기본 주소" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-800 mb-2 focus:ring-1 focus:ring-bmw-blue outline-none">
+                                        <input type="text" name="shipping_address_detail" value="{{.order.shipping_address_detail}}" placeholder="상세 주소" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-800 focus:ring-1 focus:ring-bmw-blue outline-none">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">배송 요청사항</label>
+                                        <textarea name="shipping_memo" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-800 focus:ring-1 focus:ring-bmw-blue outline-none" rows="2">{{.order.shipping_memo}}</textarea>
+                                    </div>
+
+                                    <button type="submit" class="w-full bg-bmw-blue hover:bg-blue-700 text-white font-bold py-3 rounded transition duration-300 shadow shadow-sm">
+                                        변경사항 저장
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Payment info card -->
+                            <div class="bg-gray-50 rounded p-6 border border-dashed border-gray-200 mt-8">
+                                <h3 class="text-xs font-bold uppercase text-gray-400 mb-4">결제 정보</h3>
+                                <div class="space-y-2 text-xs text-gray-600">
+                                    <p class="flex justify-between"><span class="text-gray-400 font-medium">주문 ID:</span> <span class="font-mono text-gray-800 font-semibold">{{.order.id}}</span></p>
+                                    <p class="flex justify-between"><span class="text-gray-400 font-medium">포트원 ID:</span> <span class="font-mono text-gray-800 font-semibold">{{.order.portone_tx_id}}</span></p>
+                                    <p class="flex justify-between"><span class="text-gray-400 font-medium">주문일시:</span> <span class="text-gray-800 font-semibold">{{.order.created}}</span></p>
+                                </div>
+                            </div>
+
+                            <!-- Refund Action panel -->
+                            {{if or (eq .order.status "paid") (eq .order.status "cancel_requested")}}
+                            <div class="bg-red-50 rounded p-6 border border-red-200 mt-8">
+                                <h3 class="text-xs font-bold uppercase text-red-600 mb-4">환불 / 취소 처리</h3>
+                                <p class="text-xs text-red-600 mb-4 font-medium">포트원 결제 취소 API를 호출하여 고객에게 실제 환불 처리를 진행합니다.</p>
+                                <button type="button" 
+                                    hx-post="/api/cms/orders/{{.order.id}}/approve-cancel" 
+                                    hx-swap="none" 
+                                    hx-on::after-request="if(event.detail.successful) { alert('환불이 완료되었습니다.'); window.location.href = '/cms'; } else { alert(JSON.parse(event.detail.xhr.responseText).error || '오류가 발생했습니다.'); }"
+                                    hx-confirm="정말 이 주문을 취소하고 환불하시겠습니까?"
+                                    class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded transition duration-300 shadow">
+                                    결제 취소 및 환불 승인
+                                </button>
+                            </div>
                             {{end}}
-                        </tbody>
-                        <tfoot>
-                            <tr class="border-t border-gray-200 dark:border-bmw-darkBorder">
-                                <td colspan="2" class="pt-6 text-sm text-gray-500 uppercase tracking-wider font-bold">총 결제 금액</td>
-                                <td class="pt-6 text-right text-xl font-bold text-bmw-blue">₩{{.order.total_amount}}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Shipping Info -->
-            <div class="bg-white dark:bg-bmw-surface rounded-xl border border-gray-200 dark:border-bmw-darkBorder p-6">
-                <h2 class="font-bold mb-4">배송지 정보</h2>
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <p class="text-gray-500 mb-1">수령인</p>
-                        <p class="font-medium text-gray-900 dark:text-white">
-                            {{if .order.recipient_name}}{{.order.recipient_name}}{{else if .order.user}} {{.order.expand.user.name}} {{else}} {{.order.guest_info.name}} {{end}}
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500 mb-1">연락처</p>
-                        <p class="font-medium text-gray-900 dark:text-white">
-                            {{if .order.recipient_phone}}{{.order.recipient_phone}}{{else if .order.user}} {{.order.expand.user.phone}} {{else}} {{.order.guest_info.phone}} {{end}}
-                        </p>
-                    </div>
-                    <div class="col-span-2">
-                        <p class="text-gray-500 mb-1">주소</p>
-                        <p class="font-medium text-gray-900 dark:text-white">
-                            {{if .order.shipping_address}}{{.order.shipping_address}} {{.order.shipping_address_detail}}{{else if .order.user}} {{.order.expand.user.address}} {{else}} {{.order.guest_info.address}} {{end}}
-                        </p>
-                    </div>
-                    {{if .order.shipping_memo}}
-                    <div class="col-span-2">
-                        <p class="text-gray-500 mb-1">배송 메모</p>
-                        <p class="font-medium text-gray-900 dark:text-white font-italic">
-                            {{.order.shipping_memo}}
-                        </p>
-                    </div>
-                    {{end}}
-                </div>
-            </div>
-        </div>
-
-        <!-- Sidebar Actions -->
-        <div class="space-y-8">
-            <div class="bg-white dark:bg-bmw-surface rounded-xl border border-gray-200 dark:border-bmw-darkBorder p-6 shadow-sm">
-                <h2 class="font-bold mb-6">주문 관리</h2>
-                
-                <form hx-post="/api/cms/orders/{{.order.id}}/update" 
-                      hx-swap="none" 
-                      hx-on::after-request="if(event.detail.successful) alert('저장되었습니다.'); else alert('오류가 발생했습니다.');" 
-                      @submit="if(!validateForm($event)) $event.preventDefault();"
-                      x-data="{
-                          selectedCourier: '{{.order.courier_name}}',
-                          customCourier: '',
-                          trackingNumber: '{{.order.tracking_number}}',
-                          status: '{{.order.status}}',
-                          isCustom: false,
-                          couriers: [
-                              { name: 'CJ대한통운', url: 'https://www.doortodoor.co.kr/parcel/doortodoor.do?fsp_action=Parcel_Query&fsp_cmd=retrieve_parcel_detail&invc_no=' },
-                              { name: '우체국택배', url: 'https://service.epost.go.kr/trace.RetrieveDomconsDepliv.postal?sid1=' },
-                              { name: '한진택배', url: 'https://www.hanjin.com/ko/delivery/delivery/track.do?wblnum=' },
-                              { name: '롯데택배', url: 'https://www.lotteglogis.com/home/reservation/tracking/linkSubmit?InvNo=' },
-                              { name: '로젠택배', url: 'https://www.ilogen.com/m/personal/trace/' },
-                              { name: '경동택배', url: 'https://kdexp.com/hb/deliverySearch.do?barcode=' },
-                              { name: '대신택배', url: 'https://www.daesinpetrus.co.kr/web/page/gc_tracking.jsp?billno=' },
-                              { name: 'CVSnet 편의점택배', url: 'https://www.cvsnet.co.kr/invoice/tracking.do?invoice_no=' }
-                          ],
-                          init() {
-                              const standardCouriers = this.couriers.map(c => c.name);
-                              if (this.selectedCourier) {
-                                  if (!standardCouriers.includes(this.selectedCourier)) {
-                                      this.isCustom = true;
-                                      this.customCourier = this.selectedCourier;
-                                      this.selectedCourier = 'custom';
-                                  }
-                              }
-                          },
-                          get trackingUrl() {
-                              if (!this.trackingNumber) return '';
-                              const cleanNum = this.trackingNumber.replace(/[^0-9]/g, '');
-                              if (this.selectedCourier === 'custom') return '';
-                              const courier = this.couriers.find(c => c.name === this.selectedCourier);
-                              return courier ? courier.url + cleanNum : '';
-                          },
-                          getCourierName() {
-                              return this.selectedCourier === 'custom' ? this.customCourier : this.selectedCourier;
-                          },
-                          validateForm(e) {
-                              const finalCourier = this.getCourierName().trim();
-                              const cleanTrack = this.trackingNumber.replace(/[^0-9]/g, '').trim();
-                              
-                              if (this.status === 'shipping' || this.status === 'completed') {
-                                  if (!finalCourier) {
-                                      alert('배송중 또는 배송완료 상태로 설정하려면 택배사 입력이 필요합니다.');
-                                      return false;
-                                  }
-                                  if (!cleanTrack) {
-                                      alert('배송중 또는 배송완료 상태로 설정하려면 운송장 번호 입력이 필요합니다.');
-                                      return false;
-                                  }
-                                  if (cleanTrack.length < 8) {
-                                      if (!confirm('입력된 운송장 번호가 비정상적으로 짧거나 유효하지 않아 보입니다. 그대로 저장하시겠습니까?')) {
-                                          return false;
-                                      }
-                                  }
-                              }
-                              return true;
-                          }
-                      }"
-                      class="space-y-6">
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">주문 상태</label>
-                        <select name="status" x-model="status" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
-                            <option value="pending">Pending (대기)</option>
-                            <option value="paid">Paid (결제완료)</option>
-                            <option value="shipping">Shipping (배송중)</option>
-                            <option value="completed">Completed (배송완료)</option>
-                            <option value="cancel_requested">Cancel Requested (취소요청)</option>
-                            <option value="cancelled">Cancelled (취소)</option>
-                            <option value="refunded">Refunded (환불)</option>
-                        </select>
-                    </div>
-
-                    <!-- Dynamic Alert Banner for missing shipping info -->
-                    <div x-show="(status === 'shipping' || status === 'completed') && (!getCourierName().trim() || !trackingNumber.trim())" 
-                         x-transition 
-                         class="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2 animate-pulse">
-                        <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                        </svg>
-                        <div>
-                            <p class="font-bold">배송 정보 입력 필요</p>
-                            <p class="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">주문 상태가 '배송중' 또는 '배송완료'일 때는 택배사와 운송장 번호를 모두 입력해야 합니다.</p>
                         </div>
                     </div>
-
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">택배사</label>
-                        <select x-model="selectedCourier" @change="isCustom = (selectedCourier === 'custom')" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
-                            <option value="">택배사 선택</option>
-                            <option value="CJ대한통운">CJ대한통운</option>
-                            <option value="우체국택배">우체국택배</option>
-                            <option value="한진택배">한진택배</option>
-                            <option value="롯데택배">롯데택배</option>
-                            <option value="로젠택배">로젠택배</option>
-                            <option value="경동택배">경동택배</option>
-                            <option value="대신택배">대신택배</option>
-                            <option value="CVSnet 편의점택배">CVSnet 편의점택배</option>
-                            <option value="custom">직접 입력</option>
-                        </select>
-                        
-                        <!-- Custom Courier input - only visible when 'custom' is selected -->
-                        <div x-show="isCustom" x-transition class="mt-2">
-                            <label class="block text-[11px] font-semibold text-gray-400 mb-1">택배사 이름 직접 입력</label>
-                            <input type="text" x-model="customCourier" placeholder="예: 경동택배" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
-                        </div>
-                        
-                        <!-- Hidden input to submit the actual courier name to the server -->
-                        <input type="hidden" name="courier_name" :value="getCourierName()">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">운송장 번호</label>
-                        <input type="text" name="tracking_number" x-model="trackingNumber" @input="trackingNumber = trackingNumber.replace(/[^0-9]/g, '')" placeholder="숫자만 입력" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
-                        
-                        <!-- Real-time Tracking Button / Link -->
-                        <div class="mt-2 flex items-center justify-between" x-show="trackingNumber.trim() !== ''">
-                            <template x-if="trackingUrl">
-                                <a :href="trackingUrl" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-semibold text-bmw-blue hover:text-blue-700 transition dark:hover:text-blue-400">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                                    </svg>
-                                    실시간 배송 조회 (<span x-text="selectedCourier"></span>)
-                                </a>
-                            </template>
-                            <template x-if="!trackingUrl && selectedCourier === 'custom' && customCourier.trim() !== ''">
-                                <span class="text-xs text-gray-400 dark:text-gray-500">직접 입력한 택배사는 자동 조회가 지원되지 않습니다.</span>
-                            </template>
-                        </div>
-                    </div>
-
-                    <hr class="border-gray-200 dark:border-bmw-darkBorder my-4">
-                    <h3 class="text-xs font-bold uppercase text-gray-500 mb-2">배송지 편집</h3>
-
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">수령인 성함</label>
-                        <input type="text" name="recipient_name" value="{{.order.recipient_name}}" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">연락처</label>
-                        <input type="text" name="recipient_phone" value="{{.order.recipient_phone}}" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">배송지 주소</label>
-                        <input type="text" name="shipping_address" value="{{.order.shipping_address}}" placeholder="기본 주소" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm mb-2">
-                        <input type="text" name="shipping_address_detail" value="{{.order.shipping_address_detail}}" placeholder="상세 주소" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">배송 요청사항</label>
-                        <textarea name="shipping_memo" class="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-bmw-darkBorder rounded px-3 py-2 text-sm" rows="2">{{.order.shipping_memo}}</textarea>
-                    </div>
-
-                    <button type="submit" class="w-full bg-bmw-blue hover:bg-blue-700 text-white font-bold py-3 rounded transition duration-300">
-                        변경사항 저장
-                    </button>
-                </form>
-            </div>
-
-            <div class="bg-gray-50 dark:bg-black/30 rounded-xl p-6 border border-dashed border-gray-200 dark:border-bmw-darkBorder mt-8">
-                <h3 class="text-xs font-bold uppercase text-gray-500 mb-4">결제 정보</h3>
-                <div class="space-y-2 text-xs">
-                    <p class="flex justify-between"><span class="text-gray-400">주문 ID:</span> <span class="font-mono">{{.order.id}}</span></p>
-                    <p class="flex justify-between"><span class="text-gray-400">포트원 ID:</span> <span class="font-mono">{{.order.portone_tx_id}}</span></p>
-                    <p class="flex justify-between"><span class="text-gray-400">주문일시:</span> <span>{{.order.created}}</span></p>
                 </div>
             </div>
-
-            {{if or (eq .order.status "paid") (eq .order.status "cancel_requested")}}
-            <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-6 border border-red-200 dark:border-red-900/50 mt-8">
-                <h3 class="text-xs font-bold uppercase text-red-600 dark:text-red-400 mb-4">환불 / 취소 처리</h3>
-                <p class="text-xs text-red-600 dark:text-red-400 mb-4">포트원 결제 취소 API를 호출하여 고객에게 실제 환불 처리를 진행합니다.</p>
-                <button type="button" 
-                    hx-post="/api/cms/orders/{{.order.id}}/approve-cancel" 
-                    hx-swap="none" 
-                    hx-on::after-request="if(event.detail.successful) { alert('환불이 완료되었습니다.'); window.location.href = '/cms/orders'; } else { alert(JSON.parse(event.detail.xhr.responseText).error || '오류가 발생했습니다.'); }"
-                    hx-confirm="정말 이 주문을 취소하고 환불하시겠습니까?"
-                    class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded transition duration-300">
-                    결제 취소 및 환불 승인
-                </button>
-            </div>
-            {{end}}
-        </div>
+        </main>
     </div>
-</div>
+
+    <script>
+        const pb = new PocketBase(window.location.origin);
+
+        function orderDetailApp() {
+            return {
+                logout() {
+                    pb.authStore.clear();
+                    document.cookie = 'pb_auth=; Max-Age=0; path=/';
+                    window.location.href = '/';
+                }
+            }
+        }
+    </script>
+
+    <!-- Invoice Print Javascript Logic (A4 PDF/Paper template) -->
+    <script>
+    function generateBarcodeHTML(str) {
+        let html = '<div style="display: flex; height: 35px; align-items: stretch; margin: 5px 0; justify-content: center; background: #fff; padding: 2px;">';
+        const pattern = [2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 1, 3, 2, 1, 2, 2, 1, 1, 3, 1];
+        for (let i = 0; i < 50; i++) {
+            const charCode = str.charCodeAt(i % str.length) || 65;
+            const isBlack = i % 2 === 0;
+            const width = pattern[charCode % pattern.length];
+            html += `<div style="width: ${width}px; background: ${isBlack ? '#000' : 'transparent'}; flex-grow: 0; flex-shrink: 0;"></div>`;
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function printInvoice() {
+        const order = {
+            id: "{{.order.id}}",
+            created: "{{.order.created}}",
+            totalAmount: "{{.order.total_amount}}",
+            recipientName: "{{if .order.recipient_name}}{{.order.recipient_name}}{{else if .order.user}}{{.order.expand.user.name}}{{else}}{{.order.guest_info.name}}{{end}}",
+            recipientPhone: "{{if .order.recipient_phone}}{{.order.recipient_phone}}{{else if .order.user}}{{.order.expand.user.phone}}{{else}}{{.order.guest_info.phone}}{{end}}",
+            recipientAddress: "{{if .order.shipping_address}}{{.order.shipping_address}} {{.order.shipping_address_detail}}{{else if .order.user}}{{.order.expand.user.address}}{{else}}{{.order.guest_info.address}}{{end}}",
+            shippingMemo: "{{.order.shipping_memo}}",
+            courierName: "{{.order.courier_name}}",
+            trackingNumber: "{{.order.tracking_number}}"
+        };
+
+        const items = [
+            {{range .items}}
+            {
+                name: "{{.expand.product.name}}",
+                quantity: {{.quantity}},
+                unitPrice: {{.unit_price}},
+                totalPrice: {{.total_price}}
+            },
+            {{end}}
+        ];
+
+        const printWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes');
+        if (!printWindow) {
+            alert('팝업 차단이 설정되어 있습니다. 팝업 허용 후 다시 시도해 주세요.');
+            return;
+        }
+
+        let itemsHtml = '';
+        items.forEach(item => {
+            itemsHtml += `
+                <tr>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: left;">${item.name}</td>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold;">${item.quantity} 개</td>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">₩${item.unitPrice.toLocaleString()}</td>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: right; font-weight: bold;">₩${item.totalPrice.toLocaleString()}</td>
+                </tr>
+            `;
+        });
+
+        let itemsBrief = items.map(item => `${item.name}(${item.quantity})`).join(', ');
+
+        const barcode1 = generateBarcodeHTML(order.id);
+        const barcode2 = order.trackingNumber ? generateBarcodeHTML(order.trackingNumber) : '<div style="height: 35px; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 11px;">송장 대기중</div>';
+
+        const docContent = `
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <title>송장 및 영수증 인쇄 - D'ROLL SHOP</title>
+        <style>
+            body {
+                font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Nanum Gothic', sans-serif;
+                color: #000;
+                background: #fff;
+                margin: 0;
+                padding: 20px;
+                font-size: 12px;
+                line-height: 1.4;
+            }
+            .container {
+                width: 700px;
+                margin: 0 auto;
+            }
+            .section {
+                border: 2px solid #000;
+                padding: 15px;
+                margin-bottom: 20px;
+                position: relative;
+                background: #fff;
+            }
+            .section-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 2px solid #000;
+                padding-bottom: 10px;
+                margin-bottom: 15px;
+            }
+            .section-title {
+                font-size: 20px;
+                font-weight: 900;
+                letter-spacing: 2px;
+                margin: 0;
+            }
+            .badge {
+                border: 2px solid #000;
+                padding: 3px 8px;
+                font-weight: 800;
+                font-size: 11px;
+                text-transform: uppercase;
+            }
+            .grid-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 15px;
+            }
+            .grid-table th, .grid-table td {
+                border: 1px solid #000;
+                padding: 8px;
+                text-align: left;
+                vertical-align: middle;
+            }
+            .grid-table th {
+                background: #f2f2f2;
+                font-weight: bold;
+                text-align: center;
+                font-size: 11px;
+            }
+            .flex-row {
+                display: flex;
+                border: 1px solid #000;
+                border-bottom: none;
+            }
+            .flex-row:last-of-type {
+                border-bottom: 1px solid #000;
+            }
+            .flex-col {
+                flex: 1;
+                padding: 8px;
+                border-right: 1px solid #000;
+            }
+            .flex-col:last-child {
+                border-right: none;
+            }
+            .label {
+                font-size: 9px;
+                font-weight: bold;
+                color: #555;
+                margin-bottom: 3px;
+                text-transform: uppercase;
+            }
+            .value {
+                font-size: 12px;
+                font-weight: bold;
+            }
+            .value-large {
+                font-size: 15px;
+                font-weight: 900;
+            }
+            .address-box {
+                background: #fafafa;
+                padding: 12px;
+                border: 1px dashed #000;
+                margin-top: 5px;
+                font-size: 14px;
+                font-weight: 800;
+                line-height: 1.5;
+            }
+            .cut-line {
+                border-top: 2px dashed #777;
+                text-align: center;
+                margin: 35px 0;
+                position: relative;
+            }
+            .cut-line span {
+                position: absolute;
+                top: -10px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #fff;
+                padding: 0 15px;
+                font-size: 11px;
+                color: #555;
+                font-weight: bold;
+                border: 1px solid #777;
+                border-radius: 12px;
+            }
+            .barcode-wrap {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 5px;
+            }
+            .barcode-text {
+                font-family: monospace;
+                font-size: 10px;
+                letter-spacing: 2px;
+                font-weight: bold;
+                margin-top: 2px;
+            }
+            .print-btn-bar {
+                text-align: right;
+                margin-bottom: 15px;
+            }
+            .btn {
+                background: #000;
+                color: #fff;
+                border: 2px solid #000;
+                padding: 8px 18px;
+                font-weight: bold;
+                font-size: 12px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .btn:hover {
+                background: #fff;
+                color: #000;
+            }
+            @media print {
+                .print-btn-bar {
+                    display: none;
+                }
+                body {
+                    padding: 0;
+                    margin: 0;
+                }
+                @page {
+                    size: A4;
+                    margin: 1.2cm;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="print-btn-bar">
+                <button class="btn" onclick="window.print()">인쇄하기 (Print)</button>
+                <button class="btn" style="background:#555; border-color:#555; margin-left:5px;" onclick="window.close()">창 닫기 (Close)</button>
+            </div>
+
+            <!-- TOP SECTION: SHIPPING LABEL (송장) -->
+            <div class="section">
+                <div class="section-header">
+                    <h1 class="section-title">우체국/대한통운 택배 배송 송장</h1>
+                    <div class="badge">배송 박스 부착용 (Shipping Label)</div>
+                </div>
+
+                <div class="flex-row">
+                    <div class="flex-col" style="flex: 2;">
+                        <div class="label">보내는 분 (Sender)</div>
+                        <div class="value">D'ROLL SHOP (디롤샵)</div>
+                        <div style="font-size:10px; color:#555; margin-top:2px;">고객센터: 1588-0000<br>서울특별시 강남구 테헤란로 123 디롤타워 8층</div>
+                    </div>
+                    <div class="flex-col">
+                        <div class="label">주문 번호 (Order ID)</div>
+                        <div class="barcode-wrap">
+                            \${barcode1}
+                            <div class="barcode-text">\${order.id}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-row">
+                    <div class="flex-col" style="flex: 2;">
+                        <div class="label">받는 분 (Recipient)</div>
+                        <div class="value-large">\${order.recipientName} 님</div>
+                        <div class="value" style="margin-top:2px;">연락처: \${order.recipientPhone}</div>
+                    </div>
+                    <div class="flex-col">
+                        <div class="label">배송 택배사</div>
+                        <div class="value-large" style="color:#000;">\${order.courierName || '지정 대기'}</div>
+                    </div>
+                </div>
+
+                <div class="flex-row" style="background:#fcfcfc;">
+                    <div class="flex-col" style="flex: 2;">
+                        <div class="label">배송지 주소 (Shipping Address)</div>
+                        <div class="address-box">
+                            \${order.recipientAddress}
+                        </div>
+                    </div>
+                    <div class="flex-col">
+                        <div class="label">운송장 번호 (Tracking)</div>
+                        <div class="barcode-wrap">
+                            \${barcode2}
+                            <div class="barcode-text">\${order.trackingNumber || '송장 대기중'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-row">
+                    <div class="flex-col" style="flex: 2;">
+                        <div class="label">배송 요청사항 (Shipping Memo)</div>
+                        <div class="value" style="font-style: italic; color:#333;">\${order.shippingMemo || '없음'}</div>
+                    </div>
+                    <div class="flex-col">
+                        <div class="label">배송 상품 정보 요약</div>
+                        <div class="value" style="font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            \${itemsBrief}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CUTTING LINE -->
+            <div class="cut-line">
+                <span>절 취 선 (Cut Here - 박스 동봉용 영수증은 아래 잘라서 동봉해주세요)</span>
+            </div>
+
+            <!-- BOTTOM SECTION: PACKING SLIP / CUSTOMER INVOICE (영수증) -->
+            <div class="section" style="border-style: solid;">
+                <div class="section-header">
+                    <h1 class="section-title">D'ROLL SHOP 주문 영수증 & 패킹슬립</h1>
+                    <div class="badge">고객 보관용 (Customer Copy)</div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:11px; color:#444; border-bottom:1px solid #000; padding-bottom:8px;">
+                    <div>
+                        <strong>주문 번호:</strong> \${order.id}<br>
+                        <strong>결제 일시:</strong> \${order.created}
+                    </div>
+                    <div style="text-align:right;">
+                        <strong>수령인:</strong> \${order.recipientName} 님<br>
+                        <strong>배송지:</strong> \${order.recipientAddress}
+                    </div>
+                </div>
+
+                <table class="grid-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">상품명 (Product Name)</th>
+                            <th style="width: 12%;">수량 (Qty)</th>
+                            <th style="width: 18%;">단가 (Price)</th>
+                            <th style="width: 20%;">총 금액 (Total)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        \${itemsHtml}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" style="border: 1px solid #000; padding: 8px; text-align: right; font-weight: bold; background:#f9f9f9;">합계 금액 (Total Amount Paid)</td>
+                            <td style="border: 1px solid #000; padding: 8px; text-align: right; font-weight: 900; font-size:14px; background:#f9f9f9;">₩\${parseInt(order.totalAmount).toLocaleString()}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div style="text-align:center; margin-top:20px; font-weight:bold; font-size:11px;">
+                    <p>저희 D'ROLL SHOP을 이용해 주셔서 진심으로 감사드립니다.<br>상품의 교환/반품은 배송 완료 후 7일 이내에 고객센터로 문의 바랍니다.</p>
+                    <div style="font-size:9px; color:#666; margin-top:5px;">www.drollshop.co.kr | 대표번호 1588-0000</div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            window.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => {
+                    window.print();
+                }, 500);
+            });
+        <\/script>
+    </body>
+    </html>
+        `;
+
+        printWindow.document.write(docContent);
+        printWindow.document.close();
+    }
+    </script>
+</body>
+</html>
