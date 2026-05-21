@@ -48,15 +48,15 @@
             </div>
             <div class="flex-1 overflow-y-auto py-4">
                 <nav class="space-y-1 px-3">
-                    <a href="/cms" 
+                    <a href="/cms/?tab=products" 
                        class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase text-gray-300 hover:bg-bmw-surface hover:text-white">
                         CATALOG
                     </a>
-                    <a href="/cms" 
+                    <a href="/cms/?tab=orders" 
                        class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase bg-bmw-blue text-white">
                         ORDERS
                     </a>
-                    <a href="/cms" 
+                    <a href="/cms/?tab=settings" 
                        class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase text-gray-300 hover:bg-bmw-surface hover:text-white">
                         사이트 설정
                     </a>
@@ -80,7 +80,7 @@
                     <!-- Top Actions Bar -->
                     <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-200 pb-6">
                         <div class="flex items-center gap-4">
-                            <a href="/cms" class="text-sm text-gray-500 hover:text-bmw-blue flex items-center gap-1 shrink-0 transition">
+                            <a href="/cms/?tab=orders" class="text-sm text-gray-500 hover:text-bmw-blue flex items-center gap-1 shrink-0 transition">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                                 목록으로 돌아가기
                             </a>
@@ -363,7 +363,7 @@
                                 <button type="button" 
                                     hx-post="/api/cms/orders/{{.order.id}}/approve-cancel" 
                                     hx-swap="none" 
-                                    hx-on::after-request="if(event.detail.successful) { alert('환불이 완료되었습니다.'); window.location.href = '/cms'; } else { alert(JSON.parse(event.detail.xhr.responseText).error || '오류가 발생했습니다.'); }"
+                                    hx-on::after-request="if(event.detail.successful) { alert('환불이 완료되었습니다.'); window.location.href = '/cms/?tab=orders'; } else { alert(JSON.parse(event.detail.xhr.responseText).error || '오류가 발생했습니다.'); }"
                                     hx-confirm="정말 이 주문을 취소하고 환불하시겠습니까?"
                                     class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded transition duration-300 shadow">
                                     결제 취소 및 환불 승인

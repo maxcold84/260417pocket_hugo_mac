@@ -684,7 +684,20 @@
                 init() {
                     if (this.isLoggedIn) {
                         document.cookie = pb.authStore.exportToCookie({ secure: false, httpOnly: false });
-                        this.fetchProducts();
+                        
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const tab = urlParams.get('tab');
+                        if (tab && ['products', 'orders', 'settings'].includes(tab)) {
+                            this.currentTab = tab;
+                        }
+
+                        if (this.currentTab === 'orders') {
+                            this.fetchOrders();
+                        } else if (this.currentTab === 'settings') {
+                            this.fetchSettings();
+                        } else {
+                            this.fetchProducts();
+                        }
                         this.fetchDbCategories();
                     }
                     // Auto-slugify new product name (supports Korean IME)

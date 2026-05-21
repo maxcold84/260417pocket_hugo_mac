@@ -7,20 +7,53 @@ publishDir = "../pb_public"
 defaultContentLanguage = "ko-kr"
 enableLanguages = ["ko-kr", "en"]
 
+# Disabling unused Hugo features to speed up builds and reduce output files
+disableKinds = ["taxonomy", "term", "RSS"]
+
+# Enable robots.txt generation for search engines
+enableRobotsTXT = true
+
+# HTML, CSS, JS, SVG minification
+[minify]
+  minifyOutput = true
+  disableCSS = false
+  disableHTML = false
+  disableJS = false
+  disableJSON = false
+  disableSVG = false
+  disableXML = false
+
 [languages]
   [languages.ko-kr]
     languageCode = "ko-kr"
     languageName = "한국어"
     weight = 1
+    [languages.ko-kr.params]
+      heroTitle = "궁극의 드라이빙 머신"
+      heroSubtitle = "프리미엄 액세서리의 최신 큐레이팅 컬렉션을 통해 타협 없는 성능과 럭셔리함을 경험해 보세요."
+      newArrivalLabel = "신규 상품"
+      exploreCollection = "컬렉션 탐색"
+      catalogTitle = "카탈로그"
+      catalogDescription = "프리미엄 자동차 부품과 라이프스타일 액세서리 컬렉션을 만나보세요."
+      selectedForYou = "당신을 위한 선택"
+      featuredProducts = "추천 상품"
+
   [languages.en]
     languageCode = "en-us"
     languageName = "English"
     weight = 2
+    [languages.en.params]
+      heroTitle = "The Ultimate Driving Machine"
+      heroSubtitle = "Experience uncompromised performance and luxury with our latest curated collection of premium accessories."
+      newArrivalLabel = "New Arrival"
+      exploreCollection = "Explore Collection"
+      catalogTitle = "Catalog"
+      catalogDescription = "Discover our premium selection of automotive parts and lifestyle accessories."
+      selectedForYou = "Selected For You"
+      featuredProducts = "Featured Products"
 
 [params]
 heroImg = "https://cdn.midjourney.com/b26ef844-b04c-44e8-9a98-6438d86d3697/0_2.png"
-heroTitle = "The Ultimate Driving Machine"
-heroSubtitle = "Experience uncompromised performance and luxury with our latest curated collection of premium accessories."
 
 [params.oauth]
 google = true
@@ -35,7 +68,6 @@ kakao = false
 name = "catalog"
 url = "/products"
 weight = 1
-
 
 [[params.categories]]
 name = "퍼포먼스"
