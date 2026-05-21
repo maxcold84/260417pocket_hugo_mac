@@ -67,9 +67,13 @@ routerAdd("POST", "/api/payment/webhook", (e) => {
                 order.set("status", "paid");
                 order.set("portone_tx_id", pResponse.id || paymentId);
                 $app.save(order);
-            } else if (status === "CANCELLED" || status === "FAILED") {
+            } else if (status === "CANCELLED") {
+                order.set("status", "refunded");
+                $app.save(order);
+                console.log("Updated order status to refunded via PortOne Webhook: " + paymentId);
+            } else if (status === "FAILED") {
                 $app.delete(order);
-                console.log("Deleted cancelled/failed order via PortOne Webhook: " + paymentId);
+                console.log("Deleted failed order via PortOne Webhook: " + paymentId);
             }
             
             console.log("PortOne Webhook processed successfully for order: " + paymentId + " with status: " + status);

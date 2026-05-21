@@ -288,7 +288,7 @@
                                                 <a :href="'/cms/orders/' + order.id" class="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition duration-200">
                                                     상세보기
                                                 </a>
-                                                <template x-if="order.status === 'cancel_requested' && cancelConfirmId !== order.id">
+                                                <template x-if="isCancellable(order.status) && cancelConfirmId !== order.id">
                                                     <button @click="cancelConfirmId = order.id"
                                                             class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 text-xs rounded transition">
                                                         취소 승인(환불)
@@ -1013,6 +1013,10 @@
                 showToast(msg) {
                     this.toastMsg = msg;
                     setTimeout(() => { this.toastMsg = ''; }, 4000);
+                },
+                isCancellable(status) {
+                    const cancellableStatuses = ['cancel_requested'];
+                    return cancellableStatuses.includes(status);
                 },
                 async approveCancel(id) {
                     this.cancelApproving = true;
