@@ -29,12 +29,12 @@ enableRobotsTXT = true
     languageName = "한국어"
     weight = 1
     [languages.ko-kr.params]
-      heroTitle = "궁극의 드라이빙 머신"
-      heroSubtitle = "프리미엄 액세서리의 최신 큐레이팅 컬렉션을 통해 타협 없는 성능과 럭셔리함을 경험해 보세요."
+      heroTitle = "소중한 시간을 닮다"
+      heroSubtitle = "엄선된 큐레이팅 컬렉션과 타협 없는 선택을 담아가세요."
       newArrivalLabel = "신규 상품"
       exploreCollection = "컬렉션 탐색"
       catalogTitle = "카탈로그"
-      catalogDescription = "프리미엄 자동차 부품과 라이프스타일 액세서리 컬렉션을 만나보세요."
+      catalogDescription = "트렌드한 선택과 라이프스타일 컬렉션을 소개합니다."
       selectedForYou = "당신을 위한 선택"
       featuredProducts = "추천 상품"
 

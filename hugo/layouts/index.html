@@ -15,7 +15,7 @@
     <div class="relative h-full flex flex-col items-center justify-end pb-20 px-6 text-center">
         <span class="text-bmw-blue font-bold tracking-[0.2em] text-sm md:text-base mb-3 uppercase">{{ site.Params.newArrivalLabel }}</span>
         <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 tracking-tight leading-tight">
-            {{ range $i, $line := (split site.Params.heroTitle " ") }}{{ if eq $i 2 }}<br class="md:hidden" />{{ end }}{{ if $i }} {{ end }}{{ $line }}{{ end }}
+            {{ range $i, $line := (split site.Params.heroTitle " ") }}{{ if $i }}{{ if eq $i 2 }}<br class="md:hidden" /><span class="hidden md:inline">&nbsp;</span>{{ else }} {{ end }}{{ end }}{{ $line }}{{ end }}
         </h1>
         <p class="text-base md:text-lg text-gray-300 mb-10 max-w-xl mx-auto font-light leading-relaxed">
             {{ site.Params.heroSubtitle }}

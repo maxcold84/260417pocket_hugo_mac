@@ -69,3 +69,7 @@ hugo/                   ← Hugo source (content, themes, config)
       1. **Server-Side Rendered View**: Accessed via `/cms/settings` (served via HTMX from `pb_hooks/routes/admin.pb.js`), rendering `pb_hooks/views/admin/settings.html`.
       2. **Alpine.js SPA View**: Accessed within the SPA dashboard (`currentTab = 'settings'`), making a GET request to `/api/cms/settings`.
     - Saving changes POSTs the TOML text to `/api/cms/settings/update`, which writes back to `hugo/hugo.toml` and automatically triggers a `hugo --ignoreCache` rebuild to instantly reflect site-wide changes (e.g., dynamic navigation menus).
+9. **Hugo HTML Minifier and Spacing Collapse (Whitespace bug)**:
+    - Hugo has `minifyOutput = true` under `[minify]` in `hugo.toml` which aggressively minifies HTML outputs and collapses whitespace adjacent to inline/block elements (like `<br>`).
+    - If you attempt to split a multi-word title to conditionally inject a `<br class="md:hidden" />` for mobile viewports, the minifier will strip the space on desktop viewports where `<br>` is hidden via CSS, making "소중한 시간을 닮다" render as "소중한 시간을닮다" (no space at all).
+    - **Rule:** Never place a plain space immediately adjacent to a responsive `<br>` tag inside standard loops. Instead, wrap the desktop-only space in an inline element with non-breaking whitespace: `<br class="md:hidden" /><span class="hidden md:inline">&nbsp;</span>`. This prevents the minifier from stripping the space on desktop and avoids rendering a leading space on a new line on mobile.
