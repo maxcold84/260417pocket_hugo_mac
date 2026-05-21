@@ -195,18 +195,76 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
         const orderId = e.request.pathValue("id");
         const order = $app.findRecordById("orders", orderId);
         
-        // Expand user and order items
+        // Expand user
         $app.expandRecord(order, ["user"], null);
         const plainOrder = order.publicExport();
+        
+        // Read and parse guest_info directly into a native JS object
+        let guestInfo = null;
+        const rawGuest = order.get("guest_info");
+        if (rawGuest) {
+            try {
+                let jsonStr = "";
+                if (typeof rawGuest === "string") {
+                    jsonStr = rawGuest;
+                } else {
+                    jsonStr = rawGuest.toString();
+                }
+                if (jsonStr) {
+                    guestInfo = JSON.parse(jsonStr);
+                }
+            } catch (err) {
+                console.error("Failed to parse guest_info:", err);
+            }
+        }
+        
+        const userRec = order.expandedOne("user");
+        const memberName = userRec ? userRec.getString("name") : "";
+        const memberPhone = userRec ? userRec.getString("phone") : "";
+        const memberEmail = userRec ? userRec.getString("email") : "";
+        const memberAddress = userRec ? userRec.getString("address") : "";
+        
         plainOrder.expand = {
-            user: order.expandedOne("user") ? order.expandedOne("user").publicExport() : null
+            user: userRec ? {
+                name: memberName,
+                phone: memberPhone,
+                email: memberEmail,
+                address: memberAddress
+            } : null
         };
+
+        // Standardize recipient / shipping fields for template (avoids complex nil-checks in Go HTML Engine)
+        let displayRecipientName = "";
+        if (plainOrder.recipient_name) {
+            displayRecipientName = plainOrder.recipient_name;
+        } else if (memberName) {
+            displayRecipientName = memberName;
+        } else if (guestInfo) {
+            displayRecipientName = guestInfo.name || "";
+        }
+
+        let displayRecipientPhone = "";
+        if (plainOrder.recipient_phone) {
+            displayRecipientPhone = plainOrder.recipient_phone;
+        } else if (memberPhone) {
+            displayRecipientPhone = memberPhone;
+        } else if (guestInfo) {
+            displayRecipientPhone = guestInfo.phone || "";
+        }
+
+        let displayShippingAddress = "";
+        if (plainOrder.shipping_address) {
+            displayShippingAddress = plainOrder.shipping_address + " " + (plainOrder.shipping_address_detail || "");
+        } else if (memberAddress) {
+            displayShippingAddress = memberAddress;
+        } else if (guestInfo) {
+            displayShippingAddress = guestInfo.address || "";
+        }
         
         const items = $app.findRecordsByFilter("order_items", "order = {:id}", "-id", 100, 0, { id: orderId });
         const itemsWithTotals = items.map(item => {
             $app.expandRecord(item, ["product"], null);
             const plain = item.publicExport();
-            // Manually re-add expanded product because publicExport might not include it nicely in some Goja versions
             plain.expand = {
                 product: item.expandedOne("product") ? item.expandedOne("product").publicExport() : null
             };
@@ -216,7 +274,24 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
 
         const fullHtml = $template.loadFiles(`${__hooks}/views/admin/order-detail.html`).render({
             order: plainOrder,
-            items: itemsWithTotals
+            items: itemsWithTotals,
+            userInfo: userRec ? {
+                name: memberName,
+                phone: memberPhone,
+                email: memberEmail,
+                address: memberAddress
+            } : null,
+            isGuest: guestInfo !== null,
+            guestName: guestInfo ? (guestInfo.name || "") : "",
+            guestPhone: guestInfo ? (guestInfo.phone || "") : "",
+            guestEmail: guestInfo ? (guestInfo.email || "") : "",
+            guestPassword: guestInfo ? (guestInfo.password || "") : "",
+            memberName: memberName,
+            memberPhone: memberPhone,
+            memberEmail: memberEmail,
+            displayRecipientName: displayRecipientName,
+            displayRecipientPhone: displayRecipientPhone,
+            displayShippingAddress: displayShippingAddress
         });
         return e.html(200, fullHtml);
     } catch (err) {

@@ -5,6 +5,11 @@
         {{ i18n "orders" }}
     </h1>
 
+    <!-- Toast Notification -->
+    <div x-show="toastMsg" x-cloak x-transition
+         class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-lg shadow-xl text-sm font-medium max-w-md text-center"
+         x-text="toastMsg"></div>
+
     <!-- Loading State -->
     <div x-show="loading" class="flex items-center justify-center py-20">
         <div class="flex flex-col items-center gap-4">
@@ -21,19 +26,55 @@
         <span x-text="error"></span>
     </div>
 
-    <!-- Not Logged In -->
-    <div x-show="!loggedIn && !loading" x-cloak class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-12 rounded-sm text-center">
-        <svg class="w-16 h-16 mx-auto mb-6 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-        </svg>
-        <p class="text-gray-500 dark:text-gray-400 mb-6">로그인 후 주문 내역을 확인할 수 있습니다.</p>
-        <a href="/login" class="inline-block bg-bmw-blue hover:bg-blue-700 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
-            {{ i18n "login" }}
-        </a>
+    <!-- Guest Active Session Info -->
+    <div x-show="isGuestMode" x-cloak class="bg-blue-50/50 dark:bg-bmw-blue/10 border border-blue-200 dark:border-bmw-blue/30 p-4 rounded-sm mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+            <span class="text-sm text-gray-700 dark:text-gray-300">
+                비회원 주문 내역을 조회 중입니다. (임시 아이디: <strong class="text-gray-900 dark:text-white font-mono" x-text="lookupTempId"></strong>)
+            </span>
+        </div>
+        <button @click="clearGuestSession()" class="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white underline transition">
+            조회 종료
+        </button>
+    </div>
+
+    <!-- Not Logged In & Not Lookup Layout: Centered Guest Order Lookup Card -->
+    <div x-show="!loggedIn && !isGuestMode && !loading" x-cloak class="flex justify-center mb-12">
+        <!-- Guest Order Lookup -->
+        <div class="max-w-md w-full bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-8 rounded-sm text-left flex flex-col justify-between min-h-[350px]">
+            <div class="w-full">
+                <h2 class="text-xl font-light text-gray-900 dark:text-white mb-4 uppercase tracking-wide text-center">GUEST LOOKUP</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-6 text-center font-light">비회원으로 결제하셨다면 아래 정보를 입력하여 주문 내역을 조회해 보세요.</p>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">임시 아이디 (휴대폰 번호/이메일/휴대폰 뒷 4자리) <span class="text-red-500">*</span></label>
+                        <input type="text" x-model="lookupTempId" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="010-1234-5678, 뒷 4자리(5678) 또는 이메일" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">주문 번호 (Payment ID) <span class="text-red-500">*</span></label>
+                        <input type="text" x-model="lookupOrderId" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none font-mono" placeholder="주문 번호를 입력하세요" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">주문 비밀번호 <span class="text-red-500">*</span></label>
+                        <input type="password" x-model="lookupPassword" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="미입력 시 휴대폰 뒷 4자리" />
+                    </div>
+                </div>
+            </div>
+            <button @click="lookupGuestOrder()" :disabled="searching" class="w-full bg-bmw-blue hover:bg-blue-700 text-white py-3 uppercase tracking-wider text-xs font-bold transition duration-300 disabled:opacity-50 mt-6">
+                <span x-show="!searching">조회하기</span>
+                <span x-show="searching">조회 중...</span>
+            </button>
+            <div class="text-center mt-4 border-t border-gray-100 dark:border-bmw-darkBorder pt-4">
+                <a href="/login" class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition duration-300 uppercase tracking-widest font-medium">
+                    회원 로그인으로 이동 &rarr;
+                </a>
+            </div>
+        </div>
     </div>
 
     <!-- Empty Orders -->
-    <div x-show="loggedIn && !loading && orders.length === 0 && !error" x-cloak class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-12 rounded-sm text-center">
+    <div x-show="(loggedIn || isGuestMode) && !loading && orders.length === 0 && !error" x-cloak class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-12 rounded-sm text-center">
         <svg class="w-16 h-16 mx-auto mb-6 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
         </svg>
@@ -43,13 +84,8 @@
         </a>
     </div>
 
-    <!-- Toast Notification -->
-    <div x-show="toastMsg" x-cloak x-transition
-         class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-lg shadow-xl text-sm font-medium max-w-md text-center"
-         x-text="toastMsg"></div>
-
-    <!-- Orders List -->
-    <div x-show="loggedIn && !loading && orders.length > 0" x-cloak class="space-y-4 pb-24 md:pb-4">
+    <!-- Toast     <!-- Orders List -->
+    <div x-show="(loggedIn || isGuestMode) && !loading && orders.length > 0" x-cloak class="space-y-4 pb-24 md:pb-4">
         <template x-for="order in orders" :key="order.id">
             <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder rounded-sm overflow-hidden transition hover:shadow-md">
                 <!-- Order Header -->
@@ -60,8 +96,8 @@
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                              :class="statusClass(order.status)"
-                              x-text="statusLabel(order.status)"></span>
+                               :class="statusClass(order.status)"
+                               x-text="statusLabel(order.status)"></span>
                     </div>
                 </div>
 
@@ -164,9 +200,32 @@
                 confirmId: '',
                 confirmAction: '',
                 cancelling: false,
+                
+                // Guest order lookup state
+                lookupTempId: '',
+                lookupOrderId: '',
+                lookupPassword: '',
+                searching: false,
+                isGuestMode: false,
 
                 async init() {
                     this.pb = new PocketBase(window.location.origin);
+
+                    // Check if guest lookup session exists in local storage
+                    const savedSession = localStorage.getItem('guest_lookup_session');
+                    if (savedSession) {
+                        try {
+                            const parsed = JSON.parse(savedSession);
+                            this.lookupTempId = parsed.tempId || '';
+                            this.lookupOrderId = parsed.orderId || '';
+                            this.lookupPassword = parsed.password || '';
+                            if (this.lookupTempId && this.lookupOrderId && this.lookupPassword) {
+                                await this.lookupGuestOrder(true);
+                            }
+                        } catch (e) {
+                            localStorage.removeItem('guest_lookup_session');
+                        }
+                    }
 
                     if (!this.pb.authStore.isValid) {
                         this.loading = false;
@@ -198,6 +257,64 @@
                     } finally {
                         this.loading = false;
                     }
+                },
+
+                // Secure guest lookup call
+                async lookupGuestOrder(silent = false) {
+                    if (!this.lookupTempId || !this.lookupOrderId || !this.lookupPassword) {
+                        if (!silent) this.showToast('모든 조회 필드를 정확히 입력해 주세요.');
+                        return;
+                    }
+
+                    this.searching = true;
+                    if (!silent) this.loading = true;
+                    this.error = '';
+
+                    try {
+                        const res = await fetch('/api/guest/order-lookup', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                tempId: this.lookupTempId,
+                                orderId: this.lookupOrderId,
+                                password: this.lookupPassword
+                            })
+                        });
+
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || '조회에 실패했습니다.');
+
+                        this.orders = data.items || [];
+                        this.isGuestMode = true;
+                        this.loggedIn = false;
+
+                        // Save session
+                        localStorage.setItem('guest_lookup_session', JSON.stringify({
+                            tempId: this.lookupTempId,
+                            orderId: this.lookupOrderId,
+                            password: this.lookupPassword
+                        }));
+                    } catch (err) {
+                        console.error('Guest lookup failed:', err);
+                        if (!silent) {
+                            this.showToast(err.message || '조회 실패');
+                            this.error = err.message || '조회 실패';
+                        }
+                        // Clear active session since lookup credentials failed
+                        this.clearGuestSession();
+                    } finally {
+                        this.searching = false;
+                        this.loading = false;
+                    }
+                },
+
+                clearGuestSession() {
+                    this.orders = [];
+                    this.isGuestMode = false;
+                    this.lookupTempId = '';
+                    this.lookupOrderId = '';
+                    this.lookupPassword = '';
+                    localStorage.removeItem('guest_lookup_session');
                 },
 
                 formatDate(dateStr) {
@@ -241,14 +358,27 @@
                 async requestCancel(orderId) {
                     this.cancelling = true;
                     try {
-                        await this.pb.send('/api/orders/' + orderId + '/request-cancel', { method: 'POST' });
+                        if (this.isGuestMode) {
+                            const res = await fetch('/api/guest/orders/' + orderId + '/request-cancel', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    tempId: this.lookupTempId,
+                                    password: this.lookupPassword
+                                })
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error || '취소 요청 실패');
+                        } else {
+                            await this.pb.send('/api/orders/' + orderId + '/request-cancel', { method: 'POST' });
+                        }
                         const order = this.orders.find(o => o.id === orderId);
                         if (order) order.status = 'cancel_requested';
                         this.confirmId = '';
                         this.confirmAction = '';
                         this.showToast('취소 요청이 접수되었습니다. 관리자 승인 후 환불이 진행됩니다.');
                     } catch (err) {
-                        this.showToast(err.data?.error || err.message || '취소 요청 실패');
+                        this.showToast(err.message || '취소 요청 실패');
                     } finally {
                         this.cancelling = false;
                     }
@@ -257,14 +387,27 @@
                 async withdrawCancel(orderId) {
                     this.cancelling = true;
                     try {
-                        await this.pb.send('/api/orders/' + orderId + '/withdraw-cancel', { method: 'POST' });
+                        if (this.isGuestMode) {
+                            const res = await fetch('/api/guest/orders/' + orderId + '/withdraw-cancel', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    tempId: this.lookupTempId,
+                                    password: this.lookupPassword
+                                })
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error || '철회 실패');
+                        } else {
+                            await this.pb.send('/api/orders/' + orderId + '/withdraw-cancel', { method: 'POST' });
+                        }
                         const order = this.orders.find(o => o.id === orderId);
                         if (order) order.status = 'paid';
                         this.confirmId = '';
                         this.confirmAction = '';
                         this.showToast('취소 요청이 철회되었습니다.');
                     } catch (err) {
-                        this.showToast(err.data?.error || err.message || '철회 실패');
+                        this.showToast(err.message || '철회 실패');
                     } finally {
                         this.cancelling = false;
                     }

@@ -29,7 +29,7 @@ enableRobotsTXT = true
     languageName = "한국어"
     weight = 1
     [languages.ko-kr.params]
-      heroTitle = "소중한 시간을 닮다"
+      heroTitle = "소중한 꿈 같은 시간을 닮다"
       heroSubtitle = "엄선된 큐레이팅 컬렉션과 타협 없는 선택을 담아가세요."
       newArrivalLabel = "신규 상품"
       exploreCollection = "컬렉션 탐색"

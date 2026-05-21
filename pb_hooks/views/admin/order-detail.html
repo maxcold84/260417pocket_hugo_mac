@@ -31,6 +31,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
     <style>
+        [x-cloak] { display: none !important; }
         body { 
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
             -webkit-font-smoothing: antialiased;
@@ -141,6 +142,54 @@
                                 </div>
                             </div>
 
+                            {{if .isGuest}}
+                            <!-- Guest Customer Info -->
+                            <div class="bg-white rounded border border-gray-200 p-6 shadow-sm mb-6">
+                                <div class="border-b border-gray-100 pb-3 mb-4">
+                                    <h2 class="font-bold text-gray-900">비회원 주문자 정보</h2>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p class="text-gray-500 mb-1">주문자 이름</p>
+                                        <p class="font-medium text-gray-900">{{.guestName}}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500 mb-1">주문자 연락처</p>
+                                        <p class="font-medium text-gray-900">{{.guestPhone}}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500 mb-1">이메일 주소</p>
+                                        <p class="font-medium text-gray-900 font-mono">{{.guestEmail}}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500 mb-1">주문 비밀번호</p>
+                                        <p class="font-medium text-blue-600 font-mono">{{.guestPassword}}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            {{else}}
+                            <!-- Member Customer Info -->
+                            <div class="bg-white rounded border border-gray-200 p-6 shadow-sm mb-6">
+                                <div class="border-b border-gray-100 pb-3 mb-4">
+                                    <h2 class="font-bold text-gray-900">회원 주문자 정보</h2>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p class="text-gray-500 mb-1">주문자 이름</p>
+                                        <p class="font-medium text-gray-900">{{.memberName}}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500 mb-1">주문자 연락처</p>
+                                        <p class="font-medium text-gray-900">{{.memberPhone}}</p>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <p class="text-gray-500 mb-1">이메일 주소</p>
+                                        <p class="font-medium text-gray-900 font-mono">{{.memberEmail}}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            {{end}}
+
                             <!-- Shipping Info -->
                             <div class="bg-white rounded border border-gray-200 p-6 shadow-sm">
                                 <div class="border-b border-gray-100 pb-3 mb-4">
@@ -150,19 +199,19 @@
                                     <div>
                                         <p class="text-gray-500 mb-1">수령인</p>
                                         <p class="font-medium text-gray-900">
-                                            {{if .order.recipient_name}}{{.order.recipient_name}}{{else if .order.user}} {{.order.expand.user.name}} {{else}} {{.order.guest_info.name}} {{end}}
+                                            {{.displayRecipientName}}
                                         </p>
                                     </div>
                                     <div>
                                         <p class="text-gray-500 mb-1">연락처</p>
                                         <p class="font-medium text-gray-900">
-                                            {{if .order.recipient_phone}}{{.order.recipient_phone}}{{else if .order.user}} {{.order.expand.user.phone}} {{else}} {{.order.guest_info.phone}} {{end}}
+                                            {{.displayRecipientPhone}}
                                         </p>
                                     </div>
                                     <div class="col-span-2">
                                         <p class="text-gray-500 mb-1">주소</p>
                                         <p class="font-medium text-gray-900">
-                                            {{if .order.shipping_address}}{{.order.shipping_address}} {{.order.shipping_address_detail}}{{else if .order.user}} {{.order.expand.user.address}} {{else}} {{.order.guest_info.address}} {{end}}
+                                            {{.displayShippingAddress}}
                                         </p>
                                     </div>
                                     {{if .order.shipping_memo}}
@@ -411,9 +460,9 @@
             id: "{{.order.id}}",
             created: "{{.order.created}}",
             totalAmount: "{{.order.total_amount}}",
-            recipientName: "{{if .order.recipient_name}}{{.order.recipient_name}}{{else if .order.user}}{{.order.expand.user.name}}{{else}}{{.order.guest_info.name}}{{end}}",
-            recipientPhone: "{{if .order.recipient_phone}}{{.order.recipient_phone}}{{else if .order.user}}{{.order.expand.user.phone}}{{else}}{{.order.guest_info.phone}}{{end}}",
-            recipientAddress: "{{if .order.shipping_address}}{{.order.shipping_address}} {{.order.shipping_address_detail}}{{else if .order.user}}{{.order.expand.user.address}}{{else}}{{.order.guest_info.address}}{{end}}",
+            recipientName: "{{.displayRecipientName}}",
+            recipientPhone: "{{.displayRecipientPhone}}",
+            recipientAddress: "{{.displayShippingAddress}}",
             shippingMemo: "{{.order.shipping_memo}}",
             courierName: "{{.order.courier_name}}",
             trackingNumber: "{{.order.tracking_number}}"

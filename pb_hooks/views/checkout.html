@@ -55,8 +55,39 @@
                         <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">최종 결제 금액</label>
                         <div class="text-3xl font-bold text-bmw-blue" x-text="'₩' + subtotal.toLocaleString()"></div>
                     </div>
-                    <!-- Buyer Email (required for Inicis/KCP) -->
-                    <div class="mt-4" x-show="selectedMethod !== 'kakaopay'">
+                    <!-- Guest Information Form or Buyer Email/Phone for PG -->
+                    <div class="mt-6 border-t border-gray-100 dark:border-bmw-darkBorder pt-6" x-show="!isLoggedIn">
+                        <h3 class="text-lg font-light mb-4 text-gray-900 dark:text-white">비회원 주문 정보 입력 (Guest Information)</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">• 비회원 주문 조회 시 사용할 휴대폰 번호, 이메일 주소, 비밀번호를 정확히 입력해 주세요.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">임시 아이디용 휴대폰 번호 <span class="text-red-500">*</span></label>
+                                <input type="tel" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="010-1234-5678" x-model="buyerPhone" required />
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">임시 아이디용 이메일 주소 <span class="text-red-500">*</span></label>
+                                <input type="email" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="example@domain.com" x-model="buyerEmail" required />
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">주문 비밀번호</label>
+                                <input type="password" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="미입력 시 휴대폰 뒷 4자리" x-model="guestPassword" />
+                            </div>
+                        </div>
+                        
+                        <!-- Privacy consent for Korean Compliance -->
+                        <div class="mt-4 p-4 bg-gray-50 dark:bg-black/20 border border-gray-100 dark:border-bmw-darkBorder rounded-sm text-xs space-y-2 text-gray-500 dark:text-gray-400">
+                            <div class="flex items-start gap-2">
+                                <input type="checkbox" id="privacyConsent" x-model="privacyConsent" class="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 dark:border-bmw-darkBorder text-bmw-blue focus:ring-bmw-blue bg-white dark:bg-black" />
+                                <label for="privacyConsent" class="cursor-pointer select-none">
+                                    <strong>[필수] 개인정보 수집 및 이용 동의</strong><br>
+                                    수집 목적: 비회원 구매 서비스 제공, 주문 처리 및 배송, 임시 아이디 발급 및 주문 내역 조회. 수집 항목: 이름, 연락처, 배송지 주소, 이메일. 보유 및 이용 기간: 전자상거래법 등 관련 법령에 따른 보존기간까지 보유.
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Member buyer details for KG Inicis / KCP if method is not Kakaopay -->
+                    <div class="mt-4" x-show="isLoggedIn && selectedMethod !== 'kakaopay'">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">결제용 이메일 <span class="text-red-500">*</span></label>
@@ -105,6 +136,9 @@
 function checkoutPage() {
     return {
         items: JSON.parse(localStorage.getItem('cart') || '[]'),
+        isLoggedIn: false,
+        guestPassword: '',
+        privacyConsent: false,
         buyerEmail: '',
         buyerPhone: '',
         recipientName: '',
@@ -116,6 +150,13 @@ function checkoutPage() {
         rememberShipping: true,
         
         async init() {
+            try {
+                const authStr = localStorage.getItem('pocketbase_auth');
+                this.isLoggedIn = !!authStr;
+            } catch (e) {
+                this.isLoggedIn = false;
+            }
+
             // Check user's saving preference from localStorage
             try {
                 const opt = localStorage.getItem('remember_shipping');
@@ -259,7 +300,23 @@ function checkoutPage() {
                 return;
             }
 
-            if (this.selectedMethod !== 'kakaopay') {
+            // Guest validation
+            if (!this.isLoggedIn) {
+                if (!this.buyerPhone) {
+                    alert("임시 아이디용 휴대폰 번호는 필수 입력입니다.");
+                    return;
+                }
+                if (!this.buyerEmail) {
+                    alert("임시 아이디용 이메일 주소는 필수 입력입니다.");
+                    return;
+                }
+                if (!this.privacyConsent) {
+                    alert("개인정보 수집 및 이용에 동의하셔야 합니다.");
+                    return;
+                }
+            }
+
+            if (this.isLoggedIn && this.selectedMethod !== 'kakaopay') {
                 if (!this.buyerEmail) {
                     alert("KG이니시스 및 NHN KCP 결제 시 구매자 이메일은 필수 입력입니다.");
                     const emailInput = document.querySelector('input[type="email"]');
@@ -300,9 +357,11 @@ function checkoutPage() {
                         shippingAddress: this.shippingAddress,
                         shippingAddressDetail: this.shippingAddressDetail,
                         shippingMemo: this.shippingMemo,
-                        guestInfo: {
+                        guestInfo: this.isLoggedIn ? null : {
                             name: this.recipientName,
-                            phone: this.recipientPhone,
+                            phone: this.buyerPhone || this.recipientPhone,
+                            email: this.buyerEmail,
+                            password: this.guestPassword,
                             address: this.shippingAddress + " " + this.shippingAddressDetail
                         }
                     })
@@ -326,13 +385,6 @@ function checkoutPage() {
                         fullName: this.recipientName || "고객"
                     },
                     redirectUrl: window.location.origin + "/payment/complete",
-                // (PortOne requires email for these methods)
-                // Add email to customer object if method is not KakaoPay
-                // and buyerEmail is provided by the user
-                // This will satisfy the API requirement.
-                // Note: paymentOptions.customer already exists.
-                // We'll add email property conditionally after the object creation.
-                // (Will be inserted in next chunk)
                 };
 
                 // Set payMethod for all selected payment methods

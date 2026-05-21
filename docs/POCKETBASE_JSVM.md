@@ -105,3 +105,23 @@
     - **Rule**: When executing shell commands from JSVM:
       - Provide a list of candidate absolute binary paths (e.g., `/opt/homebrew/bin/hugo`, `/usr/local/bin/hugo`) and test/execute them sequentially inside a `try/catch` loop.
       - **Transaction Safety**: Always wrap external command executions in a local `try/catch` block inside database route handlers (like creation, deletion, or settings updates) to prevent command failures from aborting crucial database transactions. Return a clean `200 OK` with a non-blocking warning message if the tool fails, rather than a fatal `500 Internal Server Error`.
+
+13. **Go HTML Template Nested Property Evaluation Crash (`can't evaluate field in type interface {}` on JS Objects)**:
+    - **Issue**: When a raw, nested JavaScript object (like parsed JSON from `guest_info` or standard JS Object) is passed as-is to the Go `html/template` rendering context, the template engine interprets it as an opaque `interface {}` type. Attempting to evaluate its nested parameters using dot-chain notation (e.g. `{{.guestInfo.name}}`) inside the HTML layout triggers a reflection crash (500 Error).
+    - **Rule**: Never pass nested JS Objects to the Go template engine for dot-chain evaluation.
+      - Always flatten (preprocess) the object's properties on the backend JSVM router first, extracting nested attributes into explicit, 1-level standalone variables (e.g., `isGuest`, `guestName`, `guestPhone`).
+      - Pass these standalone primitive parameters to the render parameters block and evaluate them directly (e.g. `{{.guestName}}`).
+
+14. **Goja VM JSON Field Map Serialization & Access gotcha (`types.JsonMap` deallocation and blank fields)**:
+    - **Issue**: PocketBase JSON fields (like `guest_info`) return a custom Go structure (`types.JsonMap`) inside JSVM. In Goja VM, accessing attributes directly (e.g. `rawGuest.name` or `rawGuest["name"]`) will return `null` or `undefined`. Furthermore, using `JSON.stringify(rawGuest)` will yield an empty object `{}` or raw byte array sequences, deallocating the actual JSON content.
+    - **Rule**: Never attempt to serialize custom types.JsonMap fields directly or access keys without parsing. Always convert the `types.JsonMap` field to string via `rawGuest.toString()` first, which correctly returns the standard JSON string, then parse it back to a standard JS Object:
+      ```javascript
+      const rawGuest = order.get("guest_info");
+      let guestInfo = null;
+      if (rawGuest) {
+          const jsonStr = (typeof rawGuest === "string") ? rawGuest : rawGuest.toString();
+          if (jsonStr) {
+              guestInfo = JSON.parse(jsonStr);
+          }
+      }
+      ```
