@@ -52,11 +52,11 @@
                         <input type="text" x-model="lookupTempId" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="010-1234-5678, 뒷 4자리(5678) 또는 이메일" />
                     </div>
                     <div>
-                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">주문 번호 (Payment ID) <span class="text-red-500">*</span></label>
+                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">주문 번호 (선택)</label>
                         <input type="text" x-model="lookupOrderId" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none font-mono" placeholder="주문 번호를 입력하세요" />
                     </div>
                     <div>
-                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">주문 비밀번호 <span class="text-red-500">*</span></label>
+                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">주문 비밀번호 (선택)</label>
                         <input type="password" x-model="lookupPassword" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="미입력 시 휴대폰 뒷 4자리" />
                     </div>
                 </div>
@@ -219,7 +219,7 @@
                             this.lookupTempId = parsed.tempId || '';
                             this.lookupOrderId = parsed.orderId || '';
                             this.lookupPassword = parsed.password || '';
-                            if (this.lookupTempId && this.lookupOrderId && this.lookupPassword) {
+                            if (this.lookupTempId && (this.lookupOrderId || this.lookupPassword)) {
                                 await this.lookupGuestOrder(true);
                             }
                         } catch (e) {
@@ -261,8 +261,12 @@
 
                 // Secure guest lookup call
                 async lookupGuestOrder(silent = false) {
-                    if (!this.lookupTempId || !this.lookupOrderId || !this.lookupPassword) {
-                        if (!silent) this.showToast('모든 조회 필드를 정확히 입력해 주세요.');
+                    if (!this.lookupTempId) {
+                        if (!silent) this.showToast('임시 아이디를 입력해 주세요.');
+                        return;
+                    }
+                    if (!this.lookupOrderId && !this.lookupPassword) {
+                        if (!silent) this.showToast('주문번호 또는 비밀번호를 입력해 주세요.');
                         return;
                     }
 
@@ -291,7 +295,7 @@
                         // Save session
                         localStorage.setItem('guest_lookup_session', JSON.stringify({
                             tempId: this.lookupTempId,
-                            orderId: this.lookupOrderId,
+                            orderId: this.orders[0] ? this.orders[0].id : this.lookupOrderId,
                             password: this.lookupPassword
                         }));
                     } catch (err) {

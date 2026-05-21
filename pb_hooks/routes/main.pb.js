@@ -275,95 +275,150 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
         const orderId = (data.orderId || "").trim();
         const password = (data.password || "").trim();
 
-        if (!tempId || !orderId || !password) {
-            return e.json(400, { error: "모든 필드를 입력해 주세요." });
+        if (!tempId) {
+            return e.json(400, { error: "임시 아이디를 입력해 주세요." });
+        }
+        if (!orderId && !password) {
+            return e.json(400, { error: "주문번호 또는 비밀번호를 입력해 주세요." });
         }
 
-        // Fetch order
-        const orders = $app.findRecordsByFilter("orders", "id = {:orderId}", "", 1, 0, { orderId: orderId });
-        if (!orders || orders.length === 0) {
-            return e.json(404, { error: "일치하는 주문을 찾을 수 없습니다." });
+        let candidateOrders = [];
+        if (orderId) {
+            try {
+                const order = $app.findRecordById("orders", orderId);
+                if (order && order.getString("user") === "") {
+                    candidateOrders.push(order);
+                }
+            } catch (err) {
+                // Ignore and fall back to scanning guest orders
+            }
         }
 
-        const order = orders[0];
-        
-        // Ensure it is a guest order (no user field set)
-        if (order.getString("user") !== "") {
-            return e.json(400, { error: "회원 주문 건입니다. 로그인 후 조회해 주세요." });
+        // Fallback to fetch guest orders if no candidate was found via direct ID search
+        if (candidateOrders.length === 0) {
+            candidateOrders = $app.findRecordsByFilter("orders", "user = ''", "", 500, 0);
         }
 
-        const guestInfo = order.get("guest_info");
-        if (!guestInfo) {
-            return e.json(404, { error: "비회원 주문 정보를 찾을 수 없습니다." });
-        }
-
-        // Compare details (clean phone number and normalize emails)
+        const matchedOrders = [];
         const normalizePhone = (num) => (num || "").replace(/[^0-9]/g, "");
         const inputTempIdNormalized = tempId.toLowerCase();
-        
-        const dbPhoneClean = normalizePhone(guestInfo.phone || order.getString("recipient_phone"));
-        const dbEmail = (guestInfo.email || "").toLowerCase();
-        const dbTempId = (guestInfo.temp_id || "").toLowerCase();
-
         const inputCleanPhone = normalizePhone(tempId);
-        const matchTempId = (inputTempIdNormalized === dbPhoneClean || 
-                             inputTempIdNormalized === dbEmail || 
-                             inputTempIdNormalized === dbTempId ||
-                             normalizePhone(tempId) === dbPhoneClean ||
-                             (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone)));
 
-        const matchPassword = (password === guestInfo.password);
+        for (let order of candidateOrders) {
+            if (order.getString("user") !== "") {
+                continue; // Skip member orders
+            }
 
-        if (!matchTempId || !matchPassword) {
+            let guestInfo = null;
+            const rawGuest = order.get("guest_info");
+            if (rawGuest) {
+                try {
+                    let jsonStr = "";
+                    if (typeof rawGuest === "string") {
+                        jsonStr = rawGuest;
+                    } else {
+                        jsonStr = rawGuest.toString();
+                    }
+                    if (jsonStr) {
+                        guestInfo = JSON.parse(jsonStr);
+                    }
+                } catch (err) {
+                    console.error("Failed to parse guest_info in scan:", err);
+                }
+            }
+
+            if (!guestInfo) {
+                continue;
+            }
+
+            const dbPhoneClean = normalizePhone(guestInfo.phone || order.getString("recipient_phone"));
+            const dbEmail = (guestInfo.email || "").toLowerCase();
+            const dbTempId = (guestInfo.temp_id || "").toLowerCase();
+            const dbPassword = guestInfo.password || "";
+
+            const matchTempId = (
+                inputTempIdNormalized === dbPhoneClean || 
+                inputTempIdNormalized === dbEmail || 
+                inputTempIdNormalized === dbTempId ||
+                (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone))
+            );
+
+            if (!matchTempId) {
+                continue;
+            }
+
+            const matchOrderId = (orderId !== "" && order.id === orderId);
+            const matchPassword = (password !== "" && password === dbPassword);
+            const matchPhoneLast4 = (password !== "" && password.length === 4 && dbPhoneClean.endsWith(password));
+
+            if (matchOrderId || matchPassword || matchPhoneLast4) {
+                matchedOrders.push(order);
+            }
+        }
+
+        if (matchedOrders.length === 0) {
             return e.json(401, { error: "주문 정보 또는 비밀번호가 일치하지 않습니다." });
         }
 
-        // Fetch order items and products
-        const orderItems = $app.findRecordsByFilter("order_items", "order = {:orderId}", "", 100, 0, { orderId: orderId });
-        const items = [];
-        for (let item of orderItems) {
-            let productData = null;
-            try {
-                const product = $app.findRecordById("products", item.getString("product"));
-                productData = {
-                    id: product.id,
-                    name: product.getString("name"),
-                    price: product.getInt("price"),
-                    images: product.get("images"),
-                    collectionId: product.collectionId
-                };
-            } catch (err) {
-                console.error("Product fetch error in guest lookup:", err);
+        // Map matched orders to the structured results
+        const results = [];
+        for (let order of matchedOrders) {
+            let guestInfo = null;
+            const rawGuest = order.get("guest_info");
+            if (rawGuest) {
+                try {
+                    let jsonStr = (typeof rawGuest === "string") ? rawGuest : rawGuest.toString();
+                    if (jsonStr) guestInfo = JSON.parse(jsonStr);
+                } catch (err) {}
             }
-            items.push({
-                id: item.id,
-                quantity: item.getInt("quantity"),
-                unit_price: item.getInt("unit_price"),
+
+            // Fetch order items and products
+            const orderItems = $app.findRecordsByFilter("order_items", "order = {:orderId}", "", 100, 0, { orderId: order.id });
+            const items = [];
+            for (let item of orderItems) {
+                let productData = null;
+                try {
+                    const product = $app.findRecordById("products", item.getString("product"));
+                    productData = {
+                        id: product.id,
+                        name: product.getString("name"),
+                        price: product.getInt("price"),
+                        images: product.get("images"),
+                        collectionId: product.collectionId
+                    };
+                } catch (err) {
+                    console.error("Product fetch error in guest lookup:", err);
+                }
+                items.push({
+                    id: item.id,
+                    quantity: item.getInt("quantity"),
+                    unit_price: item.getInt("unit_price"),
+                    expand: {
+                        product: productData
+                    }
+                });
+            }
+
+            results.push({
+                id: order.id,
+                created: order.getString("created"),
+                status: order.getString("status"),
+                total_amount: order.getInt("total_amount"),
+                recipient_name: order.getString("recipient_name") || (guestInfo ? guestInfo.name : "") || "",
+                recipient_phone: order.getString("recipient_phone") || (guestInfo ? guestInfo.phone : "") || "",
+                shipping_address: order.getString("shipping_address") || "",
+                shipping_address_detail: order.getString("shipping_address_detail") || "",
+                shipping_memo: order.getString("shipping_memo") || "",
+                courier_name: order.getString("courier_name") || "",
+                tracking_number: order.getString("tracking_number") || "",
                 expand: {
-                    product: productData
+                    order_items_via_order: items
                 }
             });
         }
 
-        // Format result matching client expectation
-        const result = {
-            id: order.id,
-            created: order.getString("created"),
-            status: order.getString("status"),
-            total_amount: order.getInt("total_amount"),
-            recipient_name: order.getString("recipient_name") || guestInfo.name || "",
-            recipient_phone: order.getString("recipient_phone") || guestInfo.phone || "",
-            shipping_address: order.getString("shipping_address") || "",
-            shipping_address_detail: order.getString("shipping_address_detail") || "",
-            shipping_memo: order.getString("shipping_memo") || "",
-            courier_name: order.getString("courier_name") || "",
-            tracking_number: order.getString("tracking_number") || "",
-            expand: {
-                order_items_via_order: items
-            }
-        };
-
-        return e.json(200, { items: [result] }); // Return in an items array to match getList result
+        // Return the matched orders
+        return e.json(200, { items: results });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }
@@ -387,7 +442,17 @@ routerAdd("POST", "/api/guest/orders/{id}/request-cancel", (e) => {
             return e.json(400, { error: "비회원 주문이 아닙니다." });
         }
 
-        const guestInfo = order.get("guest_info");
+        let guestInfo = null;
+        const rawGuest = order.get("guest_info");
+        if (rawGuest) {
+            try {
+                let jsonStr = (typeof rawGuest === "string") ? rawGuest : rawGuest.toString();
+                if (jsonStr) {
+                    guestInfo = JSON.parse(jsonStr);
+                }
+            } catch (err) {}
+        }
+
         if (!guestInfo) {
             return e.json(404, { error: "비회원 주문 정보를 찾을 수 없습니다." });
         }
@@ -396,15 +461,20 @@ routerAdd("POST", "/api/guest/orders/{id}/request-cancel", (e) => {
         const inputTempIdNormalized = tempId.toLowerCase();
         const dbPhoneClean = normalizePhone(guestInfo.phone || order.getString("recipient_phone"));
         const dbEmail = (guestInfo.email || "").toLowerCase();
+        const dbTempId = (guestInfo.temp_id || "").toLowerCase();
         
         const inputCleanPhone = normalizePhone(tempId);
-        const matchTempId = (inputTempIdNormalized === dbPhoneClean || 
-                             inputTempIdNormalized === dbEmail || 
-                             normalizePhone(tempId) === dbPhoneClean ||
-                             (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone)));
-        const matchPassword = (password === guestInfo.password);
+        const matchTempId = (
+            inputTempIdNormalized === dbPhoneClean || 
+            inputTempIdNormalized === dbEmail || 
+            inputTempIdNormalized === dbTempId ||
+            (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone))
+        );
 
-        if (!matchTempId || !matchPassword) {
+        const matchPassword = (password === guestInfo.password);
+        const matchPhoneLast4 = (password.length === 4 && dbPhoneClean.endsWith(password));
+
+        if (!matchTempId || (!matchPassword && !matchPhoneLast4)) {
             return e.json(401, { error: "권한이 없습니다." });
         }
 
@@ -439,7 +509,17 @@ routerAdd("POST", "/api/guest/orders/{id}/withdraw-cancel", (e) => {
             return e.json(400, { error: "비회원 주문이 아닙니다." });
         }
 
-        const guestInfo = order.get("guest_info");
+        let guestInfo = null;
+        const rawGuest = order.get("guest_info");
+        if (rawGuest) {
+            try {
+                let jsonStr = (typeof rawGuest === "string") ? rawGuest : rawGuest.toString();
+                if (jsonStr) {
+                    guestInfo = JSON.parse(jsonStr);
+                }
+            } catch (err) {}
+        }
+
         if (!guestInfo) {
             return e.json(404, { error: "비회원 주문 정보를 찾을 수 없습니다." });
         }
@@ -448,15 +528,20 @@ routerAdd("POST", "/api/guest/orders/{id}/withdraw-cancel", (e) => {
         const inputTempIdNormalized = tempId.toLowerCase();
         const dbPhoneClean = normalizePhone(guestInfo.phone || order.getString("recipient_phone"));
         const dbEmail = (guestInfo.email || "").toLowerCase();
+        const dbTempId = (guestInfo.temp_id || "").toLowerCase();
         
         const inputCleanPhone = normalizePhone(tempId);
-        const matchTempId = (inputTempIdNormalized === dbPhoneClean || 
-                             inputTempIdNormalized === dbEmail || 
-                             normalizePhone(tempId) === dbPhoneClean ||
-                             (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone)));
-        const matchPassword = (password === guestInfo.password);
+        const matchTempId = (
+            inputTempIdNormalized === dbPhoneClean || 
+            inputTempIdNormalized === dbEmail || 
+            inputTempIdNormalized === dbTempId ||
+            (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone))
+        );
 
-        if (!matchTempId || !matchPassword) {
+        const matchPassword = (password === guestInfo.password);
+        const matchPhoneLast4 = (password.length === 4 && dbPhoneClean.endsWith(password));
+
+        if (!matchTempId || (!matchPassword && !matchPhoneLast4)) {
             return e.json(401, { error: "권한이 없습니다." });
         }
 
