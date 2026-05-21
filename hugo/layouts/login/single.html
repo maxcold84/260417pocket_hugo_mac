@@ -33,16 +33,12 @@
             <div class="flex items-center gap-6 text-sm font-medium text-gray-400">
                 <a href="{{ "/" | relLangURL }}" class="hover:text-white transition">{{ i18n "catalog" }}</a>
                 <a href="#" @click.prevent="cartOpen = true; fetch('/cart/view').then(r=>r.text()).then(html => $refs.cartContent.innerHTML = html)" class="hover:text-white transition">{{ i18n "cart" }}</a>
-                <a href="{{ "/my-orders" | relLangURL }}" class="hover:text-white transition">{{ i18n "orders" }}</a>
                 
                 <template x-if="!loggedIn">
                     <a href="/login" class="hover:text-white transition">{{ i18n "login" }}</a>
                 </template>
                 <template x-if="loggedIn">
                     <a href="{{ "/profile" | relLangURL }}" class="hover:text-white transition">{{ i18n "profile" }}</a>
-                </template>
-                <template x-if="loggedIn">
-                    <button @click="document.cookie = 'pb_auth=; Max-Age=0; path=/'; window.location.href='{{ "/" | relLangURL }}';" class="hover:text-white transition uppercase tracking-widest text-gray-400">{{ i18n "logout" }}</button>
                 </template>
 
                 <!-- Language Switcher -->

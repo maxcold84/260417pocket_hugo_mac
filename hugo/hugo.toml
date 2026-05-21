@@ -36,10 +36,6 @@ name = "catalog"
 url = "/products"
 weight = 1
 
-[[menu.main]]
-name = "orders"
-url = "/my-orders"
-weight = 2
 
 [[params.categories]]
 name = "퍼포먼스"
@@ -64,10 +60,6 @@ name = "신규 상품"
 nameEn = "New Arrival"
 slug = "new_arrival"
 icon = "spark"
-
-
-
-
 
 [[params.categories]]
 name = "할인"
