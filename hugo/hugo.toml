@@ -51,13 +51,13 @@ icon = "lightning"
 name = "액세서리"
 nameEn = "Accessories"
 slug = "accessories"
-icon = "adjustment"
+icon = "heart"
 
 [[params.categories]]
 name = "라이프스타일"
 nameEn = "Lifestyle"
 slug = "lifestyle"
-icon = "card"
+icon = "adjustment"
 
 [[params.categories]]
 name = "신규 상품"
@@ -66,9 +66,11 @@ slug = "new_arrival"
 icon = "spark"
 
 
+
+
+
 [[params.categories]]
 name = "할인"
 nameEn = "SALE"
 slug = "sale"
-icon = "lightning"
-
+icon = "card"

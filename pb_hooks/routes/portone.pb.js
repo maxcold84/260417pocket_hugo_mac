@@ -4,6 +4,7 @@
 routerAdd("POST", "/api/payment/webhook", (e) => {
     try {
         const portoneVerify = require(`${__hooks}/services/portone-verify.js`);
+        const env = require(`${__hooks}/utils/env.js`);
         
         // 1. Get Headers
         const webhookId = e.request.Header.Get("Webhook-Id");
@@ -17,7 +18,7 @@ routerAdd("POST", "/api/payment/webhook", (e) => {
         const rawBody = JSON.stringify(bodyObj);
 
         // 3. Signature Verification
-        const secret = $os.getenv("PORTONE_WEBHOOK_SECRET") || "test_secret"; // Replace with your PB environment configuration
+        const secret = env.get("PORTONE_WEBHOOK_SECRET") || "test_secret"; // Replace with your PB environment configuration
         
         const isValid = portoneVerify(webhookSignature, webhookId, webhookTimestamp, rawBody, secret);
         if (!isValid) {
@@ -32,7 +33,7 @@ routerAdd("POST", "/api/payment/webhook", (e) => {
             return e.json(400, { error: "Payment ID missing" });
         }
 
-        const apiSecret = $os.getenv("PORTONE_API_SECRET") || "test_api_secret";
+        const apiSecret = env.get("PORTONE_API_SECRET") || "test_api_secret";
         
         try {
             const res = $http.send({

@@ -15,6 +15,7 @@ To keep instructions concise, detailed rules and gotchas are separated into docu
 - **PortOne Payment Integration**: Read `docs/PORTONE.md` (Payment flow, Webhook, Phone number handling)
 - **Frontend & Alpine.js**: Read `docs/FRONTEND.md` (Cart localStorage, IME composition, Template constraints)
 - **Hugo CMS Rebuild & Architecture**: Read `docs/HUGO_ARCHITECTURE.md` (Product-to-Markdown sync, Image caching, File structure)
+- **🛡️ Error Prevention (MANDATORY)**: Trigger the `pocketbase-error-guard` skill before any `pb_hooks`, Hugo, Alpine.js, or DB schema changes. It contains a pre-flight checklist and a living error registry of all known runtime bugs.
 
 ## 3. Strict Golden Rules
 1. **Never use npm packages inside JSVM**. PocketBase Goja engine is NOT Node.js.

@@ -252,6 +252,7 @@ routerAdd("POST", "/api/cms/orders/{id}/update", (e) => {
 // Admin: Approve cancellation and process refund via PortOne
 routerAdd("POST", "/api/cms/orders/{id}/approve-cancel", (e) => {
     try {
+        const env = require(`${__hooks}/utils/env.js`);
         const orderId = e.request.pathValue("id");
         const order = $app.findRecordById("orders", orderId);
         const currentStatus = order.getString("status");
@@ -262,14 +263,14 @@ routerAdd("POST", "/api/cms/orders/{id}/approve-cancel", (e) => {
         }
 
         // Call PortOne V2 cancel API
-        const apiSecret = $os.getenv("PORTONE_API_SECRET");
+        const apiSecret = env.get("PORTONE_API_SECRET");
         if (!apiSecret) {
             return e.json(500, { error: "PORTONE_API_SECRET 환경 변수가 설정되지 않았습니다." });
         }
 
         // The payment ID used with PortOne is the order ID itself
         const paymentId = orderId;
-        const storeId = $os.getenv("PORTONE_STORE_ID") || "";
+        const storeId = env.get("PORTONE_STORE_ID") || "";
 
         const cancelBody = JSON.stringify({
             reason: "관리자 취소 승인",

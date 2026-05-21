@@ -88,12 +88,13 @@ routerAdd("GET", "/checkout", (c) => {
     try {
         const renderUtil = require(`${__hooks}/utils/render.js`);
         const addressCompiler = require(`${__hooks}/utils/address_compiler.js`);
+        const env = require(`${__hooks}/utils/env.js`);
         
         let partialHtml = $template.loadFiles(`${__hooks}/views/checkout.html`).render({
-            portoneStoreId: $os.getenv("PORTONE_STORE_ID") || "store-placeholder",
-            channelKeyKakaopay: $os.getenv("PORTONE_CHANNEL_KEY_KAKAOPAY") || "",
-            channelKeyInicis: $os.getenv("PORTONE_CHANNEL_KEY_INICIS") || "",
-            channelKeyKcp: $os.getenv("PORTONE_CHANNEL_KEY_KCP") || "",
+            portoneStoreId: env.get("PORTONE_STORE_ID") || "store-placeholder",
+            channelKeyKakaopay: env.get("PORTONE_CHANNEL_KEY_KAKAOPAY") || "",
+            channelKeyInicis: env.get("PORTONE_CHANNEL_KEY_INICIS") || "",
+            channelKeyKcp: env.get("PORTONE_CHANNEL_KEY_KCP") || "",
             userEmail: c.auth ? c.auth.getString("email") : "",
             userPhone: c.auth ? c.auth.getString("phone") : ""
         });
