@@ -301,20 +301,34 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
 
 routerAdd("POST", "/api/cms/orders/{id}/update", (e) => {
     try {
+        const authUtil = require(`${__hooks}/utils/auth.js`);
+        const superuser = authUtil.getSuperuserFromCookie(e);
+        if (!superuser) {
+            return e.json(401, { error: "인증되지 않은 사용자입니다." });
+        }
+
         const orderId = e.request.pathValue("id");
-        const data = e.requestInfo().body;
-        
+        const bodyData = e.requestInfo().body || {};
+
+        // Helper to retrieve fields from both JSON body and URL-encoded form values
+        const getVal = (key) => {
+            if (bodyData && key in bodyData) {
+                return bodyData[key];
+            }
+            return e.request.formValue(key);
+        };
+
         const order = $app.findRecordById("orders", orderId);
         
-        // Update fields if they are present in the request body (even if empty)
-        if ("status" in data) order.set("status", data.status);
-        if ("courier_name" in data) order.set("courier_name", data.courier_name);
-        if ("tracking_number" in data) order.set("tracking_number", data.tracking_number);
-        if ("recipient_name" in data) order.set("recipient_name", data.recipient_name);
-        if ("recipient_phone" in data) order.set("recipient_phone", data.recipient_phone);
-        if ("shipping_address" in data) order.set("shipping_address", data.shipping_address);
-        if ("shipping_address_detail" in data) order.set("shipping_address_detail", data.shipping_address_detail);
-        if ("shipping_memo" in data) order.set("shipping_memo", data.shipping_memo);
+        // Update all standard order detail fields
+        order.set("status", getVal("status"));
+        order.set("courier_name", getVal("courier_name"));
+        order.set("tracking_number", getVal("tracking_number"));
+        order.set("recipient_name", getVal("recipient_name"));
+        order.set("recipient_phone", getVal("recipient_phone"));
+        order.set("shipping_address", getVal("shipping_address"));
+        order.set("shipping_address_detail", getVal("shipping_address_detail"));
+        order.set("shipping_memo", getVal("shipping_memo"));
         
         $app.save(order);
         
@@ -322,7 +336,7 @@ routerAdd("POST", "/api/cms/orders/{id}/update", (e) => {
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }
-}, $apis.requireSuperuserAuth());
+});
 
 // Admin: Approve cancellation and process refund via PortOne
 routerAdd("POST", "/api/cms/orders/{id}/approve-cancel", (e) => {

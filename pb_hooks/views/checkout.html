@@ -1,5 +1,9 @@
-
 <div class="max-w-4xl mx-auto" x-data="checkoutPage()">
+    <!-- Toast Notification -->
+    <div x-show="toastMsg" x-transition style="display: none;"
+         class="fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-lg shadow-xl text-sm font-medium max-w-md text-center"
+         x-text="toastMsg"></div>
+
     <h1 class="text-3xl font-light mb-8 border-b border-gray-200 dark:border-bmw-darkBorder pb-4 text-gray-900 dark:text-white">CHECKOUT</h1>
     
     <template x-if="items.length === 0">
@@ -10,7 +14,17 @@
         <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-6 rounded-sm space-y-8">
             <!-- Delivery Information Section -->
             <div>
-                <h2 class="text-xl font-light mb-6 text-gray-900 dark:text-white pb-2 border-b border-gray-100 dark:border-bmw-darkBorder">배송지 정보 (Delivery Details)</h2>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 pb-2 border-b border-gray-100 dark:border-bmw-darkBorder gap-2">
+                    <h2 class="text-xl font-light text-gray-900 dark:text-white">배송지 정보 (Delivery Details)</h2>
+                    <template x-if="isLoggedIn">
+                        <button type="button" @click="loadMyInfo()" class="self-start sm:self-auto px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-bmw-darkBorder hover:bg-gray-200 dark:hover:bg-gray-700 text-xs rounded transition duration-150 flex items-center gap-1.5 font-medium">
+                            <svg class="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            내 정보 불러오기
+                        </button>
+                    </template>
+                </div>
                 <div class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -58,15 +72,15 @@
                     <!-- Guest Information Form or Buyer Email/Phone for PG -->
                     <div class="mt-6 border-t border-gray-100 dark:border-bmw-darkBorder pt-6" x-show="!isLoggedIn">
                         <h3 class="text-lg font-light mb-4 text-gray-900 dark:text-white">비회원 주문 정보 입력 (Guest Information)</h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">• 비회원 주문 조회 시 사용할 휴대폰 번호, 이메일 주소, 비밀번호를 정확히 입력해 주세요.</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">• 비회원 주문 조회 시 사용할 휴대폰 번호 또는 이메일 주소 중 하나를 반드시 입력해 주세요.</p>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">임시 아이디용 휴대폰 번호 <span class="text-red-500">*</span></label>
-                                <input type="tel" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="010-1234-5678" x-model="buyerPhone" required />
+                                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">임시 아이디용 휴대폰 번호 <span class="text-red-500" x-show="selectedMethod !== 'kakaopay' || !buyerEmail">*</span></label>
+                                <input type="tel" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="010-1234-5678" x-model="buyerPhone" />
                             </div>
                             <div>
-                                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">임시 아이디용 이메일 주소 <span class="text-red-500">*</span></label>
-                                <input type="email" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="example@domain.com" x-model="buyerEmail" required />
+                                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">임시 아이디용 이메일 주소 <span class="text-red-500" x-show="selectedMethod !== 'kakaopay' || !buyerPhone">*</span></label>
+                                <input type="email" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="example@domain.com" x-model="buyerEmail" />
                             </div>
                             <div>
                                 <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">주문 비밀번호</label>
@@ -136,7 +150,8 @@
 function checkoutPage() {
     return {
         items: JSON.parse(localStorage.getItem('cart') || '[]'),
-        isLoggedIn: false,
+        isLoggedIn: {{.isLoggedInServerSide}} || false,
+        userId: "{{.userId}}",
         guestPassword: '',
         privacyConsent: false,
         buyerEmail: '',
@@ -148,14 +163,35 @@ function checkoutPage() {
         shippingMemo: '',
         memoSelect: '',
         rememberShipping: true,
+        toastMsg: '',
         
-        async init() {
+        showToast(msg) {
+            this.toastMsg = msg;
+            setTimeout(() => { this.toastMsg = ''; }, 3000);
+        },
+
+        getAuthToken() {
+            const cookies = document.cookie.split(';');
+            for (let c of cookies) {
+                c = c.trim();
+                if (c.startsWith('pb_auth=')) {
+                    const val = decodeURIComponent(c.substring('pb_auth='.length));
+                    if (val.startsWith('{')) {
+                        try { return JSON.parse(val).token; } catch(e) {}
+                    }
+                    return val;
+                }
+            }
             try {
                 const authStr = localStorage.getItem('pocketbase_auth');
-                this.isLoggedIn = !!authStr;
-            } catch (e) {
-                this.isLoggedIn = false;
-            }
+                if (authStr) return JSON.parse(authStr).token;
+            } catch(e) {}
+            return '';
+        },
+        
+        async init() {
+            const token = this.getAuthToken();
+            this.isLoggedIn = {{.isLoggedInServerSide}} || !!token;
 
             // Check user's saving preference from localStorage
             try {
@@ -184,34 +220,41 @@ function checkoutPage() {
             }
 
             try {
-                const authStr = localStorage.getItem('pocketbase_auth');
-                if (!authStr) {
-                    this.updateMemoSelect();
-                } else {
-                    const authData = JSON.parse(authStr);
-                    const token = authData.token;
-                    const userId = authData.record?.id || authData.model?.id;
-                    
-                    if (token && userId) {
-                        const res = await fetch('/api/collections/users/records/' + userId, {
-                            headers: { 'Authorization': 'Bearer ' + token }
-                        });
-                        if (res.ok) {
-                            const user = await res.json();
-                            if (user.phone && !this.buyerPhone) this.buyerPhone = user.phone;
-                            if (user.email && !this.buyerEmail) this.buyerEmail = user.email;
-                            if (user.name && !this.recipientName) this.recipientName = user.name;
-                            if (user.phone && !this.recipientPhone) this.recipientPhone = user.phone;
-                            if (user.address && !this.shippingAddress) this.shippingAddress = user.address;
-                            if (user.address_detail && !this.shippingAddressDetail) this.shippingAddressDetail = user.address_detail;
-                            
-                            // Update local storage with fresh data just in case
+                let userId = this.userId;
+                if (!userId) {
+                    try {
+                        const authStr = localStorage.getItem('pocketbase_auth');
+                        if (authStr) {
+                            const authData = JSON.parse(authStr);
+                            userId = authData.record?.id || authData.model?.id;
+                        }
+                    } catch(e) {}
+                }
+                
+                if (token && userId) {
+                    const res = await fetch('/api/collections/users/records/' + userId, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (res.ok) {
+                        const user = await res.json();
+                        if (user.phone && !this.buyerPhone) this.buyerPhone = user.phone;
+                        if (user.email && !this.buyerEmail) this.buyerEmail = user.email;
+                        if (user.name && !this.recipientName) this.recipientName = user.name;
+                        if (user.phone && !this.recipientPhone) this.recipientPhone = user.phone;
+                        if (user.address && !this.shippingAddress) this.shippingAddress = user.address;
+                        if (user.address_detail && !this.shippingAddressDetail) this.shippingAddressDetail = user.address_detail;
+                        
+                        // Update local storage with fresh data just in case
+                        try {
+                            const authStr = localStorage.getItem('pocketbase_auth');
+                            const authData = authStr ? JSON.parse(authStr) : {};
+                            authData.token = token;
                             authData.record = user;
                             localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
-                        }
+                        } catch(e) {}
                     }
-                    this.updateMemoSelect();
                 }
+                this.updateMemoSelect();
             } catch (err) {
                 console.error("Failed to fetch fresh user data:", err);
                 this.updateMemoSelect();
@@ -219,7 +262,12 @@ function checkoutPage() {
 
             // Watch fields to save them locally reactively
             this.$watch('recipientName', () => this.saveShippingLocally());
-            this.$watch('recipientPhone', () => this.saveShippingLocally());
+            this.$watch('recipientPhone', (value) => {
+                this.saveShippingLocally();
+                if (!this.isLoggedIn) {
+                    this.buyerPhone = value;
+                }
+            });
             this.$watch('shippingAddress', () => this.saveShippingLocally());
             this.$watch('shippingAddressDetail', () => this.saveShippingLocally());
             this.$watch('shippingMemo', () => {
@@ -253,6 +301,60 @@ function checkoutPage() {
                 this.memoSelect = this.shippingMemo;
             } else {
                 this.memoSelect = "custom";
+            }
+        },
+
+        async loadMyInfo() {
+            try {
+                const token = this.getAuthToken();
+                if (!token) {
+                    this.showToast("로그인 정보가 없습니다.");
+                    return;
+                }
+                
+                let userId = this.userId;
+                if (!userId) {
+                    try {
+                        const authStr = localStorage.getItem('pocketbase_auth');
+                        if (authStr) {
+                            const authData = JSON.parse(authStr);
+                            userId = authData.record?.id || authData.model?.id;
+                        }
+                    } catch(e) {}
+                }
+                
+                if (token && userId) {
+                    const res = await fetch('/api/collections/users/records/' + userId, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (res.ok) {
+                        const user = await res.json();
+                        
+                        let updated = false;
+                        if (user.name) { this.recipientName = user.name; updated = true; }
+                        if (user.phone) {
+                            this.recipientPhone = user.phone;
+                            this.buyerPhone = user.phone;
+                            updated = true;
+                        }
+                        if (user.email) { this.buyerEmail = user.email; updated = true; }
+                        if (user.address) { this.shippingAddress = user.address; updated = true; }
+                        if (user.address_detail) { this.shippingAddressDetail = user.address_detail; updated = true; }
+                        
+                        if (updated) {
+                            this.showToast("내 정보(회원 정보)를 성공적으로 불러왔습니다.");
+                        } else {
+                            this.showToast("불러올 수 있는 회원 정보가 비어 있습니다. 마이페이지에서 먼저 등록해 주세요.");
+                        }
+                    } else {
+                        this.showToast("회원 정보를 불러오지 못했습니다.");
+                    }
+                } else {
+                    this.showToast("로그인 정보가 올바르지 않습니다.");
+                }
+            } catch (err) {
+                console.error("Failed to load my info:", err);
+                this.showToast("회원 정보를 불러오는 중 오류가 발생했습니다.");
             }
         },
         
@@ -302,12 +404,8 @@ function checkoutPage() {
 
             // Guest validation
             if (!this.isLoggedIn) {
-                if (!this.buyerPhone) {
-                    alert("임시 아이디용 휴대폰 번호는 필수 입력입니다.");
-                    return;
-                }
-                if (!this.buyerEmail) {
-                    alert("임시 아이디용 이메일 주소는 필수 입력입니다.");
+                if (!this.buyerPhone && !this.buyerEmail) {
+                    alert("비회원 주문 조회를 위해 휴대폰 번호 또는 이메일 주소 중 최소 하나는 입력해야 합니다.");
                     return;
                 }
                 if (!this.privacyConsent) {
@@ -316,7 +414,8 @@ function checkoutPage() {
                 }
             }
 
-            if (this.isLoggedIn && this.selectedMethod !== 'kakaopay') {
+            // PG-specific (KG Inicis / NHN KCP) validation for both members and non-members
+            if (this.selectedMethod !== 'kakaopay') {
                 if (!this.buyerEmail) {
                     alert("KG이니시스 및 NHN KCP 결제 시 구매자 이메일은 필수 입력입니다.");
                     const emailInput = document.querySelector('input[type="email"]');
@@ -336,14 +435,9 @@ function checkoutPage() {
             try {
                 // Prepare headers with auth token if available
                 const headers = { 'Content-Type': 'application/json' };
-                const authStr = localStorage.getItem('pocketbase_auth');
-                if (authStr) {
-                    try {
-                        const authData = JSON.parse(authStr);
-                        if (authData.token) {
-                            headers['Authorization'] = 'Bearer ' + authData.token;
-                        }
-                    } catch(e) {}
+                const token = this.getAuthToken();
+                if (token) {
+                    headers['Authorization'] = 'Bearer ' + token;
                 }
 
                 // 1. Prepare order on server

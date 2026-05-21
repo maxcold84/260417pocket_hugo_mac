@@ -103,7 +103,9 @@ routerAdd("GET", "/checkout", (c) => {
             channelKeyInicis: env.get("PORTONE_CHANNEL_KEY_INICIS") || "",
             channelKeyKcp: env.get("PORTONE_CHANNEL_KEY_KCP") || "",
             userEmail: c.auth ? c.auth.getString("email") : "",
-            userPhone: c.auth ? c.auth.getString("phone") : ""
+            userPhone: c.auth ? c.auth.getString("phone") : "",
+            userId: c.auth ? c.auth.id : "",
+            isLoggedInServerSide: !!c.auth
         });
         
         // Dynamic Lang selection & compile
@@ -282,22 +284,8 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
             return e.json(400, { error: "주문번호 또는 비밀번호를 입력해 주세요." });
         }
 
-        let candidateOrders = [];
-        if (orderId) {
-            try {
-                const order = $app.findRecordById("orders", orderId);
-                if (order && order.getString("user") === "") {
-                    candidateOrders.push(order);
-                }
-            } catch (err) {
-                // Ignore and fall back to scanning guest orders
-            }
-        }
-
-        // Fallback to fetch guest orders if no candidate was found via direct ID search
-        if (candidateOrders.length === 0) {
-            candidateOrders = $app.findRecordsByFilter("orders", "user = ''", "", 500, 0);
-        }
+        // Fetch guest orders to scan
+        const candidateOrders = $app.findRecordsByFilter("orders", "user = ''", "", 500, 0);
 
         const matchedOrders = [];
         const normalizePhone = (num) => (num || "").replace(/[^0-9]/g, "");
@@ -305,20 +293,11 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
         const inputCleanPhone = normalizePhone(tempId);
 
         for (let order of candidateOrders) {
-            if (order.getString("user") !== "") {
-                continue; // Skip member orders
-            }
-
             let guestInfo = null;
             const rawGuest = order.get("guest_info");
             if (rawGuest) {
                 try {
-                    let jsonStr = "";
-                    if (typeof rawGuest === "string") {
-                        jsonStr = rawGuest;
-                    } else {
-                        jsonStr = rawGuest.toString();
-                    }
+                    let jsonStr = (typeof rawGuest === "string") ? rawGuest : rawGuest.toString();
                     if (jsonStr) {
                         guestInfo = JSON.parse(jsonStr);
                     }
@@ -336,8 +315,10 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
             const dbTempId = (guestInfo.temp_id || "").toLowerCase();
             const dbPassword = guestInfo.password || "";
 
+            // 1. 임시 아이디는 필수로 일치하여 통과해야 함
             const matchTempId = (
                 inputTempIdNormalized === dbPhoneClean || 
+                (inputCleanPhone !== "" && inputCleanPhone === dbPhoneClean) ||
                 inputTempIdNormalized === dbEmail || 
                 inputTempIdNormalized === dbTempId ||
                 (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone))
@@ -347,6 +328,7 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
                 continue;
             }
 
+            // 2. 주문번호(orderId) 또는 주문 비밀번호(password) 둘 중 하나만 맞으면 로그인
             const matchOrderId = (orderId !== "" && order.id === orderId);
             const matchPassword = (password !== "" && password === dbPassword);
             const matchPhoneLast4 = (password !== "" && password.length === 4 && dbPhoneClean.endsWith(password));
@@ -384,7 +366,7 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
                         name: product.getString("name"),
                         price: product.getInt("price"),
                         images: product.get("images"),
-                        collectionId: product.collectionId
+                        collectionId: product.collection().id
                     };
                 } catch (err) {
                     console.error("Product fetch error in guest lookup:", err);
@@ -466,6 +448,7 @@ routerAdd("POST", "/api/guest/orders/{id}/request-cancel", (e) => {
         const inputCleanPhone = normalizePhone(tempId);
         const matchTempId = (
             inputTempIdNormalized === dbPhoneClean || 
+            (inputCleanPhone !== "" && inputCleanPhone === dbPhoneClean) ||
             inputTempIdNormalized === dbEmail || 
             inputTempIdNormalized === dbTempId ||
             (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone))
@@ -533,6 +516,7 @@ routerAdd("POST", "/api/guest/orders/{id}/withdraw-cancel", (e) => {
         const inputCleanPhone = normalizePhone(tempId);
         const matchTempId = (
             inputTempIdNormalized === dbPhoneClean || 
+            (inputCleanPhone !== "" && inputCleanPhone === dbPhoneClean) ||
             inputTempIdNormalized === dbEmail || 
             inputTempIdNormalized === dbTempId ||
             (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone))
