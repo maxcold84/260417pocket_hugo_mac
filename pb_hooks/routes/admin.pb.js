@@ -101,7 +101,7 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
                 const recordId = p.id;
                 let imageUrls = [];
                 for (let img of images) {
-                    imageUrls.push('"http://127.0.0.1:8090/api/files/' + collectionId + '/' + recordId + '/' + img + '"');
+                    imageUrls.push('"/api/files/' + collectionId + '/' + recordId + '/' + img + '"');
                 }
                 imageLine = '\nimages: [' + imageUrls.join(', ') + ']\nimage: ' + imageUrls[0];
             }
@@ -124,7 +124,7 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
         }
 
         // Step 6: Run Hugo with --ignoreCache
-        cmsUtil.runHugo();
+        cmsUtil.runHugo(e);
 
         return e.json(200, {
             message: "Sync complete: " + syncedCount + " products synced, " + deletedProductCount + " pages removed, " + deletedImageCount + " orphaned images cleaned."
@@ -172,7 +172,7 @@ routerAdd("POST", "/api/cms/settings/update", (e) => {
         // Trigger Hugo rebuild
         let hugoWarning = "";
         try {
-            cmsUtil.runHugo();
+            cmsUtil.runHugo(e);
         } catch (hugoErr) {
             console.error("Hugo build failed after settings update:", hugoErr);
             hugoWarning = " (주의: 설정이 저장되었으나 사이트 자동 빌드에 실패했습니다. 환경 설정을 확인하거나 수동 빌드를 시도하세요.)";
@@ -424,7 +424,7 @@ routerAdd("POST", "/api/cms/categories/add", (e) => {
 
         let hugoWarning = "";
         try {
-            cmsUtil.runHugo();
+            cmsUtil.runHugo(e);
         } catch (hugoErr) {
             console.error("Hugo build failed after category add:", hugoErr);
             hugoWarning = " (주의: 카테고리는 DB와 hugo.toml에 추가되었으나 사이트 자동 빌드에 실패했습니다. 환경 설정을 확인하거나 수동 빌드를 시도하세요.)";
@@ -488,13 +488,34 @@ routerAdd("POST", "/api/cms/categories/delete", (e) => {
         // Rebuild site
         let hugoWarning = "";
         try {
-            cmsUtil.runHugo();
+            cmsUtil.runHugo(e);
         } catch (hugoErr) {
             console.error("Hugo build failed after category delete:", hugoErr);
             hugoWarning = " (주의: 카테고리는 삭제되었으나 사이트 자동 빌드에 실패했습니다. 환경 설정을 확인하거나 수동 빌드를 시도하세요.)";
         }
 
         return e.json(200, { message: "카테고리가 삭제되었습니다." + hugoWarning });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());
+
+// Batch reorder products in a single atomic transaction
+routerAdd("POST", "/api/cms/products/reorder", (e) => {
+    try {
+        const bodyData = e.requestInfo().body || {};
+        const ids = bodyData.ids || [];
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return e.json(400, { error: "Product ID list is required." });
+        }
+        $app.runInTransaction((txApp) => {
+            for (let i = 0; i < ids.length; i++) {
+                const product = txApp.findRecordById("products", ids[i]);
+                product.set("sort_order", i + 1);
+                txApp.save(product);
+            }
+        });
+        return e.json(200, { message: "Reorder successful" });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }

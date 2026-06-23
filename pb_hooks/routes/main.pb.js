@@ -163,6 +163,32 @@ routerAdd("GET", "/payment/complete", (c) => {
         try {
             if (paymentId && paymentId !== "Unknown") {
                 const order = $app.findRecordById("orders", paymentId);
+                
+                // Immediately verify payment via PortOne API and set status to paid to avoid stuck pending state
+                try {
+                    const env = require(`${__hooks}/utils/env.js`);
+                    const apiSecret = env.get("PORTONE_API_SECRET") || "test_api_secret";
+                    const res = $http.send({
+                        url: "https://api.portone.io/payments/" + paymentId,
+                        method: "GET",
+                        headers: {
+                            "Authorization": "PortOne " + apiSecret
+                        }
+                    });
+                    
+                    if (res.statusCode === 200) {
+                        const pResponse = res.json;
+                        if (pResponse.status === "PAID" && order.getString("status") === "pending") {
+                            order.set("status", "paid");
+                            order.set("portone_tx_id", pResponse.id || paymentId);
+                            $app.save(order);
+                            console.log("Synced order status to paid via Redirect callback: " + paymentId);
+                        }
+                    }
+                } catch (syncErr) {
+                    console.error("Failed to verify/sync payment status on redirect:", syncErr);
+                }
+
                 const guestInfo = order.get("guest_info");
                 if (!order.getString("user") && guestInfo) {
                     isGuest = true;

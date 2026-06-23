@@ -57,19 +57,74 @@ function syncCategoriesFromToml(app, tomlStr) {
     console.log("[cms-util] Successfully synced " + parsedCategories.length + " categories to DB.");
 }
 
-function runHugo() {
+function runHugo(e) {
+    let baseURL = "";
+    let internalURL = "";
+
+    // 1. Resolve internal URL
+    try {
+        const envUtil = require(`${__hooks}/utils/env.js`);
+        internalURL = envUtil.get("POCKETBASE_INTERNAL_URL") || "http://127.0.0.1:8090/";
+    } catch (err) {
+        internalURL = "http://127.0.0.1:8090/";
+    }
+
+    // Ensure trailing slash for internalURL
+    if (internalURL && !internalURL.endsWith("/")) {
+        internalURL += "/";
+    }
+
+    // 2. Resolve external baseURL
+    if (e && e.request) {
+        try {
+            let scheme = "http";
+            const proto = e.request.header.get("X-Forwarded-Proto") || "";
+            if (proto.indexOf("https") !== -1 || e.request.tls) {
+                scheme = "https";
+            }
+            const host = e.request.host || "localhost:8090";
+            baseURL = scheme + "://" + host + "/";
+        } catch (err) {
+            console.warn("[runHugo] Failed to parse request host:", err);
+        }
+    }
+
+    // If still empty, fall back to environment variable or site default
+    if (!baseURL) {
+        try {
+            const envUtil = require(`${__hooks}/utils/env.js`);
+            baseURL = envUtil.get("HUGO_BASEURL") || "http://localhost:8090/";
+        } catch (err) {
+            baseURL = "http://localhost:8090/";
+        }
+    }
+
+    // Ensure trailing slash for baseURL
+    if (baseURL && !baseURL.endsWith("/")) {
+        baseURL += "/";
+    }
+
+    console.log("[runHugo] Building site with baseURL: " + baseURL + ", internalURL: " + internalURL);
+
+    const envPrefix = [];
+    envPrefix.push("HUGO_POCKETBASE_INTERNAL_URL=" + internalURL);
+    envPrefix.push("POCKETBASE_INTERNAL_URL=" + internalURL);
+    envPrefix.push("HUGO_BASEURL=" + baseURL);
+
     const paths = ["/opt/homebrew/bin/hugo", "/usr/local/bin/hugo", "hugo"];
     let lastErr = null;
     for (let p of paths) {
         try {
-            const cmd = $os.cmd(p, "--ignoreCache");
+            // Build dynamic command prepended with environment variables
+            const cmdStr = envPrefix.join(" ") + " " + p + " --ignoreCache -b " + baseURL;
+            const cmd = $os.cmd("sh", "-c", cmdStr);
             cmd.dir = "hugo";
             cmd.run();
-            console.log("[runHugo] Successfully executed hugo using: " + p);
+            console.log("[runHugo] Successfully executed: " + cmdStr);
             return true;
         } catch (err) {
             lastErr = err;
-            console.warn("[runHugo] Failed to run hugo with path '" + p + "': " + err);
+            console.warn("[runHugo] Failed execution for '" + p + "': " + err);
         }
     }
     throw new Error("모든 경로에서 Hugo 실행에 실패했습니다. 마지막 오류: " + lastErr);

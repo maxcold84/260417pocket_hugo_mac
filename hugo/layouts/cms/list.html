@@ -44,6 +44,9 @@
         .product-drag-row { transition: background-color 0.1s ease; }
         .product-drag-row.dragging-row { opacity: 0.4; background-color: #f3f4f6; }
         .product-drag-row.drag-over-row { border-top: 2px solid #1C69D4; }
+        /* Smooth, flicker-free drag targets */
+        .dragging-active .product-drag-row td * { pointer-events: none; }
+        .dragging-active .img-drag-item * { pointer-events: none; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans antialiased min-h-screen" x-data="cmsApp()">
@@ -81,31 +84,50 @@
     <template x-if="isLoggedIn">
         <div class="flex h-screen overflow-hidden">
             <!-- Sidebar -->
-            <aside class="w-64 bg-bmw-dark text-white flex flex-col flex-shrink-0">
+            <aside class="w-64 bg-bmw-dark text-white flex flex-col flex-shrink-0 border-r border-bmw-darkBorder shadow-xl">
                 <div class="h-16 flex items-center px-6 border-b border-bmw-darkBorder bg-black">
                     <span class="text-lg font-bold tracking-widest text-white">{{ site.Title | upper }} CMS</span>
                 </div>
                 <div class="flex-1 overflow-y-auto py-4">
-                    <nav class="space-y-1 px-3">
+                    <nav class="space-y-1.5 px-3">
                         <button @click="currentTab = 'products'; fetchProducts()" 
-                                :class="{'bg-bmw-blue text-white': currentTab === 'products', 'text-gray-300 hover:bg-bmw-surface hover:text-white': currentTab !== 'products'}"
-                                class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase">
+                                :class="{'bg-bmw-blue text-white shadow-lg shadow-bmw-blue/20': currentTab === 'products', 'text-gray-300 hover:bg-bmw-surface hover:text-white': currentTab !== 'products'}"
+                                class="w-full flex items-center px-4 py-3 text-sm font-medium rounded-md transition-all duration-200 uppercase group">
+                            <!-- Premium Catalog Grid Icon -->
+                            <svg class="mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-200" :class="{'text-white': currentTab === 'products', 'text-gray-400 group-hover:text-white': currentTab !== 'products'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                            </svg>
                             {{ i18n "catalog" }}
                         </button>
                         <button @click="currentTab = 'orders'; fetchOrders()" 
-                                :class="{'bg-bmw-blue text-white': currentTab === 'orders', 'text-gray-300 hover:bg-bmw-surface hover:text-white': currentTab !== 'orders'}"
-                                class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase">
+                                :class="{'bg-bmw-blue text-white shadow-lg shadow-bmw-blue/20': currentTab === 'orders', 'text-gray-300 hover:bg-bmw-surface hover:text-white': currentTab !== 'orders'}"
+                                class="w-full flex items-center px-4 py-3 text-sm font-medium rounded-md transition-all duration-200 uppercase group">
+                            <!-- Premium Orders Bag Icon -->
+                            <svg class="mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-200" :class="{'text-white': currentTab === 'orders', 'text-gray-400 group-hover:text-white': currentTab !== 'orders'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                            </svg>
                             {{ i18n "orders" }}
                         </button>
                         <button @click="currentTab = 'settings'; fetchSettings()" 
-                                :class="{'bg-bmw-blue text-white': currentTab === 'settings', 'text-gray-300 hover:bg-bmw-surface hover:text-white': currentTab !== 'settings'}"
-                                class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase">
+                                :class="{'bg-bmw-blue text-white shadow-lg shadow-bmw-blue/20': currentTab === 'settings', 'text-gray-300 hover:bg-bmw-surface hover:text-white': currentTab !== 'settings'}"
+                                class="w-full flex items-center px-4 py-3 text-sm font-medium rounded-md transition-all duration-200 uppercase group">
+                            <!-- Premium Settings Cog Icon -->
+                            <svg class="mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-200" :class="{'text-white': currentTab === 'settings', 'text-gray-400 group-hover:text-white': currentTab !== 'settings'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
                             사이트 설정
                         </button>
                     </nav>
                 </div>
                 <div class="p-4 border-t border-bmw-darkBorder bg-black">
-                    <button @click="logout" class="w-full text-left text-sm text-gray-400 hover:text-white transition uppercase">{{ i18n "logout" }}</button>
+                    <button @click="logout" class="w-full flex items-center px-4 py-3 text-sm text-gray-400 hover:text-white hover:bg-bmw-surface rounded-md transition-all duration-200 uppercase group">
+                        <!-- Premium Logout Icon -->
+                        <svg class="mr-3 h-5 w-5 flex-shrink-0 text-gray-500 group-hover:text-white transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        {{ i18n "logout" }}
+                    </button>
                 </div>
             </aside>
 
@@ -129,7 +151,45 @@
                 <div class="p-8">
                     <!-- Products Tab -->
                     <template x-if="currentTab === 'products'">
-                        <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden">
+                        <div>
+                            <!-- Products Stat Cards -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center transition-all duration-200 hover:shadow-md">
+                                    <div class="p-3 rounded-full bg-blue-50 text-blue-600 mr-4">
+                                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">전체 등록 상품</p>
+                                        <p class="text-2xl font-bold text-gray-900" x-text="products.length + '개'"></p>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center transition-all duration-200 hover:shadow-md">
+                                    <div class="p-3 rounded-full bg-red-50 text-red-600 mr-4">
+                                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">품절 또는 재고 부족</p>
+                                        <p class="text-2xl font-bold text-red-600" x-text="products.filter(p => p.stock <= 0).length + '개'"></p>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center transition-all duration-200 hover:shadow-md">
+                                    <div class="p-3 rounded-full bg-green-50 text-green-600 mr-4">
+                                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">평균 판매가</p>
+                                        <p class="text-2xl font-bold text-gray-900" x-text="(products.length ? Math.round(products.reduce((acc, p) => acc + (p.discount_price || p.price), 0) / products.length) : 0).toLocaleString() + '원'"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden">
                             <!-- Product Search and Filter Bar -->
                             <div class="p-4 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-4 items-center justify-between">
                                 <div class="relative w-full max-w-md">
@@ -158,15 +218,15 @@
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "actions" }}</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
+                                <tbody class="bg-white divide-y divide-gray-200" :class="{'dragging-active': isProductDragging}">
                                     <template x-for="(product, pIdx) in products" :key="product.id">
                                         <tr class="hover:bg-gray-50 product-drag-row"
                                             draggable="true"
-                                            @dragstart="_productDragStart(pIdx, $event)"
-                                            @dragover.prevent="_productDragOver(pIdx, $event)"
+                                            @dragstart="productDragStart(pIdx, $event)"
+                                            @dragover.prevent="productDragOver(pIdx, $event)"
                                             @dragleave="$event.currentTarget.classList.remove('drag-over-row')"
-                                            @drop.prevent="_productDrop(pIdx, $event)"
-                                            @dragend="_productDragEnd($event)">
+                                            @drop.prevent="productDrop(pIdx, $event)"
+                                            @dragend="productDragEnd($event)">
                                             <td class="px-3 py-4 text-gray-400 cursor-grab active:cursor-grabbing">
                                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
                                             </td>
@@ -217,11 +277,50 @@
                                 </tbody>
                             </table>
                         </div>
-                    </template>
+                    </div>
+                </template>
 
                     <!-- Orders Tab -->
                     <template x-if="currentTab === 'orders'">
-                        <div class="bg-white shadow-sm rounded border border-gray-200 overflow-x-auto">
+                        <div>
+                            <!-- Orders Stat Cards -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center transition-all duration-200 hover:shadow-md">
+                                    <div class="p-3 rounded-full bg-green-50 text-green-600 mr-4">
+                                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">누적 총 매출</p>
+                                        <p class="text-2xl font-bold text-gray-900" x-text="orders.filter(o => ['paid', 'shipping', 'completed'].includes(o.status)).reduce((acc, o) => acc + o.total_amount, 0).toLocaleString() + '원'"></p>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center transition-all duration-200 hover:shadow-md">
+                                    <div class="p-3 rounded-full bg-blue-50 text-blue-600 mr-4">
+                                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">배송 대기 주문</p>
+                                        <p class="text-2xl font-bold text-blue-600" x-text="orders.filter(o => o.status === 'paid').length + '건'"></p>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center transition-all duration-200 hover:shadow-md" :class="{'bg-orange-50 border-orange-200': orders.filter(o => o.status === 'cancel_requested').length > 0}">
+                                    <div class="p-3 rounded-full mr-4" :class="orders.filter(o => o.status === 'cancel_requested').length > 0 ? 'bg-orange-100 text-orange-600 animate-pulse' : 'bg-gray-50 text-gray-400'">
+                                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium uppercase tracking-wider" :class="orders.filter(o => o.status === 'cancel_requested').length > 0 ? 'text-orange-700' : 'text-gray-500'">취소 승인 대기</p>
+                                        <p class="text-2xl font-bold" :class="orders.filter(o => o.status === 'cancel_requested').length > 0 ? 'text-orange-600' : 'text-gray-900'" x-text="orders.filter(o => o.status === 'cancel_requested').length + '건'"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white shadow-sm rounded border border-gray-200 overflow-x-auto">
                             <!-- Search Bar -->
                             <div class="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                                 <div class="relative w-full max-w-md">
@@ -248,12 +347,10 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="order.total_amount.toLocaleString()"></td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <select x-model="order.status" @change="updateOrderStatus(order.id, order.status)" class="border border-gray-300 p-1 text-sm rounded bg-white" :class="{
-                                                    'text-yellow-600': order.status === 'pending',
                                                     'text-green-600': order.status === 'paid',
                                                     'text-orange-600 font-bold': order.status === 'cancel_requested',
                                                     'text-red-600': order.status === 'cancelled' || order.status === 'refunded'
                                                 }">
-                                                    <option value="pending">결제대기</option>
                                                     <option value="paid">결제완료</option>
                                                     <option value="cancel_requested">🔴 취소요청</option>
                                                     <option value="shipping">배송중</option>
@@ -284,7 +381,8 @@
                                                 </template>
                                                 <div class="text-[11px] text-gray-400 mt-1" x-show="order.portone_tx_id" x-text="'Tx: ' + order.portone_tx_id"></div>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div class="flex items-center justify-end gap-2 flex-wrap">
                                                 <a :href="'/cms/orders/' + order.id" class="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition duration-200">
                                                     상세보기
                                                 </a>
@@ -308,7 +406,19 @@
                                                         </button>
                                                     </div>
                                                 </template>
-                                                <button @click="deleteOrder(order.id)" class="text-red-600 hover:text-red-900">{{ i18n "delete" }}</button>
+                                                <template x-if="deleteOrderConfirmId !== order.id">
+                                                    <button @click="deleteOrderConfirmId = order.id" class="text-red-600 hover:text-red-900 text-xs font-medium">
+                                                        삭제
+                                                    </button>
+                                                </template>
+                                                <template x-if="deleteOrderConfirmId === order.id">
+                                                    <div class="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 p-1 rounded">
+                                                        <span class="text-[10px] text-red-700 font-medium">삭제?</span>
+                                                        <button @click="deleteOrder(order.id)" class="bg-red-600 hover:bg-red-700 text-white text-[9px] px-1.5 py-0.5 rounded shadow">확인</button>
+                                                        <button @click="deleteOrderConfirmId = ''" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-[9px] px-1.5 py-0.5 rounded">취소</button>
+                                                    </div>
+                                                </template>
+                                                </div>
                                             </td>
                                         </tr>
                                     </template>
@@ -318,7 +428,8 @@
                                 </tbody>
                             </table>
                         </div>
-                    </template>
+                    </div>
+                </template>
                     <!-- Settings Tab -->
                     <template x-if="currentTab === 'settings'">
                         <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden p-8">
@@ -355,7 +466,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "ui_slug" }}</label>
-                            <input type="text" x-model="newProduct.slug" @input="_slugTouched = true" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500">
+                            <input type="text" x-model="newProduct.slug" @input="slugTouched = true" required class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "ui_description" }}</label>
@@ -364,14 +475,25 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "product_image" }}</label>
                             <!-- Preview selected images -->
-                            <template x-if="_addImagePreviews.length > 0">
-                                <div class="mb-3 flex flex-wrap gap-2">
-                                    <template x-for="(preview, index) in _addImagePreviews" :key="index">
-                                        <div class="relative group">
-                                            <img :src="preview" class="w-16 h-16 object-cover rounded border border-gray-200">
-                                            <button type="button" @click="removeAddImage(index)" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition">&times;</button>
+                            <template x-if="addImageList.length > 0">
+                                <div class="mb-3">
+                                    <p class="text-xs text-gray-500 font-medium mb-2">드래그하여 순서 변경, × 버튼으로 삭제:</p>
+                                    <div class="flex flex-wrap gap-2" :class="{'dragging-active': isImageDragging}">
+                                    <template x-for="(img, index) in addImageList" :key="img.dragKey">
+                                        <div class="relative img-drag-item"
+                                             draggable="true"
+                                             @dragstart="addDragStart(index, $event)"
+                                             @dragover.prevent="addDragOver(index, $event)"
+                                             @dragleave="$event.currentTarget.classList.remove('drag-over')"
+                                             @drop.prevent="addDrop(index, $event)"
+                                             @dragend="addDragEnd($event)">
+                                            <div class="relative group">
+                                                <img :src="img.preview" class="w-16 h-16 object-cover rounded border border-gray-200 pointer-events-none">
+                                                <button type="button" @click.stop="removeAddImage(index)" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition">&times;</button>
+                                            </div>
                                         </div>
                                     </template>
+                                    </div>
                                 </div>
                             </template>
                             <input type="file" id="cms-add-image-input" multiple accept="image/jpeg, image/png, image/webp" @change="onAddImageChange($event)" class="w-full border border-gray-300 p-2 rounded focus:ring-1 focus:ring-bmw-blue outline-none text-sm text-gray-500 bg-white">
@@ -427,12 +549,12 @@
                                         <div class="grid grid-cols-2 gap-2">
                                             <div>
                                                 <label class="block text-[10px] text-gray-500 font-medium mb-1">슬러그 (영문/숫자/대시)</label>
-                                                <input type="text" placeholder="예: new-arrivals" x-model="newCatSlug" @input="_catSlugTouched = true" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
+                                                <input type="text" placeholder="예: new-arrivals" x-model="newCatSlug" @input="catSlugTouched = true" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
                                             </div>
                                             <div class="col-span-2">
                                                 <label class="block text-[10px] text-gray-500 font-medium mb-1">아이콘 선택</label>
                                                 <div class="flex flex-wrap gap-1.5">
-                                                    <template x-for="ic in _availableIcons" :key="ic.id">
+                                                    <template x-for="ic in availableIcons" :key="ic.id">
                                                         <button type="button" @click="newCatIcon = ic.id"
                                                             class="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition-all duration-150 group relative"
                                                             :class="newCatIcon === ic.id ? 'border-bmw-blue bg-blue-50 shadow-sm ring-1 ring-bmw-blue/30' : 'border-gray-200 bg-white hover:border-gray-400 hover:bg-gray-50'">
@@ -458,7 +580,18 @@
                                                     <span class="font-semibold text-gray-700" x-text="cat.name"></span>
                                                     <span class="text-gray-400 text-[10px]" x-text="'(' + cat.slug + ')'"></span>
                                                 </div>
-                                                <button type="button" @click="categoryDelete(cat.id, cat.name)" class="text-red-500 hover:text-red-700 font-medium" :disabled="isCatDeleting">삭제</button>
+                                                <div class="flex items-center">
+                                                    <template x-if="deleteCategoryConfirmId !== cat.id">
+                                                        <button type="button" @click="deleteCategoryConfirmId = cat.id" class="text-red-500 hover:text-red-700 font-medium" :disabled="isCatDeleting">삭제</button>
+                                                    </template>
+                                                    <template x-if="deleteCategoryConfirmId === cat.id">
+                                                        <div class="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
+                                                            <span class="text-[9px] text-red-700 font-medium">정말 삭제할까요?</span>
+                                                            <button type="button" @click="categoryDelete(cat.id)" class="bg-red-600 hover:bg-red-700 text-white text-[9px] px-1.5 py-0.5 rounded shadow">확인</button>
+                                                            <button type="button" @click="deleteCategoryConfirmId = ''" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-[9px] px-1.5 py-0.5 rounded">취소</button>
+                                                        </div>
+                                                    </template>
+                                                </div>
                                             </div>
                                         </template>
                                     </div>
@@ -498,18 +631,18 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1 uppercase">{{ i18n "product_image" }}</label>
                             <!-- Unified image list with drag-and-drop reorder -->
-                            <template x-if="_editImageList.length > 0">
+                            <template x-if="editImageList.length > 0">
                                 <div class="mb-3">
                                     <p class="text-xs text-gray-500 font-medium mb-2">드래그하여 순서 변경, × 버튼으로 삭제:</p>
-                                    <div class="flex flex-wrap gap-3">
-                                        <template x-for="(img, index) in _editImageList" :key="img._key">
+                                    <div class="flex flex-wrap gap-3" :class="{'dragging-active': isImageDragging}">
+                                        <template x-for="(img, index) in editImageList" :key="img.dragKey">
                                             <div class="relative img-drag-item"
                                                  draggable="true"
-                                                 @dragstart="_dragStart(index, $event)"
-                                                 @dragover.prevent="_onDragOver(index, $event)"
+                                                 @dragstart="editDragStart(index, $event)"
+                                                 @dragover.prevent="editDragOver(index, $event)"
                                                  @dragleave="$event.currentTarget.classList.remove('drag-over')"
-                                                 @drop.prevent="_onDrop(index, $event)"
-                                                 @dragend="_onDragEnd($event)">
+                                                 @drop.prevent="editDrop(index, $event)"
+                                                 @dragend="editDragEnd($event)">
                                                 <!-- Thumbnail -->
                                                 <div class="relative group">
                                                     <img :src="img.preview" class="w-20 h-20 object-cover rounded border-2 pointer-events-none" :class="img.type === 'new' ? 'border-bmw-blue' : 'border-gray-200'">
@@ -579,12 +712,12 @@
                                         <div class="grid grid-cols-2 gap-2">
                                             <div>
                                                 <label class="block text-[10px] text-gray-500 font-medium mb-1">슬러그 (영문/숫자/대시)</label>
-                                                <input type="text" placeholder="예: new-arrivals" x-model="newCatSlug" @input="_catSlugTouched = true" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
+                                                <input type="text" placeholder="예: new-arrivals" x-model="newCatSlug" @input="catSlugTouched = true" class="w-full border border-gray-300 p-1.5 rounded text-xs outline-none focus:ring-1 focus:ring-bmw-blue bg-white">
                                             </div>
                                             <div class="col-span-2">
                                                 <label class="block text-[10px] text-gray-500 font-medium mb-1">아이콘 선택</label>
                                                 <div class="flex flex-wrap gap-1.5">
-                                                    <template x-for="ic in _availableIcons" :key="ic.id">
+                                                    <template x-for="ic in availableIcons" :key="ic.id">
                                                         <button type="button" @click="newCatIcon = ic.id"
                                                             class="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition-all duration-150 group relative"
                                                             :class="newCatIcon === ic.id ? 'border-bmw-blue bg-blue-50 shadow-sm ring-1 ring-bmw-blue/30' : 'border-gray-200 bg-white hover:border-gray-400 hover:bg-gray-50'">
@@ -610,7 +743,18 @@
                                                     <span class="font-semibold text-gray-700" x-text="cat.name"></span>
                                                     <span class="text-gray-400 text-[10px]" x-text="'(' + cat.slug + ')'"></span>
                                                 </div>
-                                                <button type="button" @click="categoryDelete(cat.id, cat.name)" class="text-red-500 hover:text-red-700 font-medium" :disabled="isCatDeleting">삭제</button>
+                                                <div class="flex items-center">
+                                                    <template x-if="deleteCategoryConfirmId !== cat.id">
+                                                        <button type="button" @click="deleteCategoryConfirmId = cat.id" class="text-red-500 hover:text-red-700 font-medium" :disabled="isCatDeleting">삭제</button>
+                                                    </template>
+                                                    <template x-if="deleteCategoryConfirmId === cat.id">
+                                                        <div class="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
+                                                            <span class="text-[9px] text-red-700 font-medium">정말 삭제할까요?</span>
+                                                            <button type="button" @click="categoryDelete(cat.id)" class="bg-red-600 hover:bg-red-700 text-white text-[9px] px-1.5 py-0.5 rounded shadow">확인</button>
+                                                            <button type="button" @click="deleteCategoryConfirmId = ''" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-[9px] px-1.5 py-0.5 rounded">취소</button>
+                                                        </div>
+                                                    </template>
+                                                </div>
                                             </div>
                                         </template>
                                     </div>
@@ -645,23 +789,27 @@
                 cmsCategoryFilter: '',
                 cancelConfirmId: '',
                 deleteProductConfirmId: '',
+                deleteOrderConfirmId: '',
+                deleteCategoryConfirmId: '',
                 cancelApproving: false,
                 toastMsg: '',
                 tomlContent: '',
                 showAddModal: false,
                 showEditModal: false,
-                _slugTouched: false,
-                _addImageFiles: [],
-                _addImagePreviews: [],
-                _editImageList: [],
-                _editImageKeyCounter: 0,
+                slugTouched: false,
+                addImageList: [],
+                addImageKeyCounter: 0,
+                isProductDragging: false,
+                isImageDragging: false,
+                editImageList: [],
+                editImageKeyCounter: 0,
                 // Category management state
                 showCatMgmt: false,
                 newCatName: '',
                 newCatNameEn: '',
                 newCatSlug: '',
                 newCatIcon: 'lightning',
-                _availableIcons: [
+                availableIcons: [
                     { id: 'lightning', label: 'Lightning', svg: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>' },
                     { id: 'adjustment', label: 'Adjustment', svg: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>' },
                     { id: 'card', label: 'Card', svg: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>' },
@@ -677,7 +825,7 @@
                 ],
                 isCatSaving: false,
                 isCatDeleting: false,
-                _catSlugTouched: false,
+                catSlugTouched: false,
                 newProduct: {
                     name: '',
                     slug: '',
@@ -696,7 +844,7 @@
                     discount_price: '',
                     stock: '',
                     category: '',
-                    _currentImages: []
+                    currentImages: []
                 },
                 dbCategories: [],
                 init() {
@@ -720,13 +868,13 @@
                     }
                     // Auto-slugify new product name (supports Korean IME)
                     this.$watch('newProduct.name', val => {
-                        if (!this._slugTouched) {
+                        if (!this.slugTouched) {
                             this.newProduct.slug = val.toLowerCase().replace(/[^a-z0-9가-힣ㄱ-ㅎㅏ-ㅣ]+/g, '-').replace(/-+/g, '-').replace(/(^-|-$)+/g, '');
                         }
                     });
                     // Auto-slugify new category english name
                     this.$watch('newCatNameEn', val => {
-                        if (!this._catSlugTouched) {
+                        if (!this.catSlugTouched) {
                             this.newCatSlug = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/(^-|-$)+/g, '');
                         }
                     });
@@ -741,7 +889,7 @@
                 },
                 async categoryAdd() {
                     if (!this.newCatName || !this.newCatSlug) {
-                        alert('카테고리 이름과 슬러그는 필수입니다.');
+                        this.showToast('카테고리 이름과 슬러그는 필수입니다.');
                         return;
                     }
                     this.isCatSaving = true;
@@ -759,7 +907,7 @@
                         this.newCatNameEn = '';
                         this.newCatSlug = '';
                         this.newCatIcon = 'lightning';
-                        this._catSlugTouched = false;
+                        this.catSlugTouched = false;
                         await this.fetchDbCategories();
                         this.showToast(response.message || '카테고리가 추가되었습니다.');
                     } catch (err) {
@@ -768,10 +916,7 @@
                         this.isCatSaving = false;
                     }
                 },
-                async categoryDelete(id, name) {
-                    if (!confirm(`"${name}" 카테고리를 정말 삭제하시겠습니까?\n삭제 시 해당 카테고리를 사용 중인 상품들의 카테고리 연결이 자동으로 해제됩니다.`)) {
-                        return;
-                    }
+                async categoryDelete(id) {
                     this.isCatDeleting = true;
                     try {
                         const response = await pb.send('/api/cms/categories/delete', {
@@ -787,6 +932,7 @@
                             this.editProduct.category = '';
                         }
                         
+                        this.deleteCategoryConfirmId = '';
                         await this.fetchDbCategories();
                         await this.fetchProducts(); // Refresh products to display updated category bindings
                         this.showToast(response.message || '카테고리가 삭제되었습니다.');
@@ -798,12 +944,12 @@
                 },
                 handleError(err, defaultMsg = '오류가 발생했습니다') {
                     if (err.status === 401 || err.status === 403) {
-                        alert('권한이 없거나 세션이 만료되었습니다. 다시 로그인해주세요.');
-                        this.logout();
+                        this.showToast('권한이 없거나 세션이 만료되었습니다. 다시 로그인해주세요.');
+                        setTimeout(() => this.logout(), 2000);
                         return;
                     }
                     console.error(defaultMsg, err);
-                    alert(`${defaultMsg}\n상세: ${err.message || JSON.stringify(err.data || err)}`);
+                    this.showToast(`${defaultMsg}: ${err.message || JSON.stringify(err.data || err)}`);
                 },
                 async rebuildSite() {
                     this.isRebuilding = true;
@@ -811,7 +957,7 @@
                         const data = await pb.send('/api/cms/rebuild', {
                             method: 'POST'
                         });
-                        alert('{{ i18n "site_rebuilt_success" }}\n' + (data.message || ''));
+                        this.showToast('{{ i18n "site_rebuilt_success" }}');
                     } catch (err) {
                         this.handleError(err, 'Failed to rebuild site');
                     } finally {
@@ -875,6 +1021,7 @@
                             filter = `id ~ "${q}" || portone_tx_id ~ "${q}" || user.email ~ "${q}" || guest_info.email ~ "${q}" || guest_info.phone ~ "${q}" || guest_info.name ~ "${q}"`;
                         }
                         const result = await pb.collection('orders').getList(1, 50, { 
+                            sort: '-created',
                             expand: 'user',
                             filter: filter
                         });
@@ -931,40 +1078,52 @@
                     }
                 },
                 // --- Product row drag-and-drop reorder ---
-                _productDragIdx: null,
-                _productDragStart(index, event) {
-                    this._productDragIdx = index;
+                productDragIdx: null,
+                productDragStart(index, event) {
+                    // Guard: ignore drag from interactive form elements
+                    if (['INPUT', 'SELECT', 'BUTTON', 'A'].includes(event.target.tagName)) {
+                        event.preventDefault();
+                        return;
+                    }
+                    this.productDragIdx = index;
                     event.currentTarget.classList.add('dragging-row');
                     event.dataTransfer.effectAllowed = 'move';
                     event.dataTransfer.setData('text/plain', String(index));
+                    setTimeout(() => {
+                        this.isProductDragging = true;
+                    }, 0);
                 },
-                _productDragOver(index, event) {
-                    if (this._productDragIdx === null || this._productDragIdx === index) return;
+                productDragOver(index, event) {
+                    if (this.productDragIdx === null || this.productDragIdx === index) return;
                     event.dataTransfer.dropEffect = 'move';
                     event.currentTarget.classList.add('drag-over-row');
                 },
-                _productDrop(targetIndex, event) {
+                productDrop(targetIndex, event) {
                     event.currentTarget.classList.remove('drag-over-row');
-                    const fromIndex = this._productDragIdx;
-                    if (fromIndex === null || fromIndex === targetIndex) return;
+                    const fromIndex = this.productDragIdx;
+                    if (fromIndex === null || fromIndex === targetIndex) {
+                        this.isProductDragging = false;
+                        return;
+                    }
                     const list = [...this.products];
-                    const [moved] = list.splice(fromIndex, 1);
-                    list.splice(targetIndex, 0, moved);
+                    list.splice(targetIndex, 0, list.splice(fromIndex, 1)[0]);
                     this.products = list;
-                    this._productDragIdx = null;
+                    this.productDragIdx = null;
+                    this.isProductDragging = false;
                     this.saveProductOrder();
                 },
-                _productDragEnd(event) {
+                productDragEnd(event) {
                     event.currentTarget.classList.remove('dragging-row');
-                    this._productDragIdx = null;
+                    this.productDragIdx = null;
+                    this.isProductDragging = false;
                     document.querySelectorAll('.drag-over-row').forEach(el => el.classList.remove('drag-over-row'));
                 },
                 async saveProductOrder() {
                     try {
-                        const updates = this.products.map((p, i) => ({ id: p.id, sort_order: i }));
-                        for (const u of updates) {
-                            await pb.collection('products').update(u.id, { sort_order: u.sort_order });
-                        }
+                        await pb.send('/api/cms/products/reorder', {
+                            method: 'POST',
+                            body: { ids: this.products.map(p => p.id) }
+                        });
                         this.showToast('상품 순서가 저장되었습니다.');
                     } catch (err) {
                         this.handleError(err, '순서 저장 실패');
@@ -973,6 +1132,7 @@
                 async updateOrderStatus(id, newStatus) {
                     try {
                         await pb.collection('orders').update(id, { status: newStatus });
+                        this.showToast('주문 상태가 변경되었습니다.');
                     } catch (err) {
                         this.handleError(err, '주문 상태 업데이트 실패');
                         this.fetchOrders();
@@ -992,22 +1152,6 @@
                         this.showToast('상품이 삭제되었습니다.');
                     } catch (err) {
                         this.handleError(err, '상품 삭제 실패');
-                    }
-                },
-                async deleteOrder(id) {
-                    if (confirm('{{ i18n "confirm_delete" }}')) {
-                        try {
-                            const orderItems = await pb.collection('order_items').getFullList({
-                                filter: `order = "${id}"`
-                            });
-                            for (const item of orderItems) {
-                                await pb.collection('order_items').delete(item.id);
-                            }
-                            await pb.collection('orders').delete(id);
-                            this.fetchOrders();
-                        } catch (err) {
-                            this.handleError(err, '주문 삭제 실패');
-                        }
                     }
                 },
                 showToast(msg) {
@@ -1031,29 +1175,74 @@
                         this.cancelApproving = false;
                     }
                 },
-                // --- Image handling for Add Product ---
+                async deleteOrder(id) {
+                    try {
+                        // Cascade: delete associated order_items first
+                        const items = await pb.collection('order_items').getFullList({ filter: `order = "${id}"` });
+                        for (const item of items) {
+                            await pb.collection('order_items').delete(item.id);
+                        }
+                        await pb.collection('orders').delete(id);
+                        this.deleteOrderConfirmId = '';
+                        this.fetchOrders();
+                        this.showToast('주문 내역이 삭제되었습니다.');
+                    } catch (err) {
+                        this.handleError(err, '주문 삭제 실패');
+                    }
+                },
+                // --- Image handling for Add Product (unified list) ---
+                addDragIdx: null,
                 onAddImageChange(event) {
                     const files = Array.from(event.target.files);
                     if (files.length === 0) return;
-                    // Accumulate files (allows adding more images via multiple file picker invocations)
-                    this._addImageFiles = [...this._addImageFiles, ...files];
-                    // Generate previews
                     for (const file of files) {
                         const reader = new FileReader();
                         reader.onload = (e) => {
-                            this._addImagePreviews = [...this._addImagePreviews, e.target.result];
+                            this.addImageKeyCounter++;
+                            this.addImageList = [...this.addImageList, {
+                                file: file,
+                                preview: e.target.result,
+                                dragKey: 'add-' + this.addImageKeyCounter
+                            }];
                         };
                         reader.readAsDataURL(file);
                     }
-                    // Reset the input so the same files can be re-selected if needed
                     event.target.value = '';
                 },
                 removeAddImage(index) {
-                    this._addImageFiles.splice(index, 1);
-                    this._addImagePreviews.splice(index, 1);
-                    // Force Alpine reactivity
-                    this._addImageFiles = [...this._addImageFiles];
-                    this._addImagePreviews = [...this._addImagePreviews];
+                    const list = [...this.addImageList];
+                    list.splice(index, 1);
+                    this.addImageList = list;
+                },
+                // --- Drag and drop reorder for Add Product images ---
+                addDragStart(index, event) {
+                    this.addDragIdx = index;
+                    event.currentTarget.classList.add('dragging');
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', String(index));
+                    setTimeout(() => {
+                        this.isImageDragging = true;
+                    }, 0);
+                },
+                addDragOver(index, event) {
+                    if (this.addDragIdx === null || this.addDragIdx === index) return;
+                    event.dataTransfer.dropEffect = 'move';
+                    event.currentTarget.classList.add('drag-over');
+                },
+                addDrop(targetIndex, event) {
+                    event.currentTarget.classList.remove('drag-over');
+                    const fromIndex = this.addDragIdx;
+                    if (fromIndex === null || fromIndex === targetIndex) return;
+                    const list = [...this.addImageList];
+                    list.splice(targetIndex, 0, list.splice(fromIndex, 1)[0]);
+                    this.addImageList = list;
+                    this.addDragIdx = null;
+                },
+                addDragEnd(event) {
+                    event.currentTarget.classList.remove('dragging');
+                    this.addDragIdx = null;
+                    this.isImageDragging = false;
+                    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
                 },
                 // --- Image handling for Edit Product (unified list) ---
                 onEditImageChange(event) {
@@ -1062,12 +1251,12 @@
                     for (const file of files) {
                         const reader = new FileReader();
                         reader.onload = (e) => {
-                            this._editImageKeyCounter++;
-                            this._editImageList = [...this._editImageList, {
+                            this.editImageKeyCounter++;
+                            this.editImageList = [...this.editImageList, {
                                 type: 'new',
                                 file: file,
                                 preview: e.target.result,
-                                _key: 'new-' + this._editImageKeyCounter
+                                dragKey: 'new-' + this.editImageKeyCounter
                             }];
                         };
                         reader.readAsDataURL(file);
@@ -1075,48 +1264,50 @@
                     event.target.value = '';
                 },
                 removeEditImage(index) {
-                    this._editImageList.splice(index, 1);
-                    this._editImageList = [...this._editImageList];
+                    const list = [...this.editImageList];
+                    list.splice(index, 1);
+                    this.editImageList = list;
                 },
-                // --- Drag and drop reorder ---
-                _draggedIndex: null,
-                _dragStart(index, event) {
-                    this._draggedIndex = index;
+                // --- Drag and drop reorder for Edit Product images ---
+                editDragIdx: null,
+                editDragStart(index, event) {
+                    this.editDragIdx = index;
                     event.currentTarget.classList.add('dragging');
                     event.dataTransfer.effectAllowed = 'move';
-                    // Required for Firefox
                     event.dataTransfer.setData('text/plain', String(index));
+                    setTimeout(() => {
+                        this.isImageDragging = true;
+                    }, 0);
                 },
-                _onDragOver(index, event) {
-                    if (this._draggedIndex === null || this._draggedIndex === index) return;
+                editDragOver(index, event) {
+                    if (this.editDragIdx === null || this.editDragIdx === index) return;
                     event.dataTransfer.dropEffect = 'move';
                     event.currentTarget.classList.add('drag-over');
                 },
-                _onDrop(targetIndex, event) {
+                editDrop(targetIndex, event) {
                     event.currentTarget.classList.remove('drag-over');
-                    const fromIndex = this._draggedIndex;
+                    const fromIndex = this.editDragIdx;
                     if (fromIndex === null || fromIndex === targetIndex) return;
-                    const list = [...this._editImageList];
-                    const [moved] = list.splice(fromIndex, 1);
-                    list.splice(targetIndex, 0, moved);
-                    this._editImageList = list;
-                    this._draggedIndex = null;
+                    const list = [...this.editImageList];
+                    list.splice(targetIndex, 0, list.splice(fromIndex, 1)[0]);
+                    this.editImageList = list;
+                    this.editDragIdx = null;
                 },
-                _onDragEnd(event) {
+                editDragEnd(event) {
                     event.currentTarget.classList.remove('dragging');
-                    this._draggedIndex = null;
-                    // Clean up any lingering drag-over classes
+                    this.editDragIdx = null;
+                    this.isImageDragging = false;
                     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
                 },
                 openAddProductModal() {
                     this.newProduct = { name: '', slug: '', description: '', price: '', discount_price: '', stock: '', category: '' };
-                    this._slugTouched = false;
-                    this._addImageFiles = [];
-                    this._addImagePreviews = [];
+                    this.slugTouched = false;
+                    this.addImageList = [];
+                    this.addImageKeyCounter = 0;
                     this.showAddModal = true;
                 },
                 openEditProductModal(product) {
-                    this._editImageKeyCounter = 0;
+                    this.editImageKeyCounter = 0;
                     this.editProduct = {
                         id: product.id,
                         name: product.name,
@@ -1128,12 +1319,12 @@
                         category: product.category || ''
                     };
                     // Build unified image list from existing images
-                    this._editImageList = (product.images && product.images.length > 0)
+                    this.editImageList = (product.images && product.images.length > 0)
                         ? product.images.map((img, i) => ({
                             type: 'existing',
                             filename: img,
                             preview: '/api/files/products/' + product.id + '/' + img,
-                            _key: 'existing-' + i
+                            dragKey: 'existing-' + i
                         }))
                         : [];
                     this.showEditModal = true;
@@ -1141,11 +1332,11 @@
                 async createProduct() {
                     // 유효성 검증 (보안 및 데이터 정합성 강화)
                     if (Number(this.newProduct.price) < 0 || Number(this.newProduct.stock) < 0) {
-                        alert('가격과 재고는 0 이상이어야 합니다.');
+                        this.showToast('가격과 재고는 0 이상이어야 합니다.');
                         return;
                     }
                     if (Number(this.newProduct.discount_price) > 0 && Number(this.newProduct.discount_price) >= Number(this.newProduct.price)) {
-                        alert('할인 가격은 원래 가격보다 작아야 합니다.');
+                        this.showToast('할인 가격은 원래 가격보다 작아야 합니다.');
                         return;
                     }
 
@@ -1163,14 +1354,14 @@
                         }
 
                         // Use stored files from state (not $refs which don't work in x-teleport)
-                        for (const file of this._addImageFiles) {
-                            formData.append('images', file);
+                        for (const img of this.addImageList) {
+                            formData.append('images', img.file);
                         }
 
                         await pb.collection('products').create(formData);
                         this.showAddModal = false;
-                        this._addImageFiles = [];
-                        this._addImagePreviews = [];
+                        this.addImageList = [];
+                        this.addImageKeyCounter = 0;
                         this.fetchProducts();
                         this.showToast('상품이 등록되었습니다.');
                     } catch (err) {
@@ -1182,11 +1373,11 @@
                 async updateProduct() {
                     // 유효성 검증 (보안 및 데이터 정합성 강화)
                     if (Number(this.editProduct.price) < 0 || Number(this.editProduct.stock) < 0) {
-                        alert('가격과 재고는 0 이상이어야 합니다.');
+                        this.showToast('가격과 재고는 0 이상이어야 합니다.');
                         return;
                     }
                     if (Number(this.editProduct.discount_price) > 0 && Number(this.editProduct.discount_price) >= Number(this.editProduct.price)) {
-                        alert('할인 가격은 원래 가격보다 작아야 합니다.');
+                        this.showToast('할인 가격은 원래 가격보다 작아야 합니다.');
                         return;
                     }
 
@@ -1206,7 +1397,7 @@
                         // Existing images: send filename string to keep them.
                         // New images: send File object to upload.
                         // The order in FormData determines the final order.
-                        for (const img of this._editImageList) {
+                        for (const img of this.editImageList) {
                             if (img.type === 'existing') {
                                 formData.append('images', img.filename);
                             } else {
@@ -1216,7 +1407,7 @@
 
                         await pb.collection('products').update(this.editProduct.id, formData);
                         this.showEditModal = false;
-                        this._editImageList = [];
+                        this.editImageList = [];
                         this.fetchProducts();
                         this.showToast('상품이 수정되었습니다.');
                     } catch (err) {

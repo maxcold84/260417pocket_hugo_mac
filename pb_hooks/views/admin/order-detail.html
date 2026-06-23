@@ -41,6 +41,12 @@
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans antialiased min-h-screen" x-data="orderDetailApp()">
 
+    <!-- Toast Notification -->
+    <div x-show="toastMsg" x-cloak x-transition
+         class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-6 py-3 rounded-lg shadow-xl text-sm font-medium max-w-md text-center"
+         @toast.window="showToast($event.detail.message)"
+         x-text="toastMsg"></div>
+
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
         <aside class="w-64 bg-bmw-dark text-white flex flex-col flex-shrink-0">
@@ -233,7 +239,7 @@
                                 
                                 <form hx-post="/api/cms/orders/{{.order.id}}/update" 
                                       hx-swap="none" 
-                                      hx-on::after-request="if(event.detail.successful) alert('변경사항이 저장되었습니다.'); else alert('오류가 발생했습니다.');" 
+                                      hx-on::after-request="if(event.detail.successful) $dispatch('toast', {message: '변경사항이 저장되었습니다.'}); else $dispatch('toast', {message: '오류가 발생했습니다.'});" 
                                       @submit="if(!validateForm($event)) $event.preventDefault();"
                                       x-data="{
                                           selectedCourier: '{{.order.courier_name}}',
@@ -241,6 +247,8 @@
                                           trackingNumber: '{{.order.tracking_number}}',
                                           status: '{{.order.status}}',
                                           isCustom: false,
+                                          showConfirmShort: false,
+                                          confirmShortTracking: false,
                                           couriers: [
                                               { name: 'CJ대한통운', url: 'https://www.doortodoor.co.kr/parcel/doortodoor.do?fsp_action=Parcel_Query&fsp_cmd=retrieve_parcel_detail&invc_no=' },
                                               { name: '우체국택배', url: 'https://service.epost.go.kr/trace.RetrieveDomconsDepliv.postal?sid1=' },
@@ -277,17 +285,16 @@
                                               
                                               if (this.status === 'shipping' || this.status === 'completed') {
                                                   if (!finalCourier) {
-                                                      alert('배송중 또는 배송완료 상태로 설정하려면 택배사 입력이 필요합니다.');
+                                                      this.$dispatch('toast', {message: '배송중 또는 배송완료 상태로 설정하려면 택배사 입력이 필요합니다.'});
                                                       return false;
                                                   }
                                                   if (!cleanTrack) {
-                                                      alert('배송중 또는 배송완료 상태로 설정하려면 운송장 번호 입력이 필요합니다.');
+                                                      this.$dispatch('toast', {message: '배송중 또는 배송완료 상태로 설정하려면 운송장 번호 입력이 필요합니다.'});
                                                       return false;
                                                   }
-                                                  if (cleanTrack.length < 8) {
-                                                      if (!confirm('입력된 운송장 번호가 비정상적으로 짧거나 유효하지 않아 보입니다. 그대로 저장하시겠습니까?')) {
-                                                          return false;
-                                                      }
+                                                  if (cleanTrack.length < 8 && !this.confirmShortTracking) {
+                                                      this.showConfirmShort = true;
+                                                      return false;
                                                   }
                                               }
                                               return true;
@@ -297,7 +304,6 @@
                                     <div>
                                         <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">주문 상태</label>
                                         <select name="status" x-model="status" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-800 focus:ring-1 focus:ring-bmw-blue outline-none transition">
-                                            <option value="pending">Pending (대기)</option>
                                             <option value="paid">Paid (결제완료)</option>
                                             <option value="shipping">Shipping (배송중)</option>
                                             <option value="completed">Completed (배송완료)</option>
@@ -388,6 +394,25 @@
                                         <textarea name="shipping_memo" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-800 focus:ring-1 focus:ring-bmw-blue outline-none" rows="2">{{.order.shipping_memo}}</textarea>
                                     </div>
 
+                                    <!-- Dynamic Confirmation Banner for short tracking number -->
+                                    <div x-show="showConfirmShort" x-cloak x-transition
+                                         class="bg-amber-50 border border-amber-200 rounded p-4 text-center space-y-4 my-4">
+                                        <p class="text-sm font-semibold text-gray-900">운송장 번호가 짧거나 유효하지 않아 보입니다.</p>
+                                        <p class="text-xs text-gray-500">이대로 배송 정보 변경사항을 저장하시겠습니까?</p>
+                                        <div class="flex gap-3 justify-center">
+                                            <button type="button"
+                                                @click="confirmShortTracking = true; $nextTick(() => { $el.form.requestSubmit() })"
+                                                class="px-3 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded transition shadow">
+                                                네, 저장합니다
+                                            </button>
+                                            <button type="button"
+                                                @click="showConfirmShort = false"
+                                                class="px-3 py-1.5 text-xs text-gray-600 bg-white border border-gray-300 hover:bg-gray-100 rounded transition">
+                                                취소
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     <button type="submit" class="w-full bg-bmw-blue hover:bg-blue-700 text-white font-bold py-3 rounded transition duration-300 shadow shadow-sm">
                                         변경사항 저장
                                     </button>
@@ -451,6 +476,11 @@
             return {
                 cancelApproving: false,
                 showConfirm: false,
+                toastMsg: '',
+                showToast(msg) {
+                    this.toastMsg = msg;
+                    setTimeout(() => { this.toastMsg = ''; }, 4000);
+                },
                 logout() {
                     pb.authStore.clear();
                     document.cookie = 'pb_auth=; Max-Age=0; path=/';
@@ -464,10 +494,12 @@
                     this.cancelApproving = true;
                     try {
                         await pb.send('/api/cms/orders/' + orderId + '/approve-cancel', { method: 'POST' });
-                        alert('환불이 완료되었습니다.');
-                        window.location.href = '/cms/?tab=orders';
+                        this.showToast('환불이 완료되었습니다. 목록으로 이동합니다...');
+                        setTimeout(() => {
+                            window.location.href = '/cms/?tab=orders';
+                        }, 2000);
                     } catch (err) {
-                        alert(err.data?.error || err.message || '환불 처리 실패');
+                        this.showToast(err.data?.error || err.message || '환불 처리 실패');
                     } finally {
                         this.cancelApproving = false;
                     }

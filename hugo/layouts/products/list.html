@@ -1,5 +1,8 @@
 {{ define "main" }}
-{{ $pbBase := site.BaseURL }}
+{{ $pbBase := getenv "HUGO_POCKETBASE_INTERNAL_URL" | default site.BaseURL }}
+{{ if not (hasSuffix $pbBase "/") }}
+  {{ $pbBase = printf "%s/" $pbBase }}
+{{ end }}
 
 <!-- Catalog Header -->
 <section
