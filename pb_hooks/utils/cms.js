@@ -113,21 +113,39 @@ function runHugo(e) {
 
     const paths = ["/opt/homebrew/bin/hugo", "/usr/local/bin/hugo", "hugo"];
     let lastErr = null;
+    let lastOutput = "";
     for (let p of paths) {
         try {
             // Build dynamic command prepended with environment variables
             const cmdStr = envPrefix.join(" ") + " " + p + " --ignoreCache -b " + baseURL;
             const cmd = $os.cmd("sh", "-c", cmdStr);
             cmd.dir = "hugo";
-            cmd.run();
+
+            // CombinedOutput()으로 stdout + stderr 모두 캡처
+            let outputBytes;
+            try {
+                outputBytes = cmd.output();
+            } catch (outputErr) {
+                // output()이 없는 경우(구 버전) run()으로 폴백
+                cmd.run();
+                console.log("[runHugo] Successfully executed (run): " + cmdStr);
+                return { success: true, output: "" };
+            }
+
+            // Go []byte → JS string 변환
+            const outputStr = Array.from(outputBytes).map(b => String.fromCharCode(b)).join('');
             console.log("[runHugo] Successfully executed: " + cmdStr);
-            return true;
+            console.log("[runHugo] Hugo output:\n" + outputStr);
+            return { success: true, output: outputStr };
         } catch (err) {
             lastErr = err;
-            console.warn("[runHugo] Failed execution for '" + p + "': " + err);
+            // 에러 객체에서 출력 캡처 시도 (Go exec.ExitError에 Stderr 포함)
+            const errStr = String(err);
+            lastOutput = errStr;
+            console.warn("[runHugo] Failed execution for '" + p + "': " + errStr);
         }
     }
-    throw new Error("모든 경로에서 Hugo 실행에 실패했습니다. 마지막 오류: " + lastErr);
+    throw new Error("Hugo 빌드 실패. 마지막 오류:\n" + lastOutput);
 }
 
 module.exports = {

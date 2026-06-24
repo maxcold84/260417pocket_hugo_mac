@@ -49,7 +49,9 @@
 14. **Native HTML5 Drag-and-Drop Pattern**:
     - For reorderable lists without external libraries, use the native `draggable="true"` attribute with `@dragstart`, `@dragover.prevent`, `@drop.prevent`, and `@dragend` Alpine.js event handlers.
     - **Rule:** Store the dragged item index in component state (e.g., `_draggedIndex`). On drop, splice the item from its old position and insert at the new position. Always reassign the array (`this.list = [...list]`) to trigger Alpine reactivity.
-    - **Rule:** Add `pointer-events-none` to child elements (images, badges) to prevent them from interfering with drag events on the parent container.
+    - **Rule:** Add `pointer-events: none` to child elements (images, badges) to prevent them from interfering with drag events on the parent container.
+    - **Rule:** If you dynamically apply `pointer-events: none` to descendants of the dragged element to prevent flickering, **never** change the state synchronously inside the `dragstart` handler. Doing so causes Chrome/Safari to immediately abort/cancel the drag gesture. Instead, defer the state update using `setTimeout(() => { this.isDragging = true; }, 0)`.
+    - **Rule:** For table row reordering, do not apply `pointer-events: none` to table cells (`td`) themselves. Doing so will cause drag/drop pointer events to pass completely through the row, preventing `@dragover` and `@drop` handlers on the `tr` from firing. Instead, target only the cell descendants: `.dragging-active .product-drag-row td * { pointer-events: none; }`.
 15. **PocketBase v0.36 REST API Sort Limitation**:
     - Multi-field sort parameters (e.g., `sort=sort_order,created`) cause a 500 error in PocketBase v0.36. Only single-field sort is supported via the REST API.
     - **Rule:** Always use single-field sort in `pb.collection().getList()` options: `{ sort: 'sort_order' }`. If secondary sorting is needed, sort client-side after fetching.

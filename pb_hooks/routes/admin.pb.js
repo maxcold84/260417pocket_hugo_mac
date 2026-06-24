@@ -124,14 +124,39 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
         }
 
         // Step 6: Run Hugo with --ignoreCache
-        cmsUtil.runHugo(e);
+        let hugoOutput = "";
+        let hugoWarning = "";
+        try {
+            const hugoResult = cmsUtil.runHugo(e);
+            if (hugoResult && hugoResult.output) {
+                hugoOutput = hugoResult.output;
+                // Hugo 출력에 WARN/ERROR가 있으면 경고로 포함
+                if (hugoOutput.indexOf("WARN") !== -1 || hugoOutput.indexOf("ERROR") !== -1) {
+                    hugoWarning = "[빌드 경고] " + hugoOutput.split("\n").filter(function(l) {
+                        return l.indexOf("WARN") !== -1 || l.indexOf("ERROR") !== -1;
+                    }).join(" | ");
+                }
+            }
+        } catch (hugoErr) {
+            const errMsg = String(hugoErr);
+            console.error("Hugo build failed:", errMsg);
+            return e.json(500, {
+                error: "Hugo 빌드 실패",
+                detail: errMsg,
+                synced: syncedCount,
+                deletedPages: deletedProductCount,
+                deletedImages: deletedImageCount
+            });
+        }
 
+        const summary = syncedCount + "개 상품 동기화, " + deletedProductCount + "개 페이지 삭제, " + deletedImageCount + "개 고아 이미지 정리 완료.";
         return e.json(200, {
-            message: "Sync complete: " + syncedCount + " products synced, " + deletedProductCount + " pages removed, " + deletedImageCount + " orphaned images cleaned."
+            message: "동기화 및 사이트 빌드 완료: " + summary + (hugoWarning ? " " + hugoWarning : ""),
+            detail: hugoOutput
         });
     } catch (err) {
         console.error("Rebuild error:", err);
-        return e.json(500, { error: String(err) });
+        return e.json(500, { error: "동기화 실패", detail: String(err) });
     }
 }, $apis.requireSuperuserAuth());
 
@@ -172,13 +197,26 @@ routerAdd("POST", "/api/cms/settings/update", (e) => {
         // Trigger Hugo rebuild
         let hugoWarning = "";
         try {
-            cmsUtil.runHugo(e);
+            const hugoResult = cmsUtil.runHugo(e);
+            if (hugoResult && hugoResult.output) {
+                const out = hugoResult.output;
+                if (out.indexOf("WARN") !== -1 || out.indexOf("ERROR") !== -1) {
+                    const warnLines = out.split("\n").filter(function(l) {
+                        return l.indexOf("WARN") !== -1 || l.indexOf("ERROR") !== -1;
+                    }).join(" | ");
+                    hugoWarning = " [빌드 경고: " + warnLines + "]";
+                }
+            }
         } catch (hugoErr) {
-            console.error("Hugo build failed after settings update:", hugoErr);
-            hugoWarning = " (주의: 설정이 저장되었으나 사이트 자동 빌드에 실패했습니다. 환경 설정을 확인하거나 수동 빌드를 시도하세요.)";
+            const errMsg = String(hugoErr);
+            console.error("Hugo build failed after settings update:", errMsg);
+            return e.json(500, {
+                error: "설정은 저장되었으나 Hugo 빌드 실패",
+                detail: errMsg
+            });
         }
         
-        return e.json(200, { message: "Settings saved successfully." + hugoWarning });
+        return e.json(200, { message: "설정이 저장되었습니다." + hugoWarning });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }

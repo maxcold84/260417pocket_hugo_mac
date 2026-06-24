@@ -53,7 +53,12 @@
 
     <!-- Toast Notification -->
     <div x-show="toastMsg" x-cloak x-transition
-         class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-6 py-3 rounded-lg shadow-xl text-sm font-medium max-w-md text-center"
+         :class="{
+             'bg-red-700': toastType === 'error',
+             'bg-green-700': toastType === 'success',
+             'bg-gray-900': toastType === 'info' || !toastType
+         }"
+         class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] text-white px-6 py-3 rounded-lg shadow-xl text-sm font-medium max-w-lg text-center whitespace-pre-line"
          x-text="toastMsg"></div>
 
     <!-- Login Screen -->
@@ -793,6 +798,8 @@
                 deleteCategoryConfirmId: '',
                 cancelApproving: false,
                 toastMsg: '',
+                toastType: 'info',
+                _toastTimer: null,
                 tomlContent: '',
                 showAddModal: false,
                 showEditModal: false,
@@ -957,9 +964,23 @@
                         const data = await pb.send('/api/cms/rebuild', {
                             method: 'POST'
                         });
-                        this.showToast('{{ i18n "site_rebuilt_success" }}');
+                        // 성공: 서버에서 내려온 메시지 그대로 표시
+                        const msg = data.message || '{{ i18n "site_rebuilt_success" }}';
+                        this.showToast(msg, 'success', 8000);
+                        // Hugo 빌드 상세 출력이 있으면 콘솔에도 기록
+                        if (data.detail) {
+                            console.log('[CMS Rebuild] Hugo output:\n', data.detail);
+                        }
                     } catch (err) {
-                        this.handleError(err, 'Failed to rebuild site');
+                        // 실패: error + detail 모두 추출해 표시
+                        const errData = err.data || {};
+                        const errMsg = errData.error || err.message || '빌드 실패';
+                        const detail = errData.detail || '';
+                        const fullMsg = detail
+                            ? errMsg + '\n\n상세: ' + detail.slice(0, 400)
+                            : errMsg;
+                        console.error('[CMS Rebuild] Failed:', err);
+                        this.showToast('동기화 실패: ' + fullMsg, 'error', 12000);
                     } finally {
                         this.isRebuilding = false;
                     }
@@ -1154,9 +1175,12 @@
                         this.handleError(err, '상품 삭제 실패');
                     }
                 },
-                showToast(msg) {
+                showToast(msg, type, duration) {
                     this.toastMsg = msg;
-                    setTimeout(() => { this.toastMsg = ''; }, 4000);
+                    this.toastType = type || 'info'; // 'info' | 'success' | 'error'
+                    const ms = duration || 4000;
+                    clearTimeout(this._toastTimer);
+                    this._toastTimer = setTimeout(() => { this.toastMsg = ''; this.toastType = 'info'; }, ms);
                 },
                 isCancellable(status) {
                     const cancellableStatuses = ['cancel_requested'];
