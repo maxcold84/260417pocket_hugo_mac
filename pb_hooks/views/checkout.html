@@ -83,8 +83,8 @@
                                 <input type="email" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="example@domain.com" x-model="buyerEmail" />
                             </div>
                             <div>
-                                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">주문 비밀번호</label>
-                                <input type="password" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="미입력 시 휴대폰 뒷 4자리" x-model="guestPassword" />
+                                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">주문 비밀번호 <span class="text-red-500">*</span></label>
+                                <input type="password" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="주문 조회 시 사용할 비밀번호" x-model="guestPassword" />
                             </div>
                         </div>
                         
@@ -381,6 +381,10 @@ function checkoutPage() {
                 alert("선택하신 결제 수단의 채널 키가 설정되지 않았습니다.");
                 return;
             }
+            if (!"{{.portoneStoreId}}") {
+                alert("PortOne 스토어 ID가 설정되지 않았습니다.");
+                return;
+            }
 
             // Delivery validation
             if (!this.recipientName) {
@@ -410,6 +414,10 @@ function checkoutPage() {
                 }
                 if (!this.privacyConsent) {
                     alert("개인정보 수집 및 이용에 동의하셔야 합니다.");
+                    return;
+                }
+                if (!this.guestPassword) {
+                    alert("비회원 주문 조회를 위한 주문 비밀번호를 입력해 주세요.");
                     return;
                 }
             }
@@ -513,7 +521,10 @@ function checkoutPage() {
                             }
                             await fetch('/api/orders/' + data.orderId + '/cancel-pending', {
                                 method: 'POST',
-                                headers: headers
+                                headers: headers,
+                                body: JSON.stringify({
+                                    cleanupNonce: data.cleanupNonce || ''
+                                })
                             });
                         } catch (e) {
                             console.error("Failed to delete pending order:", e);

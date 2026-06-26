@@ -12,6 +12,7 @@ To keep instructions concise, detailed rules and gotchas are separated into docu
 
 - **PocketBase Custom Routes & JSVM**: Read `docs/POCKETBASE_JSVM.md` (Crucial for `pb_hooks` routing, file I/O, and Goja constraints)
 - **Database Schema & Security**: Read `docs/DATABASE.md` (Collections, list/view rules, AuthStore changes)
+- **Security Hardening & Release Review**: Read `docs/SECURITY_HARDENING.md` (Production blockers, payment/auth/guest-order hardening)
 - **PortOne Payment Integration**: Read `docs/PORTONE.md` (Payment flow, Webhook, Phone number handling)
 - **Frontend & Alpine.js**: Read `docs/FRONTEND.md` (Cart localStorage, IME composition, Template constraints)
 - **Hugo CMS Rebuild & Architecture**: Read `docs/HUGO_ARCHITECTURE.md` (Product-to-Markdown sync, Image caching, File structure)

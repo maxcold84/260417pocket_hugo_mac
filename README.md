@@ -64,6 +64,10 @@ kakao = false
 - `hugo/`: 정적 화면을 생성하기 위한 Hugo 테마, 레이아웃(`layouts/`), 그리고 설정 파일(`hugo.toml`). 상품 정보(`content/products/`)는 CMS에서 자동으로 생성합니다.
 - `pb_public/`: Hugo에 의해 컴파일된 최종 웹사이트 결과물이 위치하는 정적 폴더. (git ignore 처리됨)
 
+## 🔐 보안 하드닝
+
+운영 배포 전에는 `docs/SECURITY_HARDENING.md`의 P0/P1 항목을 먼저 처리해야 합니다. 특히 공개 테스트 훅 제거, PortOne 결제 금액 검증 일원화, 웹훅 raw body 서명 검증, CMS superuser 인증 검증, 비회원 주문 조회 강화는 릴리즈 차단 항목으로 봅니다.
+
 ---
 
 export $(grep -v '^#' .env | xargs) && ./pocketbase serve

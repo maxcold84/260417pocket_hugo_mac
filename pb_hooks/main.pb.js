@@ -4,5 +4,4 @@
 
 require(`${__hooks}/routes/main.pb.js`);
 require(`${__hooks}/routes/portone.pb.js`);
-require(`${__hooks}/routes/test_os.pb.js`);
 require(`${__hooks}/routes/admin.pb.js`);

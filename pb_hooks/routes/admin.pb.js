@@ -323,7 +323,7 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
             guestName: guestInfo ? (guestInfo.name || "") : "",
             guestPhone: guestInfo ? (guestInfo.phone || "") : "",
             guestEmail: guestInfo ? (guestInfo.email || "") : "",
-            guestPassword: guestInfo ? (guestInfo.password || "") : "",
+            guestPasswordStored: guestInfo && guestInfo.password_hash ? "해시로 저장됨" : "미설정",
             memberName: memberName,
             memberPhone: memberPhone,
             memberEmail: memberEmail,
@@ -384,6 +384,10 @@ routerAdd("POST", "/api/cms/orders/{id}/approve-cancel", (e) => {
         const order = $app.findRecordById("orders", orderId);
         const currentStatus = order.getString("status");
 
+        if (currentStatus === "refunded") {
+            return e.json(200, { message: "이미 환불 처리된 주문입니다." });
+        }
+
         // Only cancel_requested or paid orders can be approved for cancellation
         if (currentStatus !== "cancel_requested" && currentStatus !== "paid") {
             return e.json(400, { error: "취소 요청 상태이거나 결제완료 상태의 주문만 취소 승인할 수 있습니다." });
@@ -397,7 +401,10 @@ routerAdd("POST", "/api/cms/orders/{id}/approve-cancel", (e) => {
 
         // The payment ID used with PortOne is the order ID itself
         const paymentId = orderId;
-        const storeId = env.get("PORTONE_STORE_ID") || "";
+        const storeId = env.get("PORTONE_STORE_ID");
+        if (!storeId) {
+            return e.json(500, { error: "PORTONE_STORE_ID 환경 변수가 설정되지 않았습니다." });
+        }
 
         const cancelBody = JSON.stringify({
             reason: "관리자 취소 승인",

@@ -31,7 +31,7 @@
         <div class="flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
             <span class="text-sm text-gray-700 dark:text-gray-300">
-                비회원 주문 내역을 조회 중입니다. (임시 아이디: <strong class="text-gray-900 dark:text-white font-mono" x-text="lookupTempId"></strong>)
+                비회원 주문 내역을 조회 중입니다. (주문 번호: <strong class="text-gray-900 dark:text-white font-mono" x-text="lookupOrderId"></strong>)
             </span>
         </div>
         <button @click="clearGuestSession()" class="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white underline transition">
@@ -45,19 +45,15 @@
         <div class="max-w-md w-full bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-8 rounded-sm text-left flex flex-col justify-between min-h-[350px]">
             <div class="w-full">
                 <h2 class="text-xl font-light text-gray-900 dark:text-white mb-4 uppercase tracking-wide text-center">GUEST LOOKUP</h2>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-6 text-center font-light">비회원으로 결제하셨다면 아래 정보를 입력하여 주문 내역을 조회해 보세요.</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-6 text-center font-light">비회원 주문은 주문 번호와 직접 설정한 주문 비밀번호로 조회할 수 있습니다.</p>
                 <div class="space-y-3">
                     <div>
-                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">임시 아이디 (휴대폰 번호/이메일/휴대폰 뒷 4자리) <span class="text-red-500">*</span></label>
-                        <input type="text" x-model="lookupTempId" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="010-1234-5678, 뒷 4자리(5678) 또는 이메일" />
-                    </div>
-                    <div>
-                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">주문 번호 (선택)</label>
+                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">주문 번호 <span class="text-red-500">*</span></label>
                         <input type="text" x-model="lookupOrderId" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none font-mono" placeholder="주문 번호를 입력하세요" />
                     </div>
                     <div>
-                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">주문 비밀번호 (선택)</label>
-                        <input type="password" x-model="lookupPassword" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="미입력 시 휴대폰 뒷 4자리" />
+                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">주문 비밀번호 <span class="text-red-500">*</span></label>
+                        <input type="password" x-model="lookupPassword" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="결제 전 설정한 비밀번호" />
                     </div>
                 </div>
             </div>
@@ -202,7 +198,6 @@
                 cancelling: false,
                 
                 // Guest order lookup state
-                lookupTempId: '',
                 lookupOrderId: '',
                 lookupPassword: '',
                 searching: false,
@@ -210,22 +205,6 @@
 
                 async init() {
                     this.pb = new PocketBase(window.location.origin);
-
-                    // Check if guest lookup session exists in local storage
-                    const savedSession = localStorage.getItem('guest_lookup_session');
-                    if (savedSession) {
-                        try {
-                            const parsed = JSON.parse(savedSession);
-                            this.lookupTempId = parsed.tempId || '';
-                            this.lookupOrderId = parsed.orderId || '';
-                            this.lookupPassword = parsed.password || '';
-                            if (this.lookupTempId && (this.lookupOrderId || this.lookupPassword)) {
-                                await this.lookupGuestOrder(true);
-                            }
-                        } catch (e) {
-                            localStorage.removeItem('guest_lookup_session');
-                        }
-                    }
 
                     if (!this.pb.authStore.isValid) {
                         this.loading = false;
@@ -261,12 +240,8 @@
 
                 // Secure guest lookup call
                 async lookupGuestOrder(silent = false) {
-                    if (!this.lookupTempId) {
-                        if (!silent) this.showToast('임시 아이디를 입력해 주세요.');
-                        return;
-                    }
-                    if (!this.lookupOrderId && !this.lookupPassword) {
-                        if (!silent) this.showToast('주문번호 또는 비밀번호를 입력해 주세요.');
+                    if (!this.lookupOrderId || !this.lookupPassword) {
+                        if (!silent) this.showToast('주문번호와 주문 비밀번호를 모두 입력해 주세요.');
                         return;
                     }
 
@@ -279,7 +254,6 @@
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                tempId: this.lookupTempId,
                                 orderId: this.lookupOrderId,
                                 password: this.lookupPassword
                             })
@@ -291,13 +265,6 @@
                         this.orders = data.items || [];
                         this.isGuestMode = true;
                         this.loggedIn = false;
-
-                        // Save session
-                        localStorage.setItem('guest_lookup_session', JSON.stringify({
-                            tempId: this.lookupTempId,
-                            orderId: this.orders[0] ? this.orders[0].id : this.lookupOrderId,
-                            password: this.lookupPassword
-                        }));
                     } catch (err) {
                         console.error('Guest lookup failed:', err);
                         if (!silent) {
@@ -315,10 +282,8 @@
                 clearGuestSession() {
                     this.orders = [];
                     this.isGuestMode = false;
-                    this.lookupTempId = '';
                     this.lookupOrderId = '';
                     this.lookupPassword = '';
-                    localStorage.removeItem('guest_lookup_session');
                 },
 
                 formatDate(dateStr) {
@@ -367,7 +332,6 @@
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    tempId: this.lookupTempId,
                                     password: this.lookupPassword
                                 })
                             });
@@ -396,7 +360,6 @@
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    tempId: this.lookupTempId,
                                     password: this.lookupPassword
                                 })
                             });
