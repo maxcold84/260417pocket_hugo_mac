@@ -2,14 +2,15 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
     try {
         const cmsUtil = require(`${__hooks}/utils/cms.js`);
 
-        // Step 0: Sync categories from hugo.toml to DB first
+        // Step 0: Prune stale TOML categories first, then sync the remaining TOML metadata to DB.
         try {
-            const tomlBytes = $os.readFile("hugo/hugo.toml");
-            const tomlBinaryStr = Array.from(tomlBytes).map(b => String.fromCharCode(b)).join('');
-            const tomlStr = decodeURIComponent(escape(tomlBinaryStr));
-            cmsUtil.syncCategoriesFromToml($app, tomlStr);
+            const categoryToml = cmsUtil.pruneCategoryTomlToDb($app);
+            cmsUtil.syncCategoriesFromToml($app, categoryToml.toml);
+            if (categoryToml.removed > 0) {
+                console.log("[cms-rebuild] Removed " + categoryToml.removed + " stale category blocks from hugo.toml before rebuild.");
+            }
         } catch (catErr) {
-            console.error("Failed to sync categories during rebuild:", catErr);
+            console.error("Failed to reconcile categories during rebuild:", catErr);
         }
 
         // Step 1: Sync all current DB products to Hugo Markdown and clean stale outputs.

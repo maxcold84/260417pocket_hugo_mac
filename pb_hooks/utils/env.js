@@ -1,5 +1,49 @@
 let envCache = null;
 
+function getOsEnv(key) {
+    try {
+        return $os.getenv(key) || "";
+    } catch (e) {}
+    return "";
+}
+
+function normalizeFlag(value) {
+    return String(value || "").trim().toLowerCase();
+}
+
+function isEnabledFlag(value) {
+    const flag = normalizeFlag(value);
+    return flag === "1" || flag === "true" || flag === "yes" || flag === "on";
+}
+
+function isDisabledFlag(value) {
+    const flag = normalizeFlag(value);
+    return flag === "0" || flag === "false" || flag === "no" || flag === "off";
+}
+
+function isProductionMode() {
+    const modeKeys = ["APP_ENV", "POCKETBASE_ENV", "PB_ENV", "NODE_ENV"];
+    for (let i = 0; i < modeKeys.length; i++) {
+        const mode = normalizeFlag(getOsEnv(modeKeys[i]));
+        if (mode === "production" || mode === "prod") {
+            return true;
+        }
+    }
+    return false;
+}
+
+function isDotenvFallbackAllowed() {
+    if (isProductionMode()) {
+        return false;
+    }
+
+    const explicit = getOsEnv("ALLOW_DOTENV_FALLBACK") || getOsEnv("DOTENV_FALLBACK");
+    if (explicit) {
+        return isEnabledFlag(explicit) && !isDisabledFlag(explicit);
+    }
+    return true;
+}
+
 function getEnvFileCandidates() {
     const candidates = [".env"];
     try {
@@ -13,6 +57,11 @@ function getEnvFileCandidates() {
 function loadEnv() {
     if (envCache) return envCache;
     const env = {};
+    if (!isDotenvFallbackAllowed()) {
+        envCache = env;
+        return env;
+    }
+
     const candidates = getEnvFileCandidates();
     let loaded = false;
     let lastError = null;
@@ -53,11 +102,7 @@ function loadEnv() {
 }
 
 function get(key) {
-    let val = "";
-    try {
-        val = $os.getenv(key);
-    } catch (e) {}
-    
+    let val = getOsEnv(key);
     if (!val) {
         const env = loadEnv();
         val = env[key] || "";

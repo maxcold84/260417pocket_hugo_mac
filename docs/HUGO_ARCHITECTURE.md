@@ -49,6 +49,7 @@ hugo/                   ← Hugo source (content, themes, config)
     - The rebuild route (`pb_hooks/routes/admin.pb.js`) iterates all products **sorted by `sort_order`**, generates `hugo/content/products/{slug}.md` files with frontmatter (title, price, weight, image URL), then runs `hugo --ignoreCache` to compile fresh static pages into `pb_public/`.
     - The rebuild route calls `cmsUtil.prepareHugoContentTree()` before cleanup/write operations. This recreates `hugo/content/products/` with `$os.mkdirAll()` if the directory was omitted from deployment or manually deleted.
     - The rebuild route delegates product Markdown generation to `cmsUtil.syncProductsToMarkdown()`. This utility writes empty `category` frontmatter for uncategorized products and clears stale `products.category` values when the referenced category record no longer exists.
+    - Before syncing categories from TOML, the rebuild route calls `cmsUtil.pruneCategoryTomlToDb()`. Any `[[params.categories]]` block whose `slug` no longer exists in the `categories` collection is removed from `hugo.toml`, preventing deleted PocketBase CMS categories from being recreated during sync build.
     - **Recovery:** If product Markdown sync fails because `hugo/content/products/` is missing, deploy the latest hooks and click **동기화 및 사이트 빌드** again. The same sync route now repairs the missing directory before writing `.md` files.
     - **Rule:** Always pass `--ignoreCache` to the Hugo command when rebuilding programmatically, to ensure `resources.GetRemote` (used for product images) fetches fresh data instead of reusing stale cached responses.
     - **Rule:** Product image URLs in Markdown frontmatter must use the full PocketBase file API path: `http://127.0.0.1:8090/api/files/{collectionId}/{recordId}/{filename}`.
@@ -76,7 +77,7 @@ hugo/                   ← Hugo source (content, themes, config)
 9. **Category Deletion Guard**:
     - The custom CMS category delete route removes the category from `hugo.toml`, clears product relations, regenerates product Markdown, then runs `hugo --ignoreCache`.
     - Direct category deletion from PocketBase Admin/API bypasses the custom route, so `pb_hooks/category_delete_guard.pb.js` listens with `onRecordDeleteRequest(..., "categories")`. It clears related product categories before `e.next()`, then removes the TOML block after the record is deleted.
-    - Direct deletion intentionally does not run Hugo inside the delete request. Use **동기화 및 사이트 빌드** afterward to regenerate product Markdown and static output in one explicit rebuild step.
+    - Direct deletion intentionally does not run Hugo inside the delete request. Use **동기화 및 사이트 빌드** afterward to prune any stale TOML category block, regenerate product Markdown, and build static output in one explicit step.
 10. **Hugo HTML Minifier and Spacing Collapse (Whitespace bug)**:
     - Hugo has `minifyOutput = true` under `[minify]` in `hugo.toml` which aggressively minifies HTML outputs and collapses whitespace adjacent to inline/block elements (like `<br>`).
     - If you attempt to split a multi-word title to conditionally inject a `<br class="md:hidden" />` for mobile viewports, the minifier will strip the space on desktop viewports where `<br>` is hidden via CSS, making "소중한 시간을 닮다" render as "소중한 시간을닮다" (no space at all).

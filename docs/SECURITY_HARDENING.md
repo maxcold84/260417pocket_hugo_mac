@@ -103,6 +103,7 @@ This document records the security improvements required before this PocketBase 
 - Require `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`, and `PORTONE_STORE_ID` for payment verification, webhook handling, and refunds.
 - Require `GUEST_LOOKUP_SECRET` or `PORTONE_API_SECRET` before storing guest password hashes.
 - Keep secrets out of `pb_public/`, Hugo frontmatter, logs, and client-side scripts.
+- In production mode (`APP_ENV`, `POCKETBASE_ENV`, `PB_ENV`, or `NODE_ENV` set to `production`/`prod` in the OS process environment), disable `.env` file fallback and require secrets to come from the process environment.
 
 ### 8. Route-level security inventory
 

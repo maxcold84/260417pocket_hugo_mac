@@ -43,3 +43,5 @@
 - `PORTONE_API_SECRET`: Server-only API secret for payment verification and refunds.
 - `PORTONE_WEBHOOK_SECRET`: Server-only secret for webhook signature verification.
 - Optional aliases supported by the checkout route: `PORTONE_KAKAOPAY_CHANNEL_KEY`, `PORTONE_INICIS_CHANNEL_KEY`, `PORTONE_KCP_CHANNEL_KEY`.
+- In production, set one of `APP_ENV=production`, `POCKETBASE_ENV=production`, `PB_ENV=production`, or `NODE_ENV=production` as an OS/process environment variable. This disables `.env` file fallback, so all required PortOne secrets must be provided by the process environment.
+- For non-production runs, `.env` fallback can also be explicitly controlled with `ALLOW_DOTENV_FALLBACK=true|false` or `DOTENV_FALLBACK=true|false`.

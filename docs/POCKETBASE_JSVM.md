@@ -133,3 +133,4 @@
       - Clear affected `products.category` values before `e.next()` so required/relation constraints cannot leave dangling category references.
       - After `e.next()`, remove the matching `[[params.categories]]` TOML block so the next CMS rebuild does not recreate the category from the source config.
       - Do not run Hugo in the low-level delete hook. Defer product Markdown sync and static output generation to the explicit custom CMS **동기화 및 사이트 빌드** action.
+      - The rebuild action must call `cmsUtil.pruneCategoryTomlToDb()` before `syncCategoriesFromToml()` so stale TOML blocks are removed even if an older hook missed the delete event.

@@ -101,6 +101,60 @@ function removeCategoryFromTomlBySlug(slug) {
     return { changed: true, toml: updatedToml };
 }
 
+function pruneCategoryTomlToDb(app) {
+    const activeApp = app || $app;
+    const tomlStr = readUtf8File("hugo/hugo.toml");
+    const parts = tomlStr.split("[[params.categories]]");
+    if (parts.length <= 1) {
+        return {
+            changed: false,
+            toml: tomlStr,
+            kept: 0,
+            removed: 0
+        };
+    }
+
+    const dbCategories = activeApp.findRecordsByFilter("categories", "1=1", "sort_order", 1000, 0);
+    const dbSlugMap = {};
+    for (const cat of dbCategories) {
+        const slug = cat.getString("slug");
+        if (slug) {
+            dbSlugMap[slug] = true;
+        }
+    }
+
+    const header = parts[0];
+    const remainingBlocks = [];
+    let removedCount = 0;
+
+    for (let i = 1; i < parts.length; i++) {
+        const block = parts[i];
+        const slugMatch = block.match(/slug\s*=\s*"([^"]+)"/);
+        if (slugMatch && !dbSlugMap[slugMatch[1]]) {
+            removedCount++;
+            continue;
+        }
+        remainingBlocks.push(block);
+    }
+
+    let updatedToml = header;
+    if (remainingBlocks.length > 0) {
+        updatedToml += "[[params.categories]]" + remainingBlocks.join("[[params.categories]]");
+    }
+
+    const changed = updatedToml !== tomlStr;
+    if (changed) {
+        $os.writeFile("hugo/hugo.toml", updatedToml, 0o644);
+    }
+
+    return {
+        changed: changed,
+        toml: updatedToml,
+        kept: remainingBlocks.length,
+        removed: removedCount
+    };
+}
+
 function clearRelationFieldReferences(app, collectionName, fieldName, relationId) {
     if (!collectionName || !fieldName || !relationId) {
         return 0;
@@ -392,6 +446,7 @@ function runHugo(e) {
 module.exports = {
     syncCategoriesFromToml: syncCategoriesFromToml,
     removeCategoryFromTomlBySlug: removeCategoryFromTomlBySlug,
+    pruneCategoryTomlToDb: pruneCategoryTomlToDb,
     clearRelationFieldReferences: clearRelationFieldReferences,
     clearProductsCategory: clearProductsCategory,
     prepareHugoContentTree: prepareHugoContentTree,
