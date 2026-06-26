@@ -44,9 +44,22 @@ This document records the security improvements required before this PocketBase 
 **Acceptance check:**
 - Both webhook and redirect code paths call the same amount-checking helper before `order.set("status", "paid")`.
 
+### 3. Guard admin order status transitions
+
+**Risk:** CMS order screens must not be able to mark orders `paid`, `refunded`, or `cancelled` without the corresponding PortOne verification or refund flow.
+
+**Required checks:**
+- `pending` can become `paid` only through the shared PortOne payment verification helper.
+- `refunded` can be written only after the PortOne cancel API succeeds in `/api/cms/orders/{id}/approve-cancel`.
+- CMS status/update routes reject direct creation of terminal payment states and reject moving out of terminal states.
+- CMS frontend code calls guarded custom routes instead of `pb.collection('orders').update(id, { status })`.
+
+**Acceptance check:**
+- CMS list/detail status controls cannot perform `pending -> paid`, direct `paid -> refunded`, direct `paid -> cancelled`, or any transition out of `refunded`/`cancelled`.
+
 ## P1 High Priority
 
-### 3. Verify PortOne webhooks with the exact raw request body
+### 4. Verify PortOne webhooks with the exact raw request body
 
 **Risk:** Webhook signatures are computed over the exact raw request payload. Rebuilding the body with `JSON.stringify(e.requestInfo().body)` can change spacing, key order, or encoding.
 
@@ -57,7 +70,7 @@ This document records the security improvements required before this PocketBase 
 - Compare signatures without early-exit character comparisons.
 - Log only non-sensitive metadata: webhook id, event type, payment id, and status.
 
-### 4. Remove unverified JWT fallback for CMS superuser auth
+### 5. Remove unverified JWT fallback for CMS superuser auth
 
 **Risk:** `parseUnverifiedJWT()` only decodes claims; it does not prove the token was signed by PocketBase.
 
@@ -69,12 +82,13 @@ This document records the security improvements required before this PocketBase 
 **Acceptance check:**
 - `Select-String -Path 'pb_hooks/**/*.js' -Pattern 'parseUnverifiedJWT'` finds no authorization fallback in production code.
 
-### 5. Tighten guest order lookup credentials
+### 6. Tighten guest order lookup credentials
 
-**Risk:** Guest lookup must not accept partial identifiers, phone last-four matching, or "order number OR password" matching.
+**Risk:** Guest lookup must not accept order number-only login, partial identifiers, phone last-four matching, or "temporary id OR password" matching.
 
 **Required changes:**
-- Require exact order id and guest password.
+- Require exact temporary id (full guest phone number or guest email) and guest password.
+- Do not use the PocketBase order id as the guest login credential.
 - Do not use phone last-four digits as a default password.
 - Store only a server-side hash/HMAC of the guest password in `guest_info`.
 - Return generic failure messages so attackers cannot distinguish "order exists" from "bad password".
@@ -82,11 +96,11 @@ This document records the security improvements required before this PocketBase 
 **Acceptance check:**
 - A lookup with only phone last-four digits fails.
 - A lookup with only order id fails.
-- A lookup with exact order id plus valid guest password succeeds.
+- A lookup with exact guest phone or email plus valid guest password succeeds.
 
 ## P2 Hardening
 
-### 6. Add ownership or nonce checks to pending-order cleanup
+### 7. Add ownership or nonce checks to pending-order cleanup
 
 **Risk:** `/api/orders/{id}/cancel-pending` must not delete any pending order by id.
 
@@ -95,7 +109,7 @@ This document records the security improvements required before this PocketBase 
 - For guest orders, require a server-generated checkout cleanup nonce stored as a hash in `guest_info`.
 - Consider a scheduled cleanup job that deletes expired pending orders after a short TTL.
 
-### 7. Fail closed when required payment secrets are missing
+### 8. Fail closed when required payment secrets are missing
 
 **Risk:** Defaults such as `"test_api_secret"` and `"test_secret"` make a broken payment configuration look usable.
 
@@ -105,7 +119,7 @@ This document records the security improvements required before this PocketBase 
 - Keep secrets out of `pb_public/`, Hugo frontmatter, logs, and client-side scripts.
 - In production mode (`APP_ENV`, `POCKETBASE_ENV`, `PB_ENV`, or `NODE_ENV` set to `production`/`prod` in the OS process environment), disable `.env` file fallback and require secrets to come from the process environment.
 
-### 8. Route-level security inventory
+### 9. Route-level security inventory
 
 Every new `routerAdd()` should update this table.
 
@@ -118,26 +132,27 @@ Every new `routerAdd()` should update this table.
 | `POST /api/payment/webhook` | PortOne signature | yes | PortOne verify | uses raw-body signature verification and shared paid verification |
 | `POST /api/orders/{id}/request-cancel` | owner user token | yes | no | `paid` to `cancel_requested` |
 | `POST /api/orders/{id}/withdraw-cancel` | owner user token | yes | no | `cancel_requested` to `paid` |
-| `POST /api/guest/order-lookup` | exact order id + guest password | no | no | generic failures; no phone last-four fallback |
-| `POST /api/guest/orders/{id}/request-cancel` | exact order id + guest password | yes | no | guest `paid` to `cancel_requested` |
-| `POST /api/guest/orders/{id}/withdraw-cancel` | exact order id + guest password | yes | no | guest `cancel_requested` to `paid` |
+| `POST /api/guest/order-lookup` | exact temporary id (guest phone/email) + guest password | no | no | generic failures; no order-id login; no phone last-four fallback |
+| `POST /api/guest/orders/{id}/request-cancel` | exact temporary id (guest phone/email) + guest password | yes | no | guest `paid` to `cancel_requested` |
+| `POST /api/guest/orders/{id}/withdraw-cancel` | exact temporary id (guest phone/email) + guest password | yes | no | guest `cancel_requested` to `paid` |
 | `POST /api/cms/rebuild` | superuser | filesystem + build | Hugo command | admin only |
 | `GET /api/cms/settings` | superuser | no | no | admin only |
 | `POST /api/cms/settings/update` | superuser | filesystem + build | Hugo command | admin only |
 | `GET /cms/orders/{id}` | verified superuser cookie | no | no | SSR admin detail page |
-| `POST /api/cms/orders/{id}/update` | verified superuser cookie | yes | no | admin status/shipping update |
+| `POST /api/cms/orders/{id}/update` | verified superuser cookie | yes | no | admin shipping update plus guarded non-payment status transitions |
+| `POST /api/cms/orders/{id}/status` | verified superuser cookie | yes | no | guarded CMS list status transitions; cannot directly create `paid`, `refunded`, or `cancelled` payment state |
 | `POST /api/cms/orders/{id}/approve-cancel` | superuser | yes | PortOne cancel | idempotent for already refunded orders |
 | `POST /api/cms/categories/add` | superuser | yes | Hugo command | updates `hugo.toml` and categories |
 | `POST /api/cms/categories/delete` | superuser | yes | Hugo command | removes category and clears product relations |
 | `POST /api/cms/products/reorder` | superuser | yes | no | transaction-based sort update |
 
-### 9. Add basic abuse controls
+### 10. Add basic abuse controls
 
 Recommended next controls:
 - Rate-limit guest order lookup, checkout prep, login, and password reset endpoints.
 - Add short TTLs for pending orders.
 - Keep audit logs for order state transitions: old status, new status, actor, request source, and PortOne payment id.
-- Reject impossible status transitions server-side.
+- Keep rejecting impossible status transitions server-side when new admin/user order actions are added.
 
 ## Implementation Order
 
@@ -145,11 +160,12 @@ This hardening should grow as a vertical slice: keep the app runnable, then stre
 
 1. Remove public test hooks.
 2. Refactor PortOne verification into one shared helper and use it in webhook and redirect completion.
-3. Fix webhook raw-body signature verification and fail-closed secret handling.
-4. Remove unverified JWT CMS auth fallback.
-5. Replace guest lookup with exact order id plus hashed guest password.
-6. Add pending-order cleanup ownership/nonce checks.
-7. Add route inventory and regression tests.
+3. Guard CMS order status transitions so payment states require payment or refund flows.
+4. Fix webhook raw-body signature verification and fail-closed secret handling.
+5. Remove unverified JWT CMS auth fallback.
+6. Replace guest lookup with exact guest phone/email temporary id plus hashed guest password.
+7. Add pending-order cleanup ownership/nonce checks.
+8. Add route inventory and regression tests.
 
 ## Regression Checklist
 
@@ -160,8 +176,11 @@ Run these checks before release:
 - A valid webhook fixture passes signature verification.
 - A tampered webhook body fails signature verification.
 - CMS order detail/update routes reject forged or unsigned cookies.
+- CMS status routes reject `pending -> paid`, direct refund/cancel terminal changes, and terminal-state exits.
+- CMS order list does not call `pb.collection('orders').update(id, { status })` or request `sort: '-created'`.
 - Guest lookup fails with phone last-four only.
 - Guest lookup fails with order id only.
+- Guest lookup succeeds with exact guest phone or email plus the valid guest password.
 - Pending-order cleanup rejects anonymous deletion without nonce.
 - `hugo --source hugo --renderToMemory --printPathWarnings` passes.
 - `pocketbase serve --dev --dir=pb_data --hooksDir=pb_hooks --migrationsDir=pb_migrations --publicDir=pb_public` starts without hook errors.

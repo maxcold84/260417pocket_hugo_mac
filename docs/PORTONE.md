@@ -15,11 +15,13 @@
 - Always verify payment amount server-side (compare DB order total vs PortOne response)
 - Webhook signature must be verified BEFORE processing any payment state change
 - /api/orders/prep endpoint validates cart items against DB prices/stock before creating pending order
+- CMS order status updates must not mark an order `paid`, `refunded`, or `cancelled` directly. `paid` belongs to payment verification, and `refunded` belongs to the PortOne cancel approval flow.
 
 ## Checkout Flow — localStorage Cart to Server Order
 - The checkout process sends the client-side `localStorage` cart array to `POST /api/orders/prep`.
 - **Auth Header:** When calling `/api/orders/prep`, the frontend MUST manually attach `Authorization: Bearer <token>` from `localStorage` to ensure the order is correctly linked to the authenticated user ID.
 - The server validates each item against the DB (price, stock), creates a `pending` order + order_items, and returns `{ orderId, amount, cleanupNonce }`.
+- Guest orders store the checkout phone/email as the temporary lookup id and store only a server-side hash of the guest password.
 - The client then calls PortOne SDK with the returned orderId and amount.
 - The client must pass `forceRedirect: true` and include `orderId` + `cleanupNonce` in the redirect URL so failed/cancelled redirect flows can clean up only the matching pending order.
 - On successful payment, the client clears localStorage cart and redirects to `/payment/complete`.
@@ -32,6 +34,8 @@
 - **Auth header:** `"Authorization": "PortOne " + API_SECRET`
 - **Request body (JSON):** `{ "reason": "관리자 취소 승인" }`
 - On success, order status updates to `refunded`.
+- Admin rejection or user withdrawal may move `cancel_requested` back to `paid`, but only while the order is still in `cancel_requested`.
+- Generic CMS update/status routes are guarded workflow routes. They may manage shipping/completion or cancellation-request handling, but cannot bypass PortOne verification or cancel API calls.
 - **Environment variables required:** `PORTONE_API_SECRET`, `PORTONE_STORE_ID`
 - **Rule:** Always use `$http.send()` in JSVM for the cancel API call — never `fetch()` or npm packages.
 

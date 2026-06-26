@@ -11,7 +11,7 @@ pb_public/              ← Hugo output (static catalog, served by PocketBase)
 pb_hooks/
   main.pb.js            ← Hook loader (requires route files)
   routes/
-    admin.pb.js         ← CMS rebuild route (POST /api/cms/rebuild), admin cancel approval (POST /api/cms/orders/{id}/approve-cancel)
+    admin.pb.js         ← CMS rebuild/settings routes, guarded CMS order update/status routes, admin cancel approval (POST /api/cms/orders/{id}/approve-cancel)
     main.pb.js          ← User-facing routes: order prep, cancel request, cancel withdrawal
   routes.pb.js          ← Dynamic route registration (checkout, orders, order-prep API)
   portone.pb.js         ← PortOne webhook + payment verification routes
@@ -78,7 +78,13 @@ hugo/                   ← Hugo source (content, themes, config)
     - The custom CMS category delete route removes the category from `hugo.toml`, clears product relations, regenerates product Markdown, then runs `hugo --ignoreCache`.
     - Direct category deletion from PocketBase Admin/API bypasses the custom route, so `pb_hooks/category_delete_guard.pb.js` listens with `onRecordDeleteRequest(..., "categories")`. It clears related product categories before `e.next()`, then removes the TOML block after the record is deleted.
     - Direct deletion intentionally does not run Hugo inside the delete request. Use **동기화 및 사이트 빌드** afterward to prune any stale TOML category block, regenerate product Markdown, and build static output in one explicit step.
-10. **Hugo HTML Minifier and Spacing Collapse (Whitespace bug)**:
+10. **CMS Order Management**:
+    - The CMS dashboard separates active orders from archive views in Alpine.js, but both views must be built from fully paged PocketBase results.
+    - The order list fetches pages without `sort: '-created'` and sorts the merged array client-side by `created` descending to avoid PocketBase v0.36 system-field sort errors.
+    - Status dropdown options are derived from the current status so the UI does not offer impossible payment-state transitions.
+    - List-page changes call `POST /api/cms/orders/{id}/status`; detail-page edits call `POST /api/cms/orders/{id}/update`. Both routes enforce the same non-payment transition rules.
+    - Refund approval is not a normal status edit. `refunded` can only be written by `POST /api/cms/orders/{id}/approve-cancel` after the PortOne cancel API succeeds.
+11. **Hugo HTML Minifier and Spacing Collapse (Whitespace bug)**:
     - Hugo has `minifyOutput = true` under `[minify]` in `hugo.toml` which aggressively minifies HTML outputs and collapses whitespace adjacent to inline/block elements (like `<br>`).
     - If you attempt to split a multi-word title to conditionally inject a `<br class="md:hidden" />` for mobile viewports, the minifier will strip the space on desktop viewports where `<br>` is hidden via CSS, making "소중한 시간을 닮다" render as "소중한 시간을닮다" (no space at all).
     - **Rule:** Never place a plain space immediately adjacent to a responsive `<br>` tag inside standard loops. Instead, wrap the desktop-only space in an inline element with non-breaking whitespace: `<br class="md:hidden" /><span class="hidden md:inline">&nbsp;</span>`. This prevents the minifier from stripping the space on desktop and avoids rendering a leading space on a new line on mobile.

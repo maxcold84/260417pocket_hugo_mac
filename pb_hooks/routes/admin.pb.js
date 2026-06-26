@@ -126,6 +126,14 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
         const renderUtil = require(`${__hooks}/utils/render.js`);
         const orderId = e.request.pathValue("id");
         const order = $app.findRecordById("orders", orderId);
+        const fromTab = e.request.url.query().get("from");
+        const returnTab = fromTab === "orderArchive" ? "orderArchive" : "orders";
+        const archiveStatus = e.request.url.query().get("archiveStatus");
+        const validArchiveStatus = archiveStatus === "completed" || archiveStatus === "refunded" || archiveStatus === "cancelled";
+        const returnHref = returnTab === "orderArchive"
+            ? "/cms/?tab=orderArchive" + (validArchiveStatus ? "&archiveStatus=" + archiveStatus : "")
+            : "/cms/?tab=orders";
+        const returnLabel = returnTab === "orderArchive" ? "보관함으로 돌아가기" : "목록으로 돌아가기";
         
         // Expand user
         $app.expandRecord(order, ["user"], null);
@@ -223,7 +231,10 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
             memberEmail: memberEmail,
             displayRecipientName: displayRecipientName,
             displayRecipientPhone: displayRecipientPhone,
-            displayShippingAddress: displayShippingAddress
+            displayShippingAddress: displayShippingAddress,
+            returnTab: returnTab,
+            returnHref: returnHref,
+            returnLabel: returnLabel
         });
         return e.html(200, fullHtml);
     } catch (err) {
@@ -244,27 +255,154 @@ routerAdd("POST", "/api/cms/orders/{id}/update", (e) => {
 
         // Helper to retrieve fields from both JSON body and URL-encoded form values
         const getVal = (key) => {
-            if (bodyData && key in bodyData) {
-                return bodyData[key];
+            const value = bodyData && Object.prototype.hasOwnProperty.call(bodyData, key)
+                ? bodyData[key]
+                : e.request.formValue(key);
+            if (Array.isArray(value)) {
+                return value.length > 0 ? String(value[0]) : "";
             }
-            return e.request.formValue(key);
+            if (value === null || value === undefined) {
+                return "";
+            }
+            return String(value);
         };
 
         const order = $app.findRecordById("orders", orderId);
-        
+
+        const status = getVal("status");
+        const validStatuses = ["pending", "paid", "cancel_requested", "cancelled", "refunded", "shipping", "completed"];
+        if (validStatuses.indexOf(status) === -1) {
+            return e.json(400, { error: "유효하지 않은 주문 상태입니다." });
+        }
+        const currentStatus = order.getString("status");
+        const validateAdminStatusTransition = (fromStatus, toStatus) => {
+            if (fromStatus === toStatus) return { ok: true };
+
+            if (fromStatus === "refunded" || fromStatus === "cancelled") {
+                return { ok: false, error: "완료된 환불/취소 주문의 상태는 직접 변경할 수 없습니다." };
+            }
+
+            if (toStatus === "refunded" || toStatus === "cancelled") {
+                return { ok: false, error: "환불/취소 완료 상태는 환불 승인 경로로만 변경할 수 있습니다." };
+            }
+
+            if (fromStatus === "pending") {
+                return { ok: false, error: "결제대기 주문은 결제 검증 후에만 진행 상태로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "paid") {
+                return fromStatus === "cancel_requested"
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 상태는 결제 검증 또는 취소요청 철회 경로로만 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "cancel_requested") {
+                return fromStatus === "paid"
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 상태의 주문만 취소요청으로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "shipping") {
+                return (fromStatus === "paid" || fromStatus === "shipping" || fromStatus === "completed")
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 또는 배송 관련 상태의 주문만 배송중으로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "completed") {
+                return (fromStatus === "paid" || fromStatus === "shipping" || fromStatus === "completed")
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 또는 배송중 주문만 배송완료로 변경할 수 있습니다." };
+            }
+
+            return { ok: false, error: "허용되지 않은 주문 상태 변경입니다." };
+        };
+        const transition = validateAdminStatusTransition(currentStatus, status);
+        if (!transition.ok) {
+            return e.json(400, { error: transition.error });
+        }
+
         // Update all standard order detail fields
-        order.set("status", getVal("status"));
-        order.set("courier_name", getVal("courier_name"));
-        order.set("tracking_number", getVal("tracking_number"));
-        order.set("recipient_name", getVal("recipient_name"));
-        order.set("recipient_phone", getVal("recipient_phone"));
-        order.set("shipping_address", getVal("shipping_address"));
-        order.set("shipping_address_detail", getVal("shipping_address_detail"));
-        order.set("shipping_memo", getVal("shipping_memo"));
+        order.set("status", status);
+        order.set("courier_name", getVal("courier_name").trim());
+        order.set("tracking_number", getVal("tracking_number").trim());
+        order.set("recipient_name", getVal("recipient_name").trim());
+        order.set("recipient_phone", getVal("recipient_phone").trim());
+        order.set("shipping_address", getVal("shipping_address").trim());
+        order.set("shipping_address_detail", getVal("shipping_address_detail").trim());
+        order.set("shipping_memo", getVal("shipping_memo").trim());
         
         $app.save(order);
         
         return e.json(200, { message: "Order updated successfully" });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+});
+
+routerAdd("POST", "/api/cms/orders/{id}/status", (e) => {
+    try {
+        const authUtil = require(`${__hooks}/utils/auth.js`);
+        const superuser = authUtil.getSuperuserFromCookie(e);
+        if (!superuser) {
+            return e.json(401, { error: "인증되지 않은 사용자입니다." });
+        }
+
+        const orderId = e.request.pathValue("id");
+        const bodyData = e.requestInfo().body || {};
+        const nextStatus = String(bodyData.status || "").trim();
+        const validStatuses = ["pending", "paid", "cancel_requested", "shipping", "completed"];
+        if (validStatuses.indexOf(nextStatus) === -1) {
+            return e.json(400, { error: "이 경로에서 변경할 수 없는 주문 상태입니다." });
+        }
+
+        const order = $app.findRecordById("orders", orderId);
+        const currentStatus = order.getString("status");
+        const validateAdminStatusTransition = (fromStatus, toStatus) => {
+            if (fromStatus === toStatus) return { ok: true };
+
+            if (fromStatus === "refunded" || fromStatus === "cancelled") {
+                return { ok: false, error: "완료된 환불/취소 주문의 상태는 직접 변경할 수 없습니다." };
+            }
+
+            if (fromStatus === "pending") {
+                return { ok: false, error: "결제대기 주문은 결제 검증 후에만 진행 상태로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "paid") {
+                return fromStatus === "cancel_requested"
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 상태는 결제 검증 또는 취소요청 철회 경로로만 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "cancel_requested") {
+                return fromStatus === "paid"
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 상태의 주문만 취소요청으로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "shipping") {
+                return (fromStatus === "paid" || fromStatus === "shipping" || fromStatus === "completed")
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 또는 배송 관련 상태의 주문만 배송중으로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "completed") {
+                return (fromStatus === "paid" || fromStatus === "shipping" || fromStatus === "completed")
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 또는 배송중 주문만 배송완료로 변경할 수 있습니다." };
+            }
+
+            return { ok: false, error: "허용되지 않은 주문 상태 변경입니다." };
+        };
+        const transition = validateAdminStatusTransition(currentStatus, nextStatus);
+        if (!transition.ok) {
+            return e.json(400, { error: transition.error });
+        }
+
+        order.set("status", nextStatus);
+        $app.save(order);
+
+        return e.json(200, { message: "주문 상태가 변경되었습니다." });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }

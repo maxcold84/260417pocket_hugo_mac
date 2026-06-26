@@ -27,7 +27,6 @@
         // Set light theme specifically as we cleaned dark classes for clean look
         document.documentElement.classList.remove('dark');
     </script>
-    <script src="https://unpkg.com/htmx.org@2.0.0"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
     <style>
@@ -43,13 +42,13 @@
 
     <!-- Toast Notification -->
     <div x-show="toastMsg" x-cloak x-transition
-         class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-6 py-3 rounded-lg shadow-xl text-sm font-medium max-w-md text-center"
+         class="fixed top-3 left-1/2 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-lg bg-gray-900 px-4 py-3 text-center text-sm font-medium text-white shadow-xl sm:top-4 sm:w-auto sm:px-6"
          @toast.window="showToast($event.detail.message)"
          x-text="toastMsg"></div>
 
-    <div class="flex h-screen overflow-hidden">
+    <div class="min-h-screen bg-gray-100 lg:flex lg:h-screen lg:overflow-hidden">
         <!-- Sidebar -->
-        <aside class="w-64 bg-bmw-dark text-white flex flex-col flex-shrink-0">
+        <aside class="hidden w-64 flex-shrink-0 flex-col bg-bmw-dark text-white lg:flex">
             <div class="h-16 flex items-center px-6 border-b border-bmw-darkBorder bg-black">
                 <span class="text-lg font-bold tracking-widest text-white">D'ROLL SHOP CMS</span>
             </div>
@@ -60,8 +59,12 @@
                         CATALOG
                     </a>
                     <a href="/cms/?tab=orders" 
-                       class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase bg-bmw-blue text-white">
+                       class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase {{if eq .returnTab "orders"}}bg-bmw-blue text-white{{else}}text-gray-300 hover:bg-bmw-surface hover:text-white{{end}}">
                         ORDERS
+                    </a>
+                    <a href="/cms/?tab=orderArchive"
+                       class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase {{if eq .returnTab "orderArchive"}}bg-bmw-blue text-white{{else}}text-gray-300 hover:bg-bmw-surface hover:text-white{{end}}">
+                        보관함
                     </a>
                     <a href="/cms/?tab=settings" 
                        class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition uppercase text-gray-300 hover:bg-bmw-surface hover:text-white">
@@ -74,26 +77,43 @@
             </div>
         </aside>
 
+        <div class="flex min-h-screen flex-1 flex-col lg:min-h-0">
+        <header class="sticky top-0 z-30 bg-bmw-dark text-white shadow-xl lg:hidden">
+            <div class="flex min-h-14 items-center justify-between gap-3 px-4 py-3">
+                <div class="min-w-0">
+                    <p class="truncate text-sm font-bold tracking-widest">D'ROLL SHOP CMS</p>
+                    <p class="truncate text-xs uppercase text-gray-400">주문 상세</p>
+                </div>
+                <button type="button" @click="logout" class="shrink-0 rounded border border-white/15 px-3 py-2 text-xs font-medium uppercase text-gray-200 transition hover:bg-white/10">LOGOUT</button>
+            </div>
+            <nav class="flex gap-2 overflow-x-auto px-3 pb-3">
+                <a href="/cms/?tab=products" class="min-w-max rounded-md bg-white/5 px-3 py-2 text-xs font-bold uppercase text-gray-300 transition hover:bg-white/10 hover:text-white">CATALOG</a>
+                <a href="/cms/?tab=orders" class="min-w-max rounded-md px-3 py-2 text-xs font-bold uppercase transition {{if eq .returnTab "orders"}}bg-bmw-blue text-white{{else}}bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white{{end}}">ORDERS</a>
+                <a href="/cms/?tab=orderArchive" class="min-w-max rounded-md px-3 py-2 text-xs font-bold uppercase transition {{if eq .returnTab "orderArchive"}}bg-bmw-blue text-white{{else}}bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white{{end}}">보관함</a>
+                <a href="/cms/?tab=settings" class="min-w-max rounded-md bg-white/5 px-3 py-2 text-xs font-bold uppercase text-gray-300 transition hover:bg-white/10 hover:text-white">사이트 설정</a>
+            </nav>
+        </header>
+
         <!-- Main Content -->
         <main class="flex-1 overflow-y-auto bg-gray-100 focus:outline-none">
             <!-- Header -->
-            <div class="h-16 flex items-center px-8 border-b border-gray-200 bg-white justify-between sticky top-0 z-10 shadow-sm">
+            <div class="hidden h-16 items-center justify-between border-b border-gray-200 bg-white px-8 shadow-sm lg:sticky lg:top-0 lg:z-10 lg:flex">
                 <h2 class="text-xl font-light tracking-wide uppercase text-gray-800">주문 상세</h2>
             </div>
 
             <!-- Content Area -->
-            <div class="p-8">
+            <div class="p-4 sm:p-6 lg:p-8">
                 <div class="max-w-4xl mx-auto">
                     <!-- Top Actions Bar -->
                     <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-200 pb-6">
-                        <div class="flex items-center gap-4">
-                            <a href="/cms/?tab=orders" class="text-sm text-gray-500 hover:text-bmw-blue flex items-center gap-1 shrink-0 transition">
+                        <div class="flex min-w-0 items-center gap-3 sm:gap-4">
+                            <a href="{{.returnHref}}" class="text-sm text-gray-500 hover:text-bmw-blue flex items-center gap-1 shrink-0 transition">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                                목록으로 돌아가기
+                                {{.returnLabel}}
                             </a>
-                            <h1 class="text-2xl font-bold text-gray-900">주문 상세 관리</h1>
+                            <h1 class="truncate text-xl font-bold text-gray-900 sm:text-2xl">주문 상세 관리</h1>
                         </div>
-                        <button type="button" onclick="printInvoice()" class="inline-flex items-center justify-center gap-2 bg-black hover:bg-gray-800 text-white font-bold px-4 py-2.5 rounded text-xs tracking-wider uppercase transition duration-300 shadow-sm border border-gray-200 shrink-0">
+                        <button type="button" onclick="printInvoice()" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded border border-gray-200 bg-black px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition duration-300 hover:bg-gray-800 sm:w-auto sm:shrink-0">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h8z"/>
                             </svg>
@@ -101,16 +121,16 @@
                         </button>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
                         <!-- Main Panel -->
-                        <div class="md:col-span-2 space-y-8">
+                        <div class="space-y-6 lg:col-span-2 lg:space-y-8">
                             <!-- Order Items -->
                             <div class="bg-white rounded border border-gray-200 overflow-hidden shadow-sm">
                                 <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
                                     <h2 class="font-bold text-gray-900">주문 상품</h2>
                                 </div>
-                                <div class="p-6">
-                                    <table class="w-full">
+                                <div class="overflow-x-auto p-4 sm:p-6">
+                                    <table class="w-full min-w-[420px]">
                                         <tbody class="divide-y divide-gray-100">
                                             {{range .items}}
                                             <tr class="py-4">
@@ -150,11 +170,11 @@
 
                             {{if .isGuest}}
                             <!-- Guest Customer Info -->
-                            <div class="bg-white rounded border border-gray-200 p-6 shadow-sm mb-6">
+                            <div class="bg-white rounded border border-gray-200 p-4 sm:p-6 shadow-sm mb-6">
                                 <div class="border-b border-gray-100 pb-3 mb-4">
                                     <h2 class="font-bold text-gray-900">비회원 주문자 정보</h2>
                                 </div>
-                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                                     <div>
                                         <p class="text-gray-500 mb-1">주문자 이름</p>
                                         <p class="font-medium text-gray-900">{{.guestName}}</p>
@@ -175,11 +195,11 @@
                             </div>
                             {{else}}
                             <!-- Member Customer Info -->
-                            <div class="bg-white rounded border border-gray-200 p-6 shadow-sm mb-6">
+                            <div class="bg-white rounded border border-gray-200 p-4 sm:p-6 shadow-sm mb-6">
                                 <div class="border-b border-gray-100 pb-3 mb-4">
                                     <h2 class="font-bold text-gray-900">회원 주문자 정보</h2>
                                 </div>
-                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                                     <div>
                                         <p class="text-gray-500 mb-1">주문자 이름</p>
                                         <p class="font-medium text-gray-900">{{.memberName}}</p>
@@ -188,7 +208,7 @@
                                         <p class="text-gray-500 mb-1">주문자 연락처</p>
                                         <p class="font-medium text-gray-900">{{.memberPhone}}</p>
                                     </div>
-                                    <div class="col-span-2">
+                                    <div class="sm:col-span-2">
                                         <p class="text-gray-500 mb-1">이메일 주소</p>
                                         <p class="font-medium text-gray-900 font-mono">{{.memberEmail}}</p>
                                     </div>
@@ -197,11 +217,11 @@
                             {{end}}
 
                             <!-- Shipping Info -->
-                            <div class="bg-white rounded border border-gray-200 p-6 shadow-sm">
+                            <div class="bg-white rounded border border-gray-200 p-4 sm:p-6 shadow-sm">
                                 <div class="border-b border-gray-100 pb-3 mb-4">
                                     <h2 class="font-bold text-gray-900">배송지 정보</h2>
                                 </div>
-                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                                     <div>
                                         <p class="text-gray-500 mb-1">수령인</p>
                                         <p class="font-medium text-gray-900">
@@ -214,14 +234,14 @@
                                             {{.displayRecipientPhone}}
                                         </p>
                                     </div>
-                                    <div class="col-span-2">
+                                    <div class="sm:col-span-2">
                                         <p class="text-gray-500 mb-1">주소</p>
                                         <p class="font-medium text-gray-900">
                                             {{.displayShippingAddress}}
                                         </p>
                                     </div>
                                     {{if .order.shipping_memo}}
-                                    <div class="col-span-2">
+                                    <div class="sm:col-span-2">
                                         <p class="text-gray-500 mb-1">배송 메모</p>
                                         <p class="font-medium text-gray-900 italic text-gray-700">
                                             {{.order.shipping_memo}}
@@ -234,19 +254,17 @@
 
                         <!-- Sidebar Actions -->
                         <div class="space-y-8">
-                            <div class="bg-white rounded border border-gray-200 p-6 shadow-sm">
+                            <div class="bg-white rounded border border-gray-200 p-4 sm:p-6 shadow-sm">
                                 <h2 class="font-bold text-gray-900 mb-6 border-b border-gray-100 pb-3">주문 관리</h2>
                                 
-                                <form hx-post="/api/cms/orders/{{.order.id}}/update" 
-                                      hx-swap="none" 
-                                      hx-on::after-request="if(event.detail.successful) $dispatch('toast', {message: '변경사항이 저장되었습니다.'}); else $dispatch('toast', {message: '오류가 발생했습니다.'});" 
-                                      @submit="if(!validateForm($event)) $event.preventDefault();"
+                                <form @submit.prevent="submitForm($event)"
                                       x-data="{
                                           selectedCourier: '{{.order.courier_name}}',
                                           customCourier: '',
                                           trackingNumber: '{{.order.tracking_number}}',
                                           status: '{{.order.status}}',
                                           isCustom: false,
+                                          isSaving: false,
                                           showConfirmShort: false,
                                           confirmShortTracking: false,
                                           couriers: [
@@ -298,18 +316,65 @@
                                                   }
                                               }
                                               return true;
+                                          },
+                                          async submitForm(event) {
+                                              if (!this.validateForm(event)) return;
+
+                                              const form = event.target;
+                                              const fieldValue = (name) => form.elements[name] ? form.elements[name].value : '';
+                                              const payload = {
+                                                  status: this.status,
+                                                  courier_name: this.getCourierName().trim(),
+                                                  tracking_number: this.trackingNumber.replace(/[^0-9]/g, '').trim(),
+                                                  recipient_name: fieldValue('recipient_name'),
+                                                  recipient_phone: fieldValue('recipient_phone'),
+                                                  shipping_address: fieldValue('shipping_address'),
+                                                  shipping_address_detail: fieldValue('shipping_address_detail'),
+                                                  shipping_memo: fieldValue('shipping_memo')
+                                              };
+
+                                              this.isSaving = true;
+                                              try {
+                                                  await pb.send('/api/cms/orders/{{.order.id}}/update', {
+                                                      method: 'POST',
+                                                      body: payload
+                                                  });
+
+                                                  const isArchived = ['completed', 'refunded', 'cancelled'].includes(payload.status);
+                                                  this.$dispatch('toast', {message: isArchived ? '변경사항이 저장되어 보관함으로 이동합니다.' : '변경사항이 저장되었습니다.'});
+                                                  if (isArchived) {
+                                                      setTimeout(() => { window.location.href = '/cms/?tab=orderArchive'; }, 900);
+                                                  }
+                                              } catch (err) {
+                                                  const detail = err.data && (err.data.error || err.data.message || err.data.detail);
+                                                  this.$dispatch('toast', {message: detail || err.message || '변경사항 저장 중 오류가 발생했습니다.'});
+                                              } finally {
+                                                  this.isSaving = false;
+                                                  this.confirmShortTracking = false;
+                                              }
                                           }
                                       }"
                                       class="space-y-6">
                                     <div>
                                         <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">주문 상태</label>
                                         <select name="status" x-model="status" class="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-800 focus:ring-1 focus:ring-bmw-blue outline-none transition">
+                                            {{if eq .order.status "pending"}}
+                                            <option value="pending">Pending (결제대기)</option>
+                                            {{end}}
+                                            {{if or (eq .order.status "paid") (eq .order.status "cancel_requested")}}
                                             <option value="paid">Paid (결제완료)</option>
+                                            <option value="cancel_requested">Cancel Requested (취소요청)</option>
+                                            {{end}}
+                                            {{if or (eq .order.status "paid") (eq .order.status "shipping") (eq .order.status "completed")}}
                                             <option value="shipping">Shipping (배송중)</option>
                                             <option value="completed">Completed (배송완료)</option>
-                                            <option value="cancel_requested">Cancel Requested (취소요청)</option>
+                                            {{end}}
+                                            {{if eq .order.status "cancelled"}}
                                             <option value="cancelled">Cancelled (취소)</option>
+                                            {{end}}
+                                            {{if eq .order.status "refunded"}}
                                             <option value="refunded">Refunded (환불)</option>
+                                            {{end}}
                                         </select>
                                     </div>
 
@@ -399,9 +464,9 @@
                                          class="bg-amber-50 border border-amber-200 rounded p-4 text-center space-y-4 my-4">
                                         <p class="text-sm font-semibold text-gray-900">운송장 번호가 짧거나 유효하지 않아 보입니다.</p>
                                         <p class="text-xs text-gray-500">이대로 배송 정보 변경사항을 저장하시겠습니까?</p>
-                                        <div class="flex gap-3 justify-center">
+                                            <div class="flex flex-col gap-3 justify-center sm:flex-row">
                                             <button type="button"
-                                                @click="confirmShortTracking = true; $nextTick(() => { $el.form.requestSubmit() })"
+                                                @click="confirmShortTracking = true; showConfirmShort = false; $nextTick(() => { $el.form.requestSubmit() })"
                                                 class="px-3 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded transition shadow">
                                                 네, 저장합니다
                                             </button>
@@ -413,14 +478,15 @@
                                         </div>
                                     </div>
 
-                                    <button type="submit" class="w-full bg-bmw-blue hover:bg-blue-700 text-white font-bold py-3 rounded transition duration-300 shadow shadow-sm">
-                                        변경사항 저장
+                                    <button type="submit" :disabled="isSaving" class="w-full bg-bmw-blue hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 rounded transition duration-300 shadow shadow-sm">
+                                        <span x-show="!isSaving">변경사항 저장</span>
+                                        <span x-show="isSaving">저장 중...</span>
                                     </button>
                                 </form>
                             </div>
 
                             <!-- Payment info card -->
-                            <div class="bg-gray-50 rounded p-6 border border-dashed border-gray-200 mt-8">
+                            <div class="bg-gray-50 rounded p-4 sm:p-6 border border-dashed border-gray-200 mt-8">
                                 <h3 class="text-xs font-bold uppercase text-gray-400 mb-4">결제 정보</h3>
                                 <div class="space-y-2 text-xs text-gray-600">
                                     <p class="flex justify-between"><span class="text-gray-400 font-medium">주문 ID:</span> <span class="font-mono text-gray-800 font-semibold">{{.order.id}}</span></p>
@@ -430,7 +496,7 @@
                             </div>
 
                             <!-- Refund Action panel -->
-                            <div x-show="isCancellable('{{.order.status}}')" x-cloak class="bg-red-50 rounded p-6 border border-red-200 mt-8">
+                            <div x-show="isCancellable('{{.order.status}}')" x-cloak class="bg-red-50 rounded p-4 sm:p-6 border border-red-200 mt-8">
                                 <h3 class="text-xs font-bold uppercase text-red-600 mb-4">환불 / 취소 처리</h3>
                                 <p class="text-xs text-red-600 mb-4 font-medium">포트원 결제 취소 API를 호출하여 고객에게 실제 환불 처리를 진행합니다.</p>
                                 <div class="space-y-4">
@@ -444,7 +510,7 @@
                                     <div x-show="showConfirm" x-cloak class="bg-white border border-red-200 rounded p-4 text-center space-y-4">
                                         <p class="text-sm font-semibold text-gray-900">정말 이 주문을 취소하고 환불하시겠습니까?</p>
                                         <p class="text-xs text-gray-500">이 작업은 되돌릴 수 없으며, 실제 카드/계좌 환불이 진행됩니다.</p>
-                                        <div class="flex gap-3 justify-center">
+                                        <div class="flex flex-col gap-3 justify-center sm:flex-row">
                                             <button type="button"
                                                 @click="approveCancel('{{.order.id}}')"
                                                 :disabled="cancelApproving"
@@ -467,6 +533,7 @@
                 </div>
             </div>
         </main>
+        </div>
     </div>
 
     <script>
@@ -477,6 +544,11 @@
                 cancelApproving: false,
                 showConfirm: false,
                 toastMsg: '',
+                init() {
+                    if (pb.authStore.isValid) {
+                        document.cookie = pb.authStore.exportToCookie({ secure: false, httpOnly: false });
+                    }
+                },
                 showToast(msg) {
                     this.toastMsg = msg;
                     setTimeout(() => { this.toastMsg = ''; }, 4000);
@@ -496,7 +568,7 @@
                         await pb.send('/api/cms/orders/' + orderId + '/approve-cancel', { method: 'POST' });
                         this.showToast('환불이 완료되었습니다. 목록으로 이동합니다...');
                         setTimeout(() => {
-                            window.location.href = '/cms/?tab=orders';
+                            window.location.href = '/cms/?tab=orderArchive';
                         }, 2000);
                     } catch (err) {
                         this.showToast(err.data?.error || err.message || '환불 처리 실패');
@@ -549,7 +621,7 @@
 
         const printWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes');
         if (!printWindow) {
-            alert('팝업 차단이 설정되어 있습니다. 팝업 허용 후 다시 시도해 주세요.');
+            window.dispatchEvent(new CustomEvent('toast', { detail: { message: '팝업 차단이 설정되어 있습니다. 팝업 허용 후 다시 시도해 주세요.' } }));
             return;
         }
 

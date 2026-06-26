@@ -230,24 +230,24 @@ routerAdd("GET", "/payment/complete", (c) => {
             guestContact = guestInfo.phone || guestInfo.email || order.getString("recipient_phone") || "비회원";
         }
 
-        let partialHtml = $template.loadFiles(`${__hooks}/views/order-complete.html`).render({});
-        partialHtml = partialHtml.replace("{{.paymentId}}", escapeHtml(paymentId));
+        let partialHtml = $template.loadFiles(`${__hooks}/views/order-complete.html`).render({
+            paymentId: paymentId
+        });
 
         let guestHtml = "";
         if (isGuest) {
             guestHtml = '<div class="mt-6 bg-blue-50/50 dark:bg-bmw-blue/10 border border-blue-200 dark:border-bmw-blue/30 p-6 rounded-sm text-left max-w-md mx-auto">' +
                 '<h3 class="text-sm font-bold text-gray-900 dark:text-white mb-3">비회원 주문 안내 (Guest Order Info)</h3>' +
                 '<div class="space-y-2 text-xs text-gray-600 dark:text-gray-400">' +
-                    '<div>• <strong>연락처/이메일:</strong> <span class="font-mono text-gray-900 dark:text-white text-sm">' + escapeHtml(guestContact) + '</span></div>' +
-                    '<div>• <strong>주문 번호:</strong> <span class="font-mono text-gray-900 dark:text-white text-sm">' + escapeHtml(paymentId) + '</span></div>' +
+                    '<div>• <strong>임시 아이디:</strong> <span class="font-mono text-gray-900 dark:text-white text-sm">' + escapeHtml(guestContact) + '</span></div>' +
                     '<div>• <strong>주문 비밀번호:</strong> 결제 전 직접 설정한 비밀번호</div>' +
-                    '<div class="pt-2 text-[11px] text-gray-500">• <strong>[주문 내역(YOUR ORDERS)]</strong> 조회 시 주문 번호와 주문 비밀번호가 모두 필요합니다.</div>' +
+                    '<div class="pt-2 text-[11px] text-gray-500">• <strong>[주문 내역(YOUR ORDERS)]</strong> 조회 시 임시 아이디(전화번호 또는 이메일)와 주문 비밀번호가 모두 필요합니다.</div>' +
                 '</div>' +
             '</div>';
         }
         partialHtml = partialHtml.replace('<div id="guest-info-placeholder"></div>', guestHtml);
         
-        return renderUtil.render(c, partialHtml, { title: "Order Complete - D'roll Shop" });
+        return renderUtil.render(c, partialHtml, { title: "주문 완료 - D'roll Shop" });
     } catch(err) { return c.json(500, { error: err.toString() }); }
 });
 
@@ -319,57 +319,73 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
         const env = require(`${__hooks}/utils/env.js`);
         const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
         const data = e.requestInfo().body || {};
-        const orderId = (data.orderId || "").trim();
+        const identifier = (data.identifier || data.orderId || "").trim();
         const password = (data.password || "").trim();
 
-        if (!orderId || !password) {
-            return e.json(400, { error: "주문번호와 주문 비밀번호를 모두 입력해 주세요." });
+        if (!guestSecurity.isValidGuestIdentifier(identifier) || !password) {
+            return e.json(400, { error: "임시 아이디와 주문 비밀번호를 모두 입력해 주세요." });
         }
 
-        let order = null;
-        try {
-            order = $app.findRecordById("orders", orderId);
-        } catch (err) {
-            return e.json(401, { error: "주문 정보 또는 비밀번호가 일치하지 않습니다." });
-        }
+        const matchedOrders = [];
+        const pageSize = 100;
 
-        if (order.getString("user") !== "") {
-            return e.json(401, { error: "주문 정보 또는 비밀번호가 일치하지 않습니다." });
-        }
+        for (let offset = 0; ; offset += pageSize) {
+            const orders = $app.findRecordsByFilter("orders", "1=1", "", pageSize, offset) || [];
+            for (const order of orders) {
+                if (order.getString("user") !== "") continue;
 
-        const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
-        if (!guestSecurity.verifyGuestPassword(guestInfo, password, env)) {
-            return e.json(401, { error: "주문 정보 또는 비밀번호가 일치하지 않습니다." });
-        }
+                const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
+                if (!guestSecurity.matchesGuestIdentifier(guestInfo, identifier)) continue;
+                if (!guestSecurity.verifyGuestPassword(guestInfo, password, env)) continue;
 
-        const orderItems = $app.findRecordsByFilter("order_items", "order = {:orderId}", "", 100, 0, { orderId: order.id });
-        const items = [];
-        for (let item of orderItems) {
-            let productData = null;
-            try {
-                const product = $app.findRecordById("products", item.getString("product"));
-                productData = {
-                    id: product.id,
-                    name: product.getString("name"),
-                    price: product.getInt("price"),
-                    images: product.get("images"),
-                    collectionId: product.collection().id
-                };
-            } catch (err) {
-                console.error("Product fetch error in guest lookup:", err);
+                matchedOrders.push({
+                    order: order,
+                    guestInfo: guestInfo
+                });
             }
-            items.push({
-                id: item.id,
-                quantity: item.getInt("quantity"),
-                unit_price: item.getInt("unit_price"),
-                expand: {
-                    product: productData
-                }
-            });
+
+            if (orders.length < pageSize) break;
         }
 
-        return e.json(200, {
-            items: [{
+        if (matchedOrders.length === 0) {
+            return e.json(401, { error: "주문 정보 또는 비밀번호가 일치하지 않습니다." });
+        }
+
+        matchedOrders.sort((left, right) => {
+            return String(right.order.getString("created")).localeCompare(String(left.order.getString("created")));
+        });
+
+        const responseItems = [];
+        for (const matched of matchedOrders) {
+            const order = matched.order;
+            const guestInfo = matched.guestInfo;
+            const orderItems = $app.findRecordsByFilter("order_items", "order = {:orderId}", "", 100, 0, { orderId: order.id });
+            const items = [];
+            for (const item of orderItems) {
+                let productData = null;
+                try {
+                    const product = $app.findRecordById("products", item.getString("product"));
+                    productData = {
+                        id: product.id,
+                        name: product.getString("name"),
+                        price: product.getInt("price"),
+                        images: product.get("images"),
+                        collectionId: product.collection().id
+                    };
+                } catch (err) {
+                    console.error("Product fetch error in guest lookup:", err);
+                }
+                items.push({
+                    id: item.id,
+                    quantity: item.getInt("quantity"),
+                    unit_price: item.getInt("unit_price"),
+                    expand: {
+                        product: productData
+                    }
+                });
+            }
+
+            responseItems.push({
                 id: order.id,
                 created: order.getString("created"),
                 status: order.getString("status"),
@@ -384,7 +400,11 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
                 expand: {
                     order_items_via_order: items
                 }
-            }]
+            });
+        }
+
+        return e.json(200, {
+            items: responseItems
         });
     } catch (err) {
         return e.json(500, { error: err.toString() });
@@ -398,13 +418,19 @@ routerAdd("POST", "/api/guest/orders/{id}/request-cancel", (e) => {
         const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
         const orderId = e.request.pathValue("id");
         const data = e.requestInfo().body || {};
+        const identifier = (data.identifier || "").trim();
         const password = (data.password || "").trim();
 
-        if (!password) {
-            return e.json(400, { error: "주문 비밀번호를 입력해주세요." });
+        if (!guestSecurity.isValidGuestIdentifier(identifier) || !password) {
+            return e.json(400, { error: "임시 아이디와 주문 비밀번호를 입력해주세요." });
         }
 
-        const order = $app.findRecordById("orders", orderId);
+        let order = null;
+        try {
+            order = $app.findRecordById("orders", orderId);
+        } catch (err) {
+            return e.json(401, { error: "권한이 없습니다." });
+        }
         
         if (order.getString("user") !== "") {
             return e.json(400, { error: "비회원 주문이 아닙니다." });
@@ -415,7 +441,7 @@ routerAdd("POST", "/api/guest/orders/{id}/request-cancel", (e) => {
             return e.json(404, { error: "비회원 주문 정보를 찾을 수 없습니다." });
         }
 
-        if (!guestSecurity.verifyGuestPassword(guestInfo, password, env)) {
+        if (!guestSecurity.matchesGuestIdentifier(guestInfo, identifier) || !guestSecurity.verifyGuestPassword(guestInfo, password, env)) {
             return e.json(401, { error: "권한이 없습니다." });
         }
 
@@ -439,13 +465,19 @@ routerAdd("POST", "/api/guest/orders/{id}/withdraw-cancel", (e) => {
         const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
         const orderId = e.request.pathValue("id");
         const data = e.requestInfo().body || {};
+        const identifier = (data.identifier || "").trim();
         const password = (data.password || "").trim();
 
-        if (!password) {
-            return e.json(400, { error: "주문 비밀번호를 입력해주세요." });
+        if (!guestSecurity.isValidGuestIdentifier(identifier) || !password) {
+            return e.json(400, { error: "임시 아이디와 주문 비밀번호를 입력해주세요." });
         }
 
-        const order = $app.findRecordById("orders", orderId);
+        let order = null;
+        try {
+            order = $app.findRecordById("orders", orderId);
+        } catch (err) {
+            return e.json(401, { error: "권한이 없습니다." });
+        }
         
         if (order.getString("user") !== "") {
             return e.json(400, { error: "비회원 주문이 아닙니다." });
@@ -456,7 +488,7 @@ routerAdd("POST", "/api/guest/orders/{id}/withdraw-cancel", (e) => {
             return e.json(404, { error: "비회원 주문 정보를 찾을 수 없습니다." });
         }
 
-        if (!guestSecurity.verifyGuestPassword(guestInfo, password, env)) {
+        if (!guestSecurity.matchesGuestIdentifier(guestInfo, identifier) || !guestSecurity.verifyGuestPassword(guestInfo, password, env)) {
             return e.json(401, { error: "권한이 없습니다." });
         }
 

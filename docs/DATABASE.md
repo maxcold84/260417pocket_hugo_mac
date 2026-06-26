@@ -4,12 +4,14 @@
 - `users` (auth collection): email, name, nickname, address, phone
 - `products`: name, slug, description, price, images (file, max 5), stock, sort_order, category (optional relation→categories) — **listRule/viewRule: public**
 - `categories`: name, slug, sort_order — **listRule/viewRule: public**
-- `orders`: user (relation→users), status (pending/paid/cancel_requested/cancelled/refunded/shipping/completed), total_amount, portone_tx_id, guest_info (JSON), tracking_number, courier_name, created
+- `orders`: user (relation→users), status (pending/paid/cancel_requested/cancelled/refunded/shipping/completed), total_amount, portone_tx_id, guest_info (JSON: guest contact, `email_lookup`, `phone_lookup`, password hash, cleanup nonce hash), tracking_number, courier_name, created
 - `order_items`: order (relation→orders), product (relation→products), quantity, unit_price
 
 > **Order Status Lifecycle:**
-> `pending` → `paid` → `cancel_requested` (user request) → `refunded` (admin approval via PortOne) or back to `paid` (user withdrawal)
+> `pending` → `paid` → `cancel_requested` (user request) → `refunded` (admin approval via PortOne) or back to `paid` (user withdrawal/admin rejection)
 > `paid` → `shipping` → `completed`
+
+> **Payment-state guard:** `pending` may become `paid` only through the shared PortOne verification path (`/payment/complete` or webhook). CMS status routes may move non-payment workflow states such as `paid` ⇄ `cancel_requested` and `paid` → `shipping` → `completed`, but they must not directly create `paid`, `refunded`, or `cancelled`. `refunded` is written only after `/api/cms/orders/{id}/approve-cancel` succeeds against the PortOne cancel API.
 
 > **Note:** `cart_items` collection은 더 이상 사용하지 않음. 장바구니는 클라이언트 localStorage로 관리.
 

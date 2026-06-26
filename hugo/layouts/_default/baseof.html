@@ -47,6 +47,7 @@
 <body class="bg-gray-50 dark:bg-bmw-dark text-gray-900 dark:text-white min-h-screen flex flex-col transition-colors duration-300" 
       x-data="appData()" 
       @add-to-cart.window="addToCart($event.detail)" 
+      @cart-updated.window="syncCart()"
       @open-cart.window="cartOpen = true">
     <nav class="bg-white/90 dark:bg-black/90 backdrop-blur-md sticky top-0 z-50 border-b border-gray-200 dark:border-bmw-darkBorder transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 h-14 md:h-16 flex items-center justify-between">
@@ -202,9 +203,18 @@
                 loggedIn: document.cookie.includes('pb_auth='), 
                 cartOpen: false, 
                 darkMode: document.documentElement.classList.contains('dark'),
-                cart: JSON.parse(localStorage.getItem('cart') || '[]'),
+                cart: [],
                 init() {
+                    this.syncCart();
                     this.$watch('cart', value => localStorage.setItem('cart', JSON.stringify(value)));
+                },
+                syncCart() {
+                    try {
+                        this.cart = JSON.parse(localStorage.getItem('cart') || '[]');
+                    } catch (e) {
+                        localStorage.removeItem('cart');
+                        this.cart = [];
+                    }
                 },
                 toggleDark() {
                     this.darkMode = !this.darkMode;

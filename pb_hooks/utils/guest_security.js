@@ -25,6 +25,45 @@ function parseGuestInfo(rawGuest) {
     }
 }
 
+function normalizeEmail(value) {
+    return String(value || "").trim().toLowerCase();
+}
+
+function normalizePhone(value) {
+    return String(value || "").replace(/[^0-9]/g, "");
+}
+
+function normalizeLookupIdentifier(value) {
+    const raw = String(value || "").trim();
+    const isEmail = raw.indexOf("@") !== -1;
+    const email = isEmail ? normalizeEmail(raw) : "";
+    const phone = isEmail ? "" : normalizePhone(raw);
+
+    return {
+        raw: raw,
+        email: email,
+        phone: phone
+    };
+}
+
+function isValidGuestIdentifier(value) {
+    const identifier = normalizeLookupIdentifier(value);
+    return !!identifier.email || identifier.phone.length >= 8;
+}
+
+function matchesGuestIdentifier(guestInfo, value) {
+    if (!guestInfo || !isValidGuestIdentifier(value)) return false;
+
+    const identifier = normalizeLookupIdentifier(value);
+    const guestEmail = normalizeEmail(guestInfo.email_lookup || guestInfo.email || "");
+    const guestPhone = normalizePhone(guestInfo.phone_lookup || guestInfo.phone || "");
+
+    if (identifier.email && guestEmail && identifier.email === guestEmail) return true;
+    if (identifier.phone && guestPhone && identifier.phone === guestPhone) return true;
+
+    return false;
+}
+
 function getSecretKey(env) {
     return env.get("GUEST_LOOKUP_SECRET") || env.get("PORTONE_API_SECRET") || "";
 }
@@ -85,6 +124,8 @@ function createGuestInfo(data, env) {
         name: data.name || "",
         phone: data.phone || "",
         email: data.email || "",
+        phone_lookup: normalizePhone(data.phone || ""),
+        email_lookup: normalizeEmail(data.email || ""),
         address: data.address || "",
         password_hash: hashSecret(password, env),
         checkout_cleanup_hash: cleanupResult.cleanupHash
@@ -110,6 +151,9 @@ function verifyCleanupNonce(guestInfo, cleanupNonce, env) {
 module.exports = {
     createCleanupNonce: createCleanupNonce,
     createGuestInfo: createGuestInfo,
+    isValidGuestIdentifier: isValidGuestIdentifier,
+    matchesGuestIdentifier: matchesGuestIdentifier,
+    normalizeLookupIdentifier: normalizeLookupIdentifier,
     parseGuestInfo: parseGuestInfo,
     verifyCleanupNonce: verifyCleanupNonce,
     verifyGuestPassword: verifyGuestPassword

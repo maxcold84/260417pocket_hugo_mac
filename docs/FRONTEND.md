@@ -63,3 +63,9 @@
       document.cookie = pb.authStore.exportToCookie({ secure: false, httpOnly: false });
       ```
     - **Rule:** In single-page app (SPA) environments where Alpine.js restores credentials directly from `localStorage` on page load, the manual `login()` function is completely bypassed. Ensure cookie exports are also placed inside the Alpine.js component's `init()` method to guarantee session synchronization whenever the admin refreshes or directly navigates to an SSR page.
+
+17. **CMS Order Management Uses Guarded Custom Routes**:
+    - Never update order status from the CMS with `pb.collection('orders').update(id, { status })`. That bypasses the server-side payment-state guard.
+    - **Rule:** Use `pb.send('/api/cms/orders/' + id + '/status', { method: 'POST', body: { status } })` for list-page status changes and `/api/cms/orders/{id}/update` for guarded detail-page edits.
+    - **Rule:** The CMS order archive/list must page through all `orders` result pages before calculating counts or filtered views. Do not assume `getList(1, 50)` contains the full archive.
+    - **Rule:** For newest-first order display, fetch without `sort: '-created'`, then sort the combined client-side array by the `created` string.

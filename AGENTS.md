@@ -25,3 +25,6 @@ To keep instructions concise, detailed rules and gotchas are separated into docu
 4. **Use `const` over `let` — never use `var`.**
 5. **Git Conventions**: Use conventional commits (`feat:`, `fix:`, `docs:`, `refactor:`). Commit Hugo source and `pb_hooks/`. Gitignore `pb_data/` and `pb_public/`.
 6. **Dynamic Data Pattern**: For user-specific historical data (orders, profile), prefer **client-side dynamic fetching** (Alpine.js + PB SDK) over server-side rendered routes to ensure data freshness and UI consistency.
+
+## 4. Environment-Specific Notes
+- Codex Windows desktop-only tooling notes live in `docs/CODEX_WINDOWS.md`. Read it only when running in that environment or when `rg` fails with a WindowsApps `Access is denied` error.
