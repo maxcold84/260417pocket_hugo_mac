@@ -483,10 +483,11 @@ function checkoutPage() {
                     orderName: "D'roll Shop Order",
                     totalAmount: data.amount,
                     currency: "CURRENCY_KRW",
+                    forceRedirect: true,
                     customer: {
                         fullName: this.recipientName || "고객"
                     },
-                    redirectUrl: window.location.origin + "/payment/complete",
+                    redirectUrl: window.location.origin + "/payment/complete?orderId=" + encodeURIComponent(data.orderId) + "&cleanupNonce=" + encodeURIComponent(data.cleanupNonce || ""),
                 };
 
                 // Set payMethod for all selected payment methods

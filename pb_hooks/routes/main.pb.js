@@ -45,7 +45,15 @@ routerAdd("POST", "/api/orders/prep", (e) => {
         newOrder.set("shipping_address_detail", data.shippingAddressDetail || "");
         newOrder.set("shipping_memo", data.shippingMemo || "");
         if (userId) {
+            const cleanupResult = guestSecurity.createCleanupNonce(env);
+            if (!cleanupResult.ok) {
+                return e.json(500, { error: cleanupResult.error });
+            }
+            cleanupNonce = cleanupResult.cleanupNonce;
             newOrder.set("user", userId);
+            newOrder.set("guest_info", {
+                checkout_cleanup_hash: cleanupResult.cleanupHash
+            });
         } else {
             const guestResult = guestSecurity.createGuestInfo(data.guestInfo || {}, env);
             if (!guestResult.ok) {
@@ -89,14 +97,14 @@ routerAdd("POST", "/api/orders/{id}/cancel-pending", (e) => {
 
         const orderUser = order.getString("user");
         const authUserId = (e.auth && e.auth.collection().name === "users") ? e.auth.id : "";
+        const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
+        const cleanupNonce = String(data.cleanupNonce || "").trim();
 
         if (orderUser) {
-            if (authUserId !== orderUser) {
+            if (authUserId !== orderUser && !guestSecurity.verifyCleanupNonce(guestInfo, cleanupNonce, env)) {
                 return e.json(403, { error: "Pending order cleanup is not allowed" });
             }
         } else {
-            const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
-            const cleanupNonce = String(data.cleanupNonce || "").trim();
             if (!guestSecurity.verifyCleanupNonce(guestInfo, cleanupNonce, env)) {
                 return e.json(403, { error: "Pending order cleanup is not allowed" });
             }
@@ -146,9 +154,10 @@ routerAdd("GET", "/payment/complete", (c) => {
         const env = require(`${__hooks}/utils/env.js`);
         const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
         const query = c.request.url.query();
-        const paymentId = query.get("paymentId") || query.get("payment_id") || "Unknown";
+        const paymentId = query.get("paymentId") || query.get("payment_id") || query.get("orderId") || "Unknown";
         const code = query.get("code");
         const message = query.get("message");
+        const cleanupNonce = query.get("cleanupNonce") || "";
 
         const escapeHtml = (value) => {
             return String(value || "")
@@ -177,6 +186,15 @@ routerAdd("GET", "/payment/complete", (c) => {
 
         // If there's an error code or message in redirect, it means payment failed or was cancelled.
         if (code || message) {
+            if (paymentId && paymentId !== "Unknown" && cleanupNonce) {
+                try {
+                    const order = $app.findRecordById("orders", paymentId);
+                    const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
+                    if (order.getString("status") === "pending" && guestSecurity.verifyCleanupNonce(guestInfo, cleanupNonce, env)) {
+                        $app.delete(order);
+                    }
+                } catch (cleanupErr) {}
+            }
             return renderFailure("PAYMENT CANCELLED", "결제가 취소되었거나 실패하였습니다: " + (message || "사용자 취소"));
         }
 

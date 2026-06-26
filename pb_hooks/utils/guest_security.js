@@ -35,6 +35,22 @@ function hashSecret(secret, env) {
     return $security.hs256(String(secret), key);
 }
 
+function createCleanupNonce(env) {
+    if (!getSecretKey(env)) {
+        return {
+            ok: false,
+            error: "GUEST_LOOKUP_SECRET 또는 PORTONE_API_SECRET 환경 변수가 필요합니다."
+        };
+    }
+
+    const cleanupNonce = generateToken();
+    return {
+        ok: true,
+        cleanupNonce: cleanupNonce,
+        cleanupHash: hashSecret(cleanupNonce, env)
+    };
+}
+
 function generateToken() {
     try {
         if ($security.randomString) {
@@ -62,20 +78,22 @@ function createGuestInfo(data, env) {
         };
     }
 
-    const cleanupNonce = generateToken();
+    const cleanupResult = createCleanupNonce(env);
+    if (!cleanupResult.ok) return cleanupResult;
+
     const guestInfo = {
         name: data.name || "",
         phone: data.phone || "",
         email: data.email || "",
         address: data.address || "",
         password_hash: hashSecret(password, env),
-        checkout_cleanup_hash: hashSecret(cleanupNonce, env)
+        checkout_cleanup_hash: cleanupResult.cleanupHash
     };
 
     return {
         ok: true,
         guestInfo: guestInfo,
-        cleanupNonce: cleanupNonce
+        cleanupNonce: cleanupResult.cleanupNonce
     };
 }
 
@@ -90,6 +108,7 @@ function verifyCleanupNonce(guestInfo, cleanupNonce, env) {
 }
 
 module.exports = {
+    createCleanupNonce: createCleanupNonce,
     createGuestInfo: createGuestInfo,
     parseGuestInfo: parseGuestInfo,
     verifyCleanupNonce: verifyCleanupNonce,

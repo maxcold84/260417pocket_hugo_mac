@@ -67,16 +67,18 @@ function isFreshTimestamp(webhookTimestamp) {
 
 function getRawRequestBody(e) {
     try {
-        const raw = toString(e.request.body);
-        if (raw && raw !== "[object Object]") return raw;
-    } catch (err) {}
-
-    try {
-        const raw = String(e.request.body || "");
-        if (raw && raw !== "[object Object]") return raw;
+        return toString(e.request.body) || "";
     } catch (err) {}
 
     return "";
+}
+
+function parseWebhookBody(rawBody) {
+    try {
+        return JSON.parse(String(rawBody || ""));
+    } catch (err) {
+        return null;
+    }
 }
 
 function verifyWebhookSignature(signatureHeader, webhookId, webhookTimestamp, rawBody, secret) {
@@ -245,6 +247,7 @@ module.exports = {
     fetchPayment: fetchPayment,
     getPaymentStatus: getPaymentStatus,
     getRawRequestBody: getRawRequestBody,
+    parseWebhookBody: parseWebhookBody,
     verifyPaidPaymentForOrder: verifyPaidPaymentForOrder,
     verifyWebhookSignature: verifyWebhookSignature
 };

@@ -32,7 +32,11 @@ routerAdd("POST", "/api/payment/webhook", (e) => {
             return e.json(400, { error: "Invalid webhook signature" });
         }
 
-        const body = e.requestInfo().body || {};
+        const body = portone.parseWebhookBody(rawBody);
+        if (!body) {
+            return e.json(400, { error: "Invalid webhook JSON body" });
+        }
+
         const data = body.data || {};
         const paymentId = data.paymentId || body.paymentId;
 

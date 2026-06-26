@@ -299,7 +299,7 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
             displayShippingAddress = guestInfo.address || "";
         }
         
-        const items = $app.findRecordsByFilter("order_items", "order = {:id}", "-id", 100, 0, { id: orderId });
+        const items = $app.findRecordsByFilter("order_items", "order = {:id}", "", 100, 0, { id: orderId });
         const itemsWithTotals = items.map(item => {
             $app.expandRecord(item, ["product"], null);
             const plain = item.publicExport();
@@ -319,7 +319,7 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
                 email: memberEmail,
                 address: memberAddress
             } : null,
-            isGuest: guestInfo !== null,
+            isGuest: !order.getString("user") && guestInfo !== null,
             guestName: guestInfo ? (guestInfo.name || "") : "",
             guestPhone: guestInfo ? (guestInfo.phone || "") : "",
             guestEmail: guestInfo ? (guestInfo.email || "") : "",

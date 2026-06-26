@@ -110,8 +110,8 @@ Every new `routerAdd()` should update this table.
 
 | Route | Auth | Mutates DB | External call | Notes |
 | --- | --- | --- | --- | --- |
-| `POST /api/orders/prep` | optional user token; guest allowed with required password | yes | no | validates cart against DB, hashes guest password, returns cleanup nonce for guests |
-| `POST /api/orders/{id}/cancel-pending` | owner user token or guest cleanup nonce | yes | no | only deletes `pending` orders |
+| `POST /api/orders/prep` | optional user token; guest allowed with required password | yes | no | validates cart against DB, hashes guest password for guests, returns cleanup nonce for pending cleanup |
+| `POST /api/orders/{id}/cancel-pending` | owner user token or cleanup nonce | yes | no | only deletes `pending` orders |
 | `GET /checkout` | optional user token | no | no | server-renders PortOne public config and checkout form |
 | `GET /payment/complete` | none | yes | PortOne verify | verifies shared helper before paid transition |
 | `POST /api/payment/webhook` | PortOne signature | yes | PortOne verify | uses raw-body signature verification and shared paid verification |
