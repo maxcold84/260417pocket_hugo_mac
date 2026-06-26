@@ -20,3 +20,8 @@ hugo/content/products/*
 .env
 token.json
 
+# Local Codex Windows desktop tooling
+tools/windows/
+tools/rg.cmd
+tools/rg-shim.ps1
+

@@ -34,11 +34,11 @@ build/
 
 ## Local rg Shim
 
-This repo includes a limited Windows shim for common agent search commands:
+This workspace may include local-only Windows shim files for common agent search commands. They are ignored by git and are not required for the project to run:
 
 ```text
-tools/rg.cmd
-tools/rg-shim.ps1
+tools/windows/rg.cmd
+tools/windows/rg-shim.ps1
 ```
 
 It supports the common cases used during coding work:
@@ -57,10 +57,10 @@ When using PowerShell, quote glob arguments such as `-g '*.js'`. Unquoted globs 
 
 ## Optional PATH Setup
 
-To prefer the shim over the inaccessible WindowsApps `rg`, copy both shim files into a user PATH directory that appears before the Codex app resources path:
+If these local shim files exist and you want to prefer them over the inaccessible WindowsApps `rg`, copy both files into a user PATH directory that appears before the Codex app resources path:
 
 ```powershell
-Copy-Item -LiteralPath .\tools\rg.cmd,.\tools\rg-shim.ps1 -Destination "$env:USERPROFILE\.local\bin" -Force
+Copy-Item -LiteralPath .\tools\windows\rg.cmd,.\tools\windows\rg-shim.ps1 -Destination "$env:USERPROFILE\.local\bin" -Force
 where.exe rg
 ```
 
