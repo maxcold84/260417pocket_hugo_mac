@@ -34,3 +34,12 @@
 - On success, order status updates to `refunded`.
 - **Environment variables required:** `PORTONE_API_SECRET`, `PORTONE_STORE_ID`
 - **Rule:** Always use `$http.send()` in JSVM for the cancel API call — never `fetch()` or npm packages.
+
+## Environment Variables
+- `PORTONE_STORE_ID`: PortOne store id injected into the browser SDK and checked during server verification.
+- `PORTONE_CHANNEL_KEY_KAKAOPAY`: KakaoPay channel key for `PortOne.requestPayment()`.
+- `PORTONE_CHANNEL_KEY_INICIS`: KG Inicis channel key for `PortOne.requestPayment()`.
+- `PORTONE_CHANNEL_KEY_KCP`: NHN KCP channel key for `PortOne.requestPayment()`.
+- `PORTONE_API_SECRET`: Server-only API secret for payment verification and refunds.
+- `PORTONE_WEBHOOK_SECRET`: Server-only secret for webhook signature verification.
+- Optional aliases supported by the checkout route: `PORTONE_KAKAOPAY_CHANNEL_KEY`, `PORTONE_INICIS_CHANNEL_KEY`, `PORTONE_KCP_CHANNEL_KEY`.

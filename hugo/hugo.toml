@@ -98,3 +98,9 @@ name = "할인"
 nameEn = "SALE"
 slug = "sale"
 icon = "card"
+
+[[params.categories]]
+name = "기본"
+nameEn = "base"
+slug = "base"
+icon = "heart"

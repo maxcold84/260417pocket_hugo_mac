@@ -2,7 +2,7 @@
 
 ## PocketBase Collections (DB Schema)
 - `users` (auth collection): email, name, nickname, address, phone
-- `products`: name, slug, description, price, images (file, max 5), stock, sort_order, category (relation) — **listRule/viewRule: public**
+- `products`: name, slug, description, price, images (file, max 5), stock, sort_order, category (optional relation→categories) — **listRule/viewRule: public**
 - `categories`: name, slug, sort_order — **listRule/viewRule: public**
 - `orders`: user (relation→users), status (pending/paid/cancel_requested/cancelled/refunded/shipping/completed), total_amount, portone_tx_id, guest_info (JSON), tracking_number, courier_name, created
 - `order_items`: order (relation→orders), product (relation→products), quantity, unit_price
@@ -21,4 +21,9 @@
     - **Owner-Only Restricted**: For user-specific data (orders, order_items), use strict rules with an auth guard:
         - `orders`: `@request.auth.id != "" && user = @request.auth.id`
         - `order_items`: `@request.auth.id != "" && order.user = @request.auth.id`
-    - **Guard Requirement**: Always include `@request.auth.id != ""` in rules for collections that have relation fields with empty values (like `user = ""`), otherwise unauthenticated requests might match empty fields.
+- **Guard Requirement**: Always include `@request.auth.id != ""` in rules for collections that have relation fields with empty values (like `user = ""`), otherwise unauthenticated requests might match empty fields.
+
+## Category Deletion Consistency
+- Deleting a category through the custom CMS route (`POST /api/cms/categories/delete`) removes the matching `hugo.toml` category block, clears `products.category`, regenerates product Markdown, and rebuilds Hugo.
+- Deleting a category directly through the PocketBase Admin/API is guarded by `pb_hooks/category_delete_guard.pb.js`. The hook clears affected product relations before the delete request continues, then removes the stale `hugo.toml` block after deletion. Static rebuild is intentionally deferred to the custom CMS **동기화 및 사이트 빌드** button.
+- The CMS rebuild utility also self-heals products that still point at a missing category by clearing the broken relation and writing empty category frontmatter.

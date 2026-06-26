@@ -12,121 +12,10 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
             console.error("Failed to sync categories during rebuild:", catErr);
         }
 
-        // Preflight: deployments may omit gitignored generated content directories.
-        cmsUtil.prepareHugoContentTree();
+        // Step 1: Sync all current DB products to Hugo Markdown and clean stale outputs.
+        const syncResult = cmsUtil.syncProductsToMarkdown($app);
 
-        // Step 1: Get all current products from DB — collect slugs and image filenames
-        const products = $app.findRecordsByFilter("products", "1=1", "sort_order", 1000, 0);
-        const dbSlugs = {};
-        const usedImagePrefixes = []; // original image filenames used by active products
-        for (let p of products) {
-            const slug = p.getString("slug");
-            if (slug) dbSlugs[slug] = true;
-            const images = p.getStringSlice("images");
-            if (images && images.length > 0) {
-                for (let img of images) {
-                    const base = img.replace(/\.[^.]+$/, "");
-                    usedImagePrefixes.push(base);
-                }
-            }
-        }
-
-        // Step 2: Remove orphaned product markdown + static output folder
-        let deletedProductCount = 0;
-        try {
-            const entries = $os.readDir("hugo/content/products");
-            for (let entry of entries) {
-                const filename = entry.name();
-                if (!filename.endsWith(".md")) continue;
-                const slug = filename.slice(0, -3);
-                if (!dbSlugs[slug]) {
-                    try { $os.remove("hugo/content/products/" + filename); } catch (e) {}
-                    try { $os.removeAll("pb_public/products/" + slug); } catch (e) {}
-                    deletedProductCount++;
-                }
-            }
-        } catch (e) {
-            console.error("readDir (products) error:", e);
-        }
-
-        // Helper: check if a generated image file is still used by an active product
-        function isImageUsed(filename) {
-            for (let prefix of usedImagePrefixes) {
-                if (filename.indexOf(prefix) === 0) return true;
-            }
-            return false;
-        }
-
-        // Step 3: Remove orphaned Hugo-generated images from hugo/resources/_gen/images/
-        let deletedImageCount = 0;
-        try {
-            const resEntries = $os.readDir("hugo/resources/_gen/images");
-            for (let entry of resEntries) {
-                const filename = entry.name();
-                if (!isImageUsed(filename)) {
-                    try { $os.remove("hugo/resources/_gen/images/" + filename); } catch (e) {}
-                    deletedImageCount++;
-                }
-            }
-        } catch (e) {
-            console.error("readDir (resources/_gen/images) error:", e);
-        }
-
-        // Step 4: Remove orphaned published images from pb_public/
-        try {
-            const pubEntries = $os.readDir("pb_public");
-            for (let entry of pubEntries) {
-                const filename = entry.name();
-                if (!filename.endsWith(".webp") && !filename.endsWith(".jpg") && !filename.endsWith(".png")) continue;
-                if (!isImageUsed(filename)) {
-                    try { $os.remove("pb_public/" + filename); } catch (e) {}
-                    deletedImageCount++;
-                }
-            }
-        } catch (e) {
-            console.error("readDir (pb_public) error:", e);
-        }
-
-        // Step 5: Write/update markdown files for all current DB products
-        let syncedCount = 0;
-        for (let p of products) {
-            const slug = p.getString("slug");
-            if (!slug) continue;
-
-            const name = p.getString("name").replace(/"/g, '\\"');
-            const price = p.getInt("price");
-            const description = p.getString("description");
-
-            const images = p.getStringSlice("images");
-            let imageLine = "";
-            if (images && images.length > 0) {
-                const collectionId = p.collection().id;
-                const recordId = p.id;
-                let imageUrls = [];
-                for (let img of images) {
-                    imageUrls.push('"/api/files/' + collectionId + '/' + recordId + '/' + img + '"');
-                }
-                imageLine = '\nimages: [' + imageUrls.join(', ') + ']\nimage: ' + imageUrls[0];
-            }
-
-            const sortOrder = p.getInt("sort_order");
-            const discountPrice = p.getInt("discount_price");
-            const categoryId = p.getString("category");
-            let categorySlug = "";
-            if (categoryId) {
-                try {
-                    const catRec = $app.findRecordById("categories", categoryId);
-                    categorySlug = catRec.getString("slug");
-                } catch (e) {
-                    console.error("Failed to find category for product", e);
-                }
-            }
-            const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + '\ndiscount_price: ' + discountPrice + '\nweight: ' + sortOrder + '\ncategory: "' + categorySlug + '"' + imageLine + '\n---\n' + description + '\n';
-            $os.writeFile("hugo/content/products/" + slug + ".md", content, 0o644);
-            syncedCount++;
-        }
-
-        // Step 6: Run Hugo with --ignoreCache
+        // Step 2: Run Hugo with --ignoreCache
         let hugoOutput = "";
         let hugoWarning = "";
         try {
@@ -146,13 +35,14 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
             return e.json(500, {
                 error: "Hugo 빌드 실패",
                 detail: errMsg,
-                synced: syncedCount,
-                deletedPages: deletedProductCount,
-                deletedImages: deletedImageCount
+                synced: syncResult.synced,
+                deletedPages: syncResult.deletedPages,
+                deletedImages: syncResult.deletedImages,
+                clearedBrokenCategories: syncResult.clearedBrokenCategories
             });
         }
 
-        const summary = syncedCount + "개 상품 동기화, " + deletedProductCount + "개 페이지 삭제, " + deletedImageCount + "개 고아 이미지 정리 완료.";
+        const summary = syncResult.synced + "개 상품 동기화, " + syncResult.deletedPages + "개 페이지 삭제, " + syncResult.deletedImages + "개 고아 이미지 정리 완료.";
         return e.json(200, {
             message: "동기화 및 사이트 빌드 완료: " + summary + (hugoWarning ? " " + hugoWarning : ""),
             detail: hugoOutput
@@ -495,54 +385,34 @@ routerAdd("POST", "/api/cms/categories/delete", (e) => {
         }
 
         // Find database record
-        const catRec = $app.findRecordById("categories", id);
+        let catRec;
+        try {
+            catRec = $app.findRecordById("categories", id);
+        } catch (findErr) {
+            return e.json(404, { error: "카테고리를 찾을 수 없습니다." });
+        }
         const slug = catRec.getString("slug");
 
-        // Read hugo.toml
-        const tomlBytes = $os.readFile("hugo/hugo.toml");
-        const tomlBinaryStr = Array.from(tomlBytes).map(b => String.fromCharCode(b)).join('');
-        const tomlStr = decodeURIComponent(escape(tomlBinaryStr));
-
-        // Remove block matching slug
-        const parts = tomlStr.split("[[params.categories]]");
-        const header = parts[0];
-        const remainingBlocks = [];
-        for (let i = 1; i < parts.length; i++) {
-            const block = parts[i];
-            const slugMatch = block.match(/slug\s*=\s*"([^"]+)"/);
-            if (slugMatch && slugMatch[1] === slug) {
-                continue; // Skip this block (delete)
-            }
-            remainingBlocks.push(block);
-        }
-
-        let updatedToml = header;
-        if (remainingBlocks.length > 0) {
-            updatedToml += "[[params.categories]]" + remainingBlocks.join("[[params.categories]]");
-        }
-
-        $os.writeFile("hugo/hugo.toml", updatedToml, 0o644);
-
-        // Clear category relation on products
-        const products = $app.findRecordsByFilter("products", "category = '" + id + "'", "", 1000, 0);
-        for (let p of products) {
-            p.set("category", "");
-            $app.save(p);
-        }
+        const tomlResult = cmsUtil.removeCategoryFromTomlBySlug(slug);
+        const clearedProducts = cmsUtil.clearProductsCategory($app, id);
 
         // Delete from database
         $app.delete(catRec);
 
-        // Rebuild site
+        // Rebuild site and regenerate product Markdown so stale category frontmatter is removed.
         let hugoWarning = "";
+        let syncResult = null;
         try {
-            cmsUtil.runHugo(e);
+            const rebuildResult = cmsUtil.syncProductsAndRunHugo($app, e);
+            syncResult = rebuildResult.sync;
         } catch (hugoErr) {
             console.error("Hugo build failed after category delete:", hugoErr);
             hugoWarning = " (주의: 카테고리는 삭제되었으나 사이트 자동 빌드에 실패했습니다. 환경 설정을 확인하거나 수동 빌드를 시도하세요.)";
         }
 
-        return e.json(200, { message: "카테고리가 삭제되었습니다." + hugoWarning });
+        const syncNote = syncResult ? " 상품 " + syncResult.synced + "개를 다시 동기화했습니다." : "";
+        const tomlNote = tomlResult.changed ? "" : " (hugo.toml에는 해당 카테고리 블록이 없었습니다.)";
+        return e.json(200, { message: "카테고리가 삭제되었습니다. 연결된 상품 " + clearedProducts + "개의 카테고리를 해제했습니다." + syncNote + tomlNote + hugoWarning });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }

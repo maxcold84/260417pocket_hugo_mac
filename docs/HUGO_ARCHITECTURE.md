@@ -48,6 +48,7 @@ hugo/                   ← Hugo source (content, themes, config)
     - The CMS admin dashboard (`/cms/`) allows superusers to manage products and trigger a full site rebuild via `POST /api/cms/rebuild`.
     - The rebuild route (`pb_hooks/routes/admin.pb.js`) iterates all products **sorted by `sort_order`**, generates `hugo/content/products/{slug}.md` files with frontmatter (title, price, weight, image URL), then runs `hugo --ignoreCache` to compile fresh static pages into `pb_public/`.
     - The rebuild route calls `cmsUtil.prepareHugoContentTree()` before cleanup/write operations. This recreates `hugo/content/products/` with `$os.mkdirAll()` if the directory was omitted from deployment or manually deleted.
+    - The rebuild route delegates product Markdown generation to `cmsUtil.syncProductsToMarkdown()`. This utility writes empty `category` frontmatter for uncategorized products and clears stale `products.category` values when the referenced category record no longer exists.
     - **Recovery:** If product Markdown sync fails because `hugo/content/products/` is missing, deploy the latest hooks and click **동기화 및 사이트 빌드** again. The same sync route now repairs the missing directory before writing `.md` files.
     - **Rule:** Always pass `--ignoreCache` to the Hugo command when rebuilding programmatically, to ensure `resources.GetRemote` (used for product images) fetches fresh data instead of reusing stale cached responses.
     - **Rule:** Product image URLs in Markdown frontmatter must use the full PocketBase file API path: `http://127.0.0.1:8090/api/files/{collectionId}/{recordId}/{filename}`.
@@ -72,7 +73,11 @@ hugo/                   ← Hugo source (content, themes, config)
       1. **Server-Side Rendered View**: Accessed via `/cms/settings` (served via HTMX from `pb_hooks/routes/admin.pb.js`), rendering `pb_hooks/views/admin/settings.html`.
       2. **Alpine.js SPA View**: Accessed within the SPA dashboard (`currentTab = 'settings'`), making a GET request to `/api/cms/settings`.
     - Saving changes POSTs the TOML text to `/api/cms/settings/update`, which writes back to `hugo/hugo.toml` and automatically triggers a `hugo --ignoreCache` rebuild to instantly reflect site-wide changes (e.g., dynamic navigation menus).
-9. **Hugo HTML Minifier and Spacing Collapse (Whitespace bug)**:
+9. **Category Deletion Guard**:
+    - The custom CMS category delete route removes the category from `hugo.toml`, clears product relations, regenerates product Markdown, then runs `hugo --ignoreCache`.
+    - Direct category deletion from PocketBase Admin/API bypasses the custom route, so `pb_hooks/category_delete_guard.pb.js` listens with `onRecordDeleteRequest(..., "categories")`. It clears related product categories before `e.next()`, then removes the TOML block after the record is deleted.
+    - Direct deletion intentionally does not run Hugo inside the delete request. Use **동기화 및 사이트 빌드** afterward to regenerate product Markdown and static output in one explicit rebuild step.
+10. **Hugo HTML Minifier and Spacing Collapse (Whitespace bug)**:
     - Hugo has `minifyOutput = true` under `[minify]` in `hugo.toml` which aggressively minifies HTML outputs and collapses whitespace adjacent to inline/block elements (like `<br>`).
     - If you attempt to split a multi-word title to conditionally inject a `<br class="md:hidden" />` for mobile viewports, the minifier will strip the space on desktop viewports where `<br>` is hidden via CSS, making "소중한 시간을 닮다" render as "소중한 시간을닮다" (no space at all).
     - **Rule:** Never place a plain space immediately adjacent to a responsive `<br>` tag inside standard loops. Instead, wrap the desktop-only space in an inline element with non-breaking whitespace: `<br class="md:hidden" /><span class="hidden md:inline">&nbsp;</span>`. This prevents the minifier from stripping the space on desktop and avoids rendering a leading space on a new line on mobile.

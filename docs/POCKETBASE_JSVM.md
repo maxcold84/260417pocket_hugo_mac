@@ -126,3 +126,10 @@
           }
       }
       ```
+
+15. **Category Delete Requests Must Clean Dependent Static State**:
+    - **Issue**: Deleting a `categories` record directly from PocketBase Admin/API bypasses the custom CMS route that normally removes the `hugo.toml` block, clears `products.category`, regenerates product Markdown, and rebuilds Hugo.
+    - **Rule**: Register a collection-scoped request hook with `onRecordDeleteRequest((e) => { ... }, "categories")`.
+      - Clear affected `products.category` values before `e.next()` so required/relation constraints cannot leave dangling category references.
+      - After `e.next()`, remove the matching `[[params.categories]]` TOML block so the next CMS rebuild does not recreate the category from the source config.
+      - Do not run Hugo in the low-level delete hook. Defer product Markdown sync and static output generation to the explicit custom CMS **동기화 및 사이트 빌드** action.

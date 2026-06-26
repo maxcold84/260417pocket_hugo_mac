@@ -127,9 +127,9 @@ routerAdd("GET", "/checkout", (c) => {
         
         let partialHtml = $template.loadFiles(`${__hooks}/views/checkout.html`).render({
             portoneStoreId: env.get("PORTONE_STORE_ID") || "",
-            channelKeyKakaopay: env.get("PORTONE_CHANNEL_KEY_KAKAOPAY") || "",
-            channelKeyInicis: env.get("PORTONE_CHANNEL_KEY_INICIS") || "",
-            channelKeyKcp: env.get("PORTONE_CHANNEL_KEY_KCP") || "",
+            channelKeyKakaopay: env.getAny(["PORTONE_CHANNEL_KEY_KAKAOPAY", "PORTONE_KAKAOPAY_CHANNEL_KEY"]) || "",
+            channelKeyInicis: env.getAny(["PORTONE_CHANNEL_KEY_INICIS", "PORTONE_INICIS_CHANNEL_KEY"]) || "",
+            channelKeyKcp: env.getAny(["PORTONE_CHANNEL_KEY_KCP", "PORTONE_KCP_CHANNEL_KEY"]) || "",
             userEmail: c.auth ? c.auth.getString("email") : "",
             userPhone: c.auth ? c.auth.getString("phone") : "",
             userId: c.auth ? c.auth.id : "",
