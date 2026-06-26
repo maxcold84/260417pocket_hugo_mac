@@ -12,6 +12,9 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
             console.error("Failed to sync categories during rebuild:", catErr);
         }
 
+        // Preflight: deployments may omit gitignored generated content directories.
+        cmsUtil.prepareHugoContentTree();
+
         // Step 1: Get all current products from DB — collect slugs and image filenames
         const products = $app.findRecordsByFilter("products", "1=1", "sort_order", 1000, 0);
         const dbSlugs = {};

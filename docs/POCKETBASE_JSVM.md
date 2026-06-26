@@ -37,6 +37,7 @@
 6. **JSVM File I/O — Use `$os.writeFile` Over Shell Commands**:
     - Using `$os.cmd("sh", "-c", "cat << 'EOF' > file.md ...")` to write files from JSVM is fragile. It breaks when file paths contain **Korean characters, spaces, or special characters** because the shell interprets them as command delimiters.
     - **Rule:** Always use `$os.writeFile(filePath, content, 0o644)` for creating/overwriting files from JSVM. It writes directly to the filesystem without invoking a shell, safely handling any Unicode path or content.
+    - **Rule:** `$os.writeFile()` does not create missing parent directories. Before writing generated files, call `$os.mkdirAll(parentDir, 0o755)` or a project helper such as `cmsUtil.prepareHugoContentTree()`.
     - **Rule:** Avoid backtick template literals for multi-line content strings in Goja JSVM; use string concatenation (`'...' + variable + '...'`) instead, as template literal newlines can be misinterpreted.
 7. **Bootstrap Hooks & Collection Modification (v0.36+)**:
     - `onAfterBootstrap` has been renamed to `onBootstrap`.

@@ -57,6 +57,19 @@ function syncCategoriesFromToml(app, tomlStr) {
     console.log("[cms-util] Successfully synced " + parsedCategories.length + " categories to DB.");
 }
 
+function ensureDir(path, label) {
+    try {
+        $os.mkdirAll(path, 0o755);
+    } catch (err) {
+        const name = label || path;
+        throw new Error("필수 디렉터리 생성 실패: " + name + " (" + path + "): " + String(err));
+    }
+}
+
+function prepareHugoContentTree() {
+    ensureDir("hugo/content/products", "상품 Markdown 디렉터리");
+}
+
 function runHugo(e) {
     let baseURL = "";
     let internalURL = "";
@@ -150,5 +163,6 @@ function runHugo(e) {
 
 module.exports = {
     syncCategoriesFromToml: syncCategoriesFromToml,
+    prepareHugoContentTree: prepareHugoContentTree,
     runHugo: runHugo
 };

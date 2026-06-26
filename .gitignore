@@ -8,7 +8,8 @@ pocketbase.exe
 hugo/public/
 hugo/resources/
 hugo/.hugo_build.lock
-hugo/content/products/
+hugo/content/products/*
+!hugo/content/products/.gitkeep
 
 # macOS
 .DS_Store
