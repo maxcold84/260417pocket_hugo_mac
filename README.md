@@ -29,13 +29,15 @@ Node.js나 무거운 프론트엔드 프레임워크(React, Vue 등) 없이 **Al
 - 결제 시 클라이언트의 장바구니 데이터를 백엔드 API(`/api/orders/prep`)에 전송하여 실제 DB의 가격 및 재고 정보와 대조하는 안전한 검증 과정을 거칩니다.
 
 ### 4. 소셜 로그인 설정 통합 (OAuth2)
-관리자나 개발자가 코드를 직접 수정할 필요 없이, Hugo의 설정 파일인 **`hugo/hugo.toml`**에서 한 줄을 켜고 끄는 것만으로 소셜 로그인 버튼을 제어할 수 있습니다.
+관리자나 개발자가 코드를 직접 수정할 필요 없이, Hugo의 설정 파일인 **`hugo/hugo.toml`**에서 한 줄을 켜고 끄는 것만으로 소셜 로그인 버튼 표시를 제어할 수 있습니다.
 ```toml
 # hugo/hugo.toml
 [params.oauth]
 google = true
 kakao = false
 ```
+
+> `hugo.toml`은 버튼 표시만 제어합니다. 실제 Google/Kakao 로그인은 PocketBase Admin의 `users` auth collection에서 OAuth2 provider client id/secret과 redirect URL을 별도로 설정해야 동작합니다. 로컬 Google OAuth callback URL은 `http://127.0.0.1:8090/api/oauth2-redirect`, 운영 callback URL은 `https://yourdomain.com/api/oauth2-redirect` 형식입니다. provider가 설정되지 않으면 로그인 화면은 해당 버튼을 숨깁니다.
 
 ## 🛠 실행 및 개발 환경 구축 (Setup)
 
@@ -46,11 +48,12 @@ kakao = false
    ```
 
 2. **서버 실행 (PocketBase)**
-   해당 폴더 내에 위치한 PocketBase 실행 파일을 통해 서버를 구동합니다.
+   Linux 서버나 systemd 서비스에서는 작업 디렉터리와 정적 파일 경로가 흔들리지 않도록 저장소 기준 경로를 명시해서 구동합니다.
    ```bash
-   ./pocketbase serve
+   ./pocketbase serve --dir=pb_data --hooksDir=pb_hooks --migrationsDir=pb_migrations --publicDir=pb_public
    ```
-   > 💡 **참고:** Windows 환경에서는 `pocketbase.exe serve`를 사용하세요.
+
+   개발 중 상세 로그가 필요하면 `--dev`를 추가합니다. PocketBase 바이너리를 저장소 루트에 두고 루트에서 실행하는 경우에는 기존처럼 `./pocketbase serve`도 동작할 수 있지만, 서비스 배포에서는 위처럼 경로를 명시하는 편이 안전합니다.
 
 3. **초기 관리자 접속 및 동기화**
    - 브라우저에서 `http://127.0.0.1:8090/_/` (기본 포켓베이스 관리자 페이지) 접속 후, 포트원 결제 연동 등을 위한 세팅을 확인합니다.
@@ -69,9 +72,4 @@ kakao = false
 운영 배포 전에는 `docs/SECURITY_HARDENING.md`의 P0/P1 항목을 먼저 처리해야 합니다. 특히 공개 테스트 훅 제거, PortOne 결제 금액 검증 일원화, 웹훅 raw body 서명 검증, CMS superuser 인증 검증, 비회원 주문 조회 강화는 릴리즈 차단 항목으로 봅니다.
 
 ---
-
-export $(grep -v '^#' .env | xargs) && ./pocketbase serve
-
-lsof -ti:8090 | xargs kill -9export $(grep -v '^#' .env | xargs) && ./pocketbase serve
-
 이 저장소는 AI 코딩 에이전트와의 협업을 통해 설계된 규칙서(`AGENTS.md`)를 기반으로 엄격한 제한 사항과 효율적인 패턴을 학습하여 개발되었습니다.

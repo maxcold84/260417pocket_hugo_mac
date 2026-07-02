@@ -1,6 +1,8 @@
 {{ define "title" }}{{ .Title | default site.Title }}{{ end }}
 
 {{ define "main" }}
+{{ $ratingAverage := .Params.rating_average | default 0 }}
+{{ $ratingCount := .Params.rating_count | default 0 }}
 <main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full text-gray-800 dark:text-gray-200">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
         <!-- Image Gallery (Alpine.js) -->
@@ -33,6 +35,19 @@
         </div>
         <div class="flex flex-col justify-center">
             <h1 class="text-4xl font-light mb-4">{{ .Title }}</h1>
+            <div class="mb-4 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                {{ if gt $ratingCount 0 }}
+                    <span class="inline-flex items-center gap-1 text-orange-400" aria-label="{{ i18n "rating_average_label" }} {{ printf "%.1f" (float $ratingAverage) }}">
+                        <svg class="h-4 w-4 fill-current" viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                        </svg>
+                        <span class="font-medium text-gray-900 dark:text-white">{{ printf "%.1f" (float $ratingAverage) }}</span>
+                    </span>
+                    <span>{{ $ratingCount }}{{ i18n "rating_count_suffix" }}</span>
+                {{ else }}
+                    <span class="text-gray-400 dark:text-gray-500">{{ i18n "rating_empty" }}</span>
+                {{ end }}
+            </div>
             <div class="text-2xl font-medium text-gray-900 dark:text-white mb-6">
                 {{ if and .Params.discount_price (gt .Params.discount_price 0) }}
                     <span class="line-through text-gray-400 text-lg font-normal mr-2">₩{{ lang.FormatNumberCustom 0 .Params.price }}</span>
@@ -59,6 +74,734 @@
             </button>
         </div>
     </div>
+
+    <section id="product-inquiries"
+             class="mt-16 border-t border-gray-200 dark:border-bmw-darkBorder pt-10"
+             x-data="productInquiries({{ .File.BaseFileName | jsonify }})"
+             x-init="init()">
+        <style>[x-cloak] { display: none !important; }</style>
+        <div class="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+                <p class="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-bmw-blue">{{ i18n "product_inquiries_label" }}</p>
+                <h2 class="text-2xl font-light text-gray-900 dark:text-white md:text-3xl">{{ i18n "product_inquiries" }}</h2>
+            </div>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+                <span x-text="total"></span>
+                <span>{{ i18n "product_inquiries_count_suffix" }}</span>
+            </p>
+        </div>
+
+        <div x-show="notice" x-cloak x-transition
+             class="mb-6 border px-4 py-3 text-sm"
+             :class="noticeType === 'error' ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300' : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-bmw-blue/30 dark:bg-bmw-blue/10 dark:text-blue-200'"
+             x-text="notice"></div>
+
+        <div class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div class="min-w-0">
+                <div x-show="loading" class="border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 dark:border-bmw-darkBorder dark:bg-bmw-surface dark:text-gray-400">
+                    {{ i18n "inquiries_loading" }}
+                </div>
+
+                <div x-show="!loading && inquiries.length === 0" x-cloak class="border border-dashed border-gray-300 bg-white p-8 text-center dark:border-bmw-darkBorder dark:bg-bmw-surface">
+                    <p class="mb-2 font-medium text-gray-900 dark:text-white">{{ i18n "inquiries_empty_title" }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ i18n "inquiries_empty_body" }}</p>
+                </div>
+
+                <div x-show="!loading && inquiries.length > 0" x-cloak class="space-y-4">
+                    <template x-for="inquiry in inquiries" :key="inquiry.id">
+                        <article class="rounded-sm border border-gray-200 bg-white p-5 dark:border-bmw-darkBorder dark:bg-bmw-surface">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="min-w-0">
+                                    <div class="mb-2 flex flex-wrap items-center gap-2">
+                                        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold" :class="inquiryStatusClass(inquiry)" x-text="inquiryStatusLabel(inquiry)"></span>
+                                        <span x-show="inquiry.isSecret" class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700 dark:bg-black dark:text-gray-300">
+                                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 11h14v10H5z"></path></svg>
+                                            <span>{{ i18n "inquiry_secret_badge" }}</span>
+                                        </span>
+                                        <span class="text-xs text-gray-400 dark:text-gray-500" x-text="formatDate(inquiry.created)"></span>
+                                    </div>
+                                    <template x-if="editingId !== inquiry.id">
+                                        <div>
+                                            <h3 class="text-base font-medium text-gray-900 dark:text-white [overflow-wrap:anywhere] [word-break:keep-all]" x-text="inquiry.title"></h3>
+                                            <template x-if="inquiry.isMasked">
+                                                <p class="mt-3 rounded-sm border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500 dark:border-bmw-darkBorder dark:bg-black dark:text-gray-400">{{ i18n "inquiry_secret_masked_body" }}</p>
+                                            </template>
+                                            <template x-if="!inquiry.isMasked">
+                                                <p class="mt-3 whitespace-pre-line text-sm leading-6 text-gray-600 dark:text-gray-300 [overflow-wrap:anywhere] [word-break:keep-all]" x-text="inquiry.content"></p>
+                                            </template>
+                                            <template x-if="inquiry.hasAnswer && !inquiry.isMasked">
+                                                <div class="mt-4 border-l-2 border-bmw-blue bg-blue-50 px-4 py-3 dark:bg-bmw-blue/10">
+                                                    <p class="mb-2 text-xs font-bold uppercase tracking-widest text-bmw-blue">{{ i18n "inquiry_answer_label" }}</p>
+                                                    <p class="whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-200 [overflow-wrap:anywhere] [word-break:keep-all]" x-text="inquiry.answer"></p>
+                                                    <p class="mt-2 text-xs text-gray-400" x-text="formatDate(inquiry.answeredAt)"></p>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div x-show="inquiry.canEdit || inquiry.canDelete" class="flex shrink-0 items-center gap-2">
+                                    <button x-show="inquiry.canEdit && editingId !== inquiry.id"
+                                            type="button"
+                                            @click="startEdit(inquiry)"
+                                            class="text-xs font-medium uppercase tracking-wider text-gray-500 transition hover:text-bmw-blue dark:text-gray-400 dark:hover:text-bmw-blue">
+                                        {{ i18n "inquiry_edit" }}
+                                    </button>
+                                    <button x-show="inquiry.canDelete && deleteConfirmId !== inquiry.id"
+                                            type="button"
+                                            @click="deleteConfirmId = inquiry.id"
+                                            class="text-xs font-medium uppercase tracking-wider text-red-500 transition hover:text-red-700">
+                                        {{ i18n "inquiry_delete" }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div x-show="editingId === inquiry.id" x-cloak x-transition class="mt-4 space-y-3">
+                                <input type="text"
+                                       x-model="editTitle"
+                                       maxlength="120"
+                                       class="w-full rounded-sm border border-gray-200 bg-white p-3 text-sm text-gray-900 focus:border-bmw-blue focus:outline-none dark:border-bmw-darkBorder dark:bg-black dark:text-white"
+                                       placeholder="{{ i18n "inquiry_title_placeholder" }}">
+                                <textarea x-model="editContent"
+                                          maxlength="2000"
+                                          rows="5"
+                                          class="w-full resize-y rounded-sm border border-gray-200 bg-white p-3 text-sm text-gray-900 focus:border-bmw-blue focus:outline-none dark:border-bmw-darkBorder dark:bg-black dark:text-white"
+                                          placeholder="{{ i18n "inquiry_content_placeholder" }}"></textarea>
+                                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <input type="checkbox" x-model="editIsSecret" class="rounded border-gray-300 text-bmw-blue focus:ring-bmw-blue">
+                                    <span>{{ i18n "inquiry_secret_toggle" }}</span>
+                                </label>
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <span class="text-xs text-gray-400" x-text="editContent.length + '/2000'"></span>
+                                    <div class="flex items-center gap-2">
+                                        <button type="button"
+                                                @click="cancelEdit()"
+                                                class="border border-gray-300 px-4 py-2 text-xs font-medium uppercase tracking-wider text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-white/5">
+                                            {{ i18n "cancel" }}
+                                        </button>
+                                        <button type="button"
+                                                @click="saveEdit(inquiry)"
+                                                :disabled="savingId === inquiry.id"
+                                                class="bg-bmw-blue px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-blue-700 disabled:opacity-50">
+                                            <span x-show="savingId !== inquiry.id">{{ i18n "save_changes" }}</span>
+                                            <span x-show="savingId === inquiry.id">{{ i18n "processing" }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div x-show="deleteConfirmId === inquiry.id" x-cloak x-transition class="mt-4 flex flex-wrap items-center justify-end gap-2 border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/60 dark:bg-red-950/20">
+                                <span class="text-xs text-red-700 dark:text-red-300">{{ i18n "inquiry_delete_confirm" }}</span>
+                                <button type="button"
+                                        @click="deleteInquiry(inquiry)"
+                                        :disabled="deletingId === inquiry.id"
+                                        class="bg-red-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-red-700 disabled:opacity-50">
+                                    {{ i18n "delete" }}
+                                </button>
+                                <button type="button"
+                                        @click="deleteConfirmId = ''"
+                                        class="border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-gray-600 transition dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                    {{ i18n "cancel" }}
+                                </button>
+                            </div>
+                        </article>
+                    </template>
+                </div>
+            </div>
+
+            <aside class="h-fit rounded-sm border border-gray-200 bg-white p-5 dark:border-bmw-darkBorder dark:bg-bmw-surface">
+                <h3 class="mb-4 text-sm font-bold uppercase tracking-widest text-gray-900 dark:text-white">{{ i18n "inquiry_write_title" }}</h3>
+
+                <template x-if="!loggedIn">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                        <p class="mb-4">{{ i18n "inquiry_login_required" }}</p>
+                        <a href="{{ "/login" | relLangURL }}" class="inline-flex items-center justify-center bg-bmw-blue px-5 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-blue-700">
+                            {{ i18n "login" }}
+                        </a>
+                    </div>
+                </template>
+
+                <form x-show="loggedIn && canWrite" x-cloak @submit.prevent="submitInquiry()" class="space-y-3">
+                    <input type="text"
+                           x-model="title"
+                           maxlength="120"
+                           class="w-full rounded-sm border border-gray-200 bg-white p-3 text-sm text-gray-900 focus:border-bmw-blue focus:outline-none dark:border-bmw-darkBorder dark:bg-black dark:text-white"
+                           placeholder="{{ i18n "inquiry_title_placeholder" }}">
+                    <textarea x-model="content"
+                              maxlength="2000"
+                              rows="5"
+                              class="w-full resize-y rounded-sm border border-gray-200 bg-white p-3 text-sm text-gray-900 focus:border-bmw-blue focus:outline-none dark:border-bmw-darkBorder dark:bg-black dark:text-white"
+                              placeholder="{{ i18n "inquiry_content_placeholder" }}"></textarea>
+                    <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <input type="checkbox" x-model="isSecret" class="rounded border-gray-300 text-bmw-blue focus:ring-bmw-blue">
+                        <span>{{ i18n "inquiry_secret_toggle" }}</span>
+                    </label>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-xs text-gray-400" x-text="content.length + '/2000'"></span>
+                        <button type="submit"
+                                :disabled="submitting"
+                                class="bg-bmw-blue px-5 py-3 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-blue-700 disabled:opacity-50">
+                            <span x-show="!submitting">{{ i18n "inquiry_submit" }}</span>
+                            <span x-show="submitting">{{ i18n "processing" }}</span>
+                        </button>
+                    </div>
+                </form>
+            </aside>
+        </div>
+    </section>
+
+    <section id="product-comments"
+             class="mt-16 border-t border-gray-200 dark:border-bmw-darkBorder pt-10"
+             x-data="productComments({{ .File.BaseFileName | jsonify }}, { average: {{ $ratingAverage }}, count: {{ $ratingCount }} })"
+             x-init="init()">
+        <style>[x-cloak] { display: none !important; }</style>
+        <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-8">
+            <div>
+                <p class="text-xs font-bold tracking-[0.18em] uppercase text-bmw-blue mb-2">{{ i18n "product_comments_label" }}</p>
+                <h2 class="text-2xl md:text-3xl font-light text-gray-900 dark:text-white">{{ i18n "product_comments" }}</h2>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="min-w-[160px] border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-bmw-surface px-4 py-3 rounded-sm">
+                    <p class="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{{ i18n "rating_average_label" }}</p>
+                    <div class="mt-1 flex items-center gap-2">
+                        <span class="inline-flex items-center gap-0.5 text-orange-400" :aria-label="ratingAria(summary.average)">
+                            <template x-for="star in ratingOptions" :key="star">
+                                <svg class="h-4 w-4 transition-colors" :class="summary.average >= star - 0.25 ? 'fill-current text-orange-400' : 'fill-none text-gray-300 dark:text-gray-600'" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                    <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                                </svg>
+                            </template>
+                        </span>
+                        <span class="font-medium text-gray-900 dark:text-white" x-text="formatRating(summary.average)"></span>
+                        <span class="text-xs text-gray-400" x-text="'(' + summary.count + ')'"></span>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    <span x-text="total"></span>
+                    <span>{{ i18n "product_comments_count_suffix" }}</span>
+                </p>
+            </div>
+        </div>
+
+        <div x-show="notice" x-cloak x-transition
+             class="mb-6 border px-4 py-3 text-sm"
+             :class="noticeType === 'error' ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300' : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-bmw-blue/30 dark:bg-bmw-blue/10 dark:text-blue-200'"
+             x-text="notice"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8">
+            <div class="min-w-0">
+                <div x-show="loading" class="border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-bmw-surface p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                    {{ i18n "comments_loading" }}
+                </div>
+
+                <div x-show="!loading && comments.length === 0" x-cloak class="border border-dashed border-gray-300 dark:border-bmw-darkBorder bg-white dark:bg-bmw-surface p-8 text-center">
+                    <p class="text-gray-900 dark:text-white font-medium mb-2">{{ i18n "comments_empty_title" }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ i18n "comments_empty_body" }}</p>
+                </div>
+
+                <div x-show="!loading && comments.length > 0" x-cloak class="space-y-4">
+                    <template x-for="comment in comments" :key="comment.id">
+                        <article class="border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-bmw-surface p-5 rounded-sm">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="font-medium text-gray-900 dark:text-white" x-text="comment.authorName"></span>
+                                        <span class="text-xs text-gray-400 dark:text-gray-500" x-text="formatDate(comment.created)"></span>
+                                    </div>
+                                    <div class="mt-2 flex items-center gap-2">
+                                        <template x-if="Number(comment.rating) > 0">
+                                            <div class="flex items-center gap-2">
+                                                <span class="inline-flex items-center gap-0.5 text-orange-400" :aria-label="ratingAria(comment.rating)">
+                                                    <template x-for="star in ratingOptions" :key="star">
+                                                        <svg class="h-3.5 w-3.5 transition-colors" :class="Number(comment.rating) >= star ? 'fill-current text-orange-400' : 'fill-none text-gray-300 dark:text-gray-600'" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                                            <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                                                        </svg>
+                                                    </template>
+                                                </span>
+                                                <span class="text-xs font-medium text-gray-500 dark:text-gray-400" x-text="formatRating(comment.rating)"></span>
+                                            </div>
+                                        </template>
+                                        <template x-if="Number(comment.rating) <= 0">
+                                            <span class="text-xs text-gray-400 dark:text-gray-500">{{ i18n "rating_empty_short" }}</span>
+                                        </template>
+                                    </div>
+                                    <template x-if="editingId !== comment.id">
+                                        <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300 whitespace-pre-line break-words" x-text="comment.content"></p>
+                                    </template>
+                                </div>
+                                <div x-show="comment.canEdit || comment.canDelete" class="flex shrink-0 items-center gap-2">
+                                    <button x-show="comment.canEdit && editingId !== comment.id"
+                                            type="button"
+                                            @click="startEdit(comment)"
+                                            class="text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-bmw-blue dark:text-gray-400 dark:hover:text-bmw-blue transition">
+                                        {{ i18n "comment_edit" }}
+                                    </button>
+                                    <button x-show="comment.canDelete && deleteConfirmId !== comment.id"
+                                            type="button"
+                                            @click="deleteConfirmId = comment.id"
+                                            class="text-xs font-medium uppercase tracking-wider text-red-500 hover:text-red-700 transition">
+                                        {{ i18n "comment_delete" }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div x-show="editingId === comment.id" x-cloak x-transition class="mt-4 space-y-3">
+                                <div>
+                                    <p class="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{{ i18n "rating_label" }}</p>
+                                    <div class="flex items-center gap-1" role="radiogroup" aria-label="{{ i18n "rating_label" }}">
+                                        <template x-for="star in ratingOptions" :key="star">
+                                            <button type="button"
+                                                    @click="editRating = star"
+                                                    class="rounded-sm p-1 text-gray-300 transition hover:text-orange-400 focus:outline-none focus:ring-2 focus:ring-bmw-blue dark:text-gray-600"
+                                                    :class="editRating >= star ? 'text-orange-400' : ''"
+                                                    :aria-pressed="editRating >= star">
+                                                <svg class="h-5 w-5 fill-current" viewBox="0 0 20 20" aria-hidden="true">
+                                                    <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                                                </svg>
+                                            </button>
+                                        </template>
+                                        <span class="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400" x-text="editRating + '/5'"></span>
+                                    </div>
+                                </div>
+                                <textarea x-model="editContent"
+                                          maxlength="1000"
+                                          rows="4"
+                                          class="w-full resize-y border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-black p-3 text-sm text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none rounded-sm"></textarea>
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <span class="text-xs text-gray-400" x-text="editContent.length + '/1000'"></span>
+                                    <div class="flex items-center gap-2">
+                                        <button type="button"
+                                                @click="cancelEdit()"
+                                                class="border border-gray-300 dark:border-gray-600 px-4 py-2 text-xs font-medium uppercase tracking-wider text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+                                            {{ i18n "cancel" }}
+                                        </button>
+                                        <button type="button"
+                                                @click="saveEdit(comment)"
+                                                :disabled="savingId === comment.id"
+                                                class="bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider transition">
+                                            <span x-show="savingId !== comment.id">{{ i18n "save_changes" }}</span>
+                                            <span x-show="savingId === comment.id">{{ i18n "processing" }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div x-show="deleteConfirmId === comment.id" x-cloak x-transition class="mt-4 flex flex-wrap items-center justify-end gap-2 border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/20 px-4 py-3">
+                                <span class="text-xs text-red-700 dark:text-red-300">{{ i18n "comment_delete_confirm" }}</span>
+                                <button type="button"
+                                        @click="deleteComment(comment)"
+                                        :disabled="deletingId === comment.id"
+                                        class="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition">
+                                    {{ i18n "delete" }}
+                                </button>
+                                <button type="button"
+                                        @click="deleteConfirmId = ''"
+                                        class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-gray-600 dark:text-gray-300 transition">
+                                    {{ i18n "cancel" }}
+                                </button>
+                            </div>
+                        </article>
+                    </template>
+                </div>
+            </div>
+
+            <aside class="border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-bmw-surface p-5 rounded-sm h-fit">
+                <h3 class="text-sm font-bold uppercase tracking-widest text-gray-900 dark:text-white mb-4">{{ i18n "comment_write_title" }}</h3>
+
+                <template x-if="!loggedIn">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                        <p class="mb-4">{{ i18n "comment_login_required" }}</p>
+                        <a href="{{ "/login" | relLangURL }}" class="inline-flex items-center justify-center bg-bmw-blue hover:bg-blue-700 text-white px-5 py-3 text-xs font-bold uppercase tracking-wider transition">
+                            {{ i18n "login" }}
+                        </a>
+                    </div>
+                </template>
+
+                <template x-if="loggedIn && !canWrite">
+                    <p class="text-sm leading-6 text-gray-500 dark:text-gray-400">{{ i18n "comment_purchase_required" }}</p>
+                </template>
+
+                <form x-show="loggedIn && canWrite" x-cloak @submit.prevent="submitComment()" class="space-y-3">
+                    <div>
+                        <p class="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{{ i18n "rating_label" }}</p>
+                        <div class="flex items-center gap-1" role="radiogroup" aria-label="{{ i18n "rating_label" }}">
+                            <template x-for="star in ratingOptions" :key="star">
+                                <button type="button"
+                                        @click="rating = star"
+                                        class="rounded-sm p-1 text-gray-300 transition hover:text-orange-400 focus:outline-none focus:ring-2 focus:ring-bmw-blue dark:text-gray-600"
+                                        :class="rating >= star ? 'text-orange-400' : ''"
+                                        :aria-pressed="rating >= star">
+                                    <svg class="h-6 w-6 fill-current" viewBox="0 0 20 20" aria-hidden="true">
+                                        <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                                    </svg>
+                                </button>
+                            </template>
+                            <span class="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400" x-text="rating + '/5'"></span>
+                        </div>
+                    </div>
+                    <textarea x-model="content"
+                              maxlength="1000"
+                              rows="5"
+                              class="w-full resize-y border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-black p-3 text-sm text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none rounded-sm"
+                              placeholder="{{ i18n "comment_placeholder" }}"></textarea>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-xs text-gray-400" x-text="content.length + '/1000'"></span>
+                        <button type="submit"
+                                :disabled="submitting"
+                                class="bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-5 py-3 text-xs font-bold uppercase tracking-widest transition">
+                            <span x-show="!submitting">{{ i18n "comment_submit" }}</span>
+                            <span x-show="submitting">{{ i18n "processing" }}</span>
+                        </button>
+                    </div>
+                </form>
+            </aside>
+        </div>
+    </section>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/pocketbase/dist/pocketbase.umd.js"></script>
+<script>
+    function productInquiries(productId) {
+        return {
+            pb: null,
+            productId: productId,
+            inquiries: [],
+            total: 0,
+            loading: true,
+            loggedIn: false,
+            canWrite: false,
+            title: '',
+            content: '',
+            isSecret: false,
+            editTitle: '',
+            editContent: '',
+            editIsSecret: false,
+            editingId: '',
+            savingId: '',
+            deleteConfirmId: '',
+            deletingId: '',
+            submitting: false,
+            notice: '',
+            noticeType: 'info',
+            _noticeTimer: null,
+
+            init() {
+                this.pb = new PocketBase(window.location.origin);
+                this.loggedIn = this.pb.authStore.isValid;
+                this.loadInquiries();
+            },
+
+            async loadInquiries() {
+                this.loading = true;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/inquiries?offset=0&limit=20', {
+                        method: 'GET'
+                    });
+                    this.inquiries = data.items || [];
+                    this.total = data.total || this.inquiries.length;
+                    this.loggedIn = !!(data.viewer && data.viewer.loggedIn);
+                    this.canWrite = !!(data.viewer && data.viewer.canWrite);
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "inquiries_load_error" }}', 'error');
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            async submitInquiry() {
+                const title = (this.title || '').trim();
+                const content = (this.content || '').trim();
+                if (!title) {
+                    this.showNotice('{{ i18n "inquiry_title_error" }}', 'error');
+                    return;
+                }
+                if (!content) {
+                    this.showNotice('{{ i18n "inquiry_content_error" }}', 'error');
+                    return;
+                }
+                this.submitting = true;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/inquiries', {
+                        method: 'POST',
+                        body: { title: title, content: content, isSecret: !!this.isSecret }
+                    });
+                    if (data.item) {
+                        this.inquiries = [data.item, ...this.inquiries];
+                        this.total += 1;
+                    }
+                    this.title = '';
+                    this.content = '';
+                    this.isSecret = false;
+                    this.showNotice('{{ i18n "inquiry_created" }}', 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "inquiry_create_error" }}', 'error');
+                } finally {
+                    this.submitting = false;
+                }
+            },
+
+            startEdit(inquiry) {
+                this.editingId = inquiry.id;
+                this.editTitle = inquiry.title || '';
+                this.editContent = inquiry.content || '';
+                this.editIsSecret = !!inquiry.isSecret;
+                this.deleteConfirmId = '';
+            },
+
+            cancelEdit() {
+                this.editingId = '';
+                this.editTitle = '';
+                this.editContent = '';
+                this.editIsSecret = false;
+            },
+
+            async saveEdit(inquiry) {
+                const title = (this.editTitle || '').trim();
+                const content = (this.editContent || '').trim();
+                if (!title) {
+                    this.showNotice('{{ i18n "inquiry_title_error" }}', 'error');
+                    return;
+                }
+                if (!content) {
+                    this.showNotice('{{ i18n "inquiry_content_error" }}', 'error');
+                    return;
+                }
+                this.savingId = inquiry.id;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/inquiries/' + encodeURIComponent(inquiry.id), {
+                        method: 'PATCH',
+                        body: { title: title, content: content, isSecret: !!this.editIsSecret }
+                    });
+                    if (data.item) {
+                        this.inquiries = this.inquiries.map((item) => item.id === data.item.id ? data.item : item);
+                    }
+                    this.cancelEdit();
+                    this.showNotice('{{ i18n "inquiry_updated" }}', 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "inquiry_update_error" }}', 'error');
+                } finally {
+                    this.savingId = '';
+                }
+            },
+
+            async deleteInquiry(inquiry) {
+                this.deletingId = inquiry.id;
+                try {
+                    await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/inquiries/' + encodeURIComponent(inquiry.id), {
+                        method: 'DELETE'
+                    });
+                    this.inquiries = this.inquiries.filter((item) => item.id !== inquiry.id);
+                    this.total = Math.max(0, this.total - 1);
+                    this.deleteConfirmId = '';
+                    this.showNotice('{{ i18n "inquiry_deleted" }}', 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "inquiry_delete_error" }}', 'error');
+                } finally {
+                    this.deletingId = '';
+                }
+            },
+
+            inquiryStatusLabel(inquiry) {
+                if (inquiry.status === 'answered') return '{{ i18n "inquiry_status_answered" }}';
+                return '{{ i18n "inquiry_status_pending" }}';
+            },
+
+            inquiryStatusClass(inquiry) {
+                return inquiry.status === 'answered'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-orange-100 text-orange-700';
+            },
+
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+            },
+
+            showNotice(message, type) {
+                this.notice = message;
+                this.noticeType = type || 'info';
+                clearTimeout(this._noticeTimer);
+                this._noticeTimer = setTimeout(() => { this.notice = ''; }, 3500);
+            }
+        };
+    }
+
+    function productComments(productId, initialSummary) {
+        return {
+            pb: null,
+            productId: productId,
+            comments: [],
+            total: 0,
+            summary: initialSummary || { average: 0, count: 0 },
+            ratingOptions: [1, 2, 3, 4, 5],
+            loading: true,
+            loggedIn: false,
+            canWrite: false,
+            rating: 5,
+            content: '',
+            editRating: 5,
+            editContent: '',
+            editingId: '',
+            savingId: '',
+            deleteConfirmId: '',
+            deletingId: '',
+            submitting: false,
+            notice: '',
+            noticeType: 'info',
+            _noticeTimer: null,
+
+            init() {
+                this.pb = new PocketBase(window.location.origin);
+                this.loggedIn = this.pb.authStore.isValid;
+                this.loadComments();
+            },
+
+            async loadComments() {
+                this.loading = true;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/comments?offset=0&limit=20', {
+                        method: 'GET'
+                    });
+                    this.comments = data.items || [];
+                    this.total = data.total || this.comments.length;
+                    this.summary = this.normalizeSummary(data.summary);
+                    this.loggedIn = !!(data.viewer && data.viewer.loggedIn);
+                    this.canWrite = !!(data.viewer && data.viewer.canWrite);
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "comments_load_error" }}', 'error');
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            async submitComment() {
+                const body = (this.content || '').trim();
+                if (!body) {
+                    this.showNotice('{{ i18n "comment_empty_error" }}', 'error');
+                    return;
+                }
+                const ratingValue = Number(this.rating);
+                if (!this.isValidRating(ratingValue)) {
+                    this.showNotice('{{ i18n "rating_required_error" }}', 'error');
+                    return;
+                }
+                this.submitting = true;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/comments', {
+                        method: 'POST',
+                        body: { content: body, rating: ratingValue }
+                    });
+                    if (data.item) {
+                        this.comments = [data.item, ...this.comments];
+                        this.total += 1;
+                    }
+                    this.summary = this.normalizeSummary(data.summary);
+                    this.content = '';
+                    this.rating = 5;
+                    this.canWrite = false;
+                    this.showNotice('{{ i18n "comment_created" }}', 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "comment_create_error" }}', 'error');
+                } finally {
+                    this.submitting = false;
+                }
+            },
+
+            startEdit(comment) {
+                this.editingId = comment.id;
+                this.editContent = comment.content || '';
+                this.editRating = Number(comment.rating) || 5;
+                this.deleteConfirmId = '';
+            },
+
+            cancelEdit() {
+                this.editingId = '';
+                this.editContent = '';
+                this.editRating = 5;
+            },
+
+            async saveEdit(comment) {
+                const body = (this.editContent || '').trim();
+                if (!body) {
+                    this.showNotice('{{ i18n "comment_empty_error" }}', 'error');
+                    return;
+                }
+                const ratingValue = Number(this.editRating);
+                if (!this.isValidRating(ratingValue)) {
+                    this.showNotice('{{ i18n "rating_required_error" }}', 'error');
+                    return;
+                }
+                this.savingId = comment.id;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/comments/' + encodeURIComponent(comment.id), {
+                        method: 'PATCH',
+                        body: { content: body, rating: ratingValue }
+                    });
+                    if (data.item) {
+                        this.comments = this.comments.map((item) => item.id === data.item.id ? data.item : item);
+                    }
+                    this.summary = this.normalizeSummary(data.summary);
+                    this.cancelEdit();
+                    this.showNotice('{{ i18n "comment_updated" }}', 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "comment_update_error" }}', 'error');
+                } finally {
+                    this.savingId = '';
+                }
+            },
+
+            async deleteComment(comment) {
+                this.deletingId = comment.id;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/comments/' + encodeURIComponent(comment.id), {
+                        method: 'DELETE'
+                    });
+                    this.comments = this.comments.filter((item) => item.id !== comment.id);
+                    this.total = Math.max(0, this.total - 1);
+                    this.summary = this.normalizeSummary(data.summary);
+                    if (comment.canDelete) {
+                        this.canWrite = true;
+                    }
+                    this.deleteConfirmId = '';
+                    this.showNotice('{{ i18n "comment_deleted" }}', 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "comment_delete_error" }}', 'error');
+                } finally {
+                    this.deletingId = '';
+                }
+            },
+
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+            },
+
+            normalizeSummary(summary) {
+                return {
+                    average: Number(summary && summary.average) || 0,
+                    count: Number(summary && summary.count) || 0
+                };
+            },
+
+            formatRating(value) {
+                return (Number(value) || 0).toFixed(1);
+            },
+
+            ratingAria(value) {
+                return '{{ i18n "rating_average_label" }} ' + this.formatRating(value) + '/5';
+            },
+
+            isValidRating(value) {
+                return Number.isInteger(value) && value >= 1 && value <= 5;
+            },
+
+            showNotice(message, type) {
+                this.notice = message;
+                this.noticeType = type || 'info';
+                clearTimeout(this._noticeTimer);
+                this._noticeTimer = setTimeout(() => { this.notice = ''; }, 3500);
+            }
+        };
+    }
+</script>
 {{ end }}
 

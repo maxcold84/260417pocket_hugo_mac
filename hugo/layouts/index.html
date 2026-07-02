@@ -78,23 +78,60 @@
     {{/* Fetch Featured Products from PocketBase */}}
     {{ $prodUrl := printf "%sapi/collections/products/records?sort=sort_order&limit=4&t=%d" $pbBase now.Unix }}
     {{ $data := dict "items" slice }}
+    {{ $useMarkdownFallback := false }}
     {{ with try (resources.GetRemote $prodUrl) }}
         {{ with .Err }}
-            <!-- Error connecting to PocketBase -->
+            {{ $useMarkdownFallback = true }}
         {{ else }}
             {{ $data = .Value | transform.Unmarshal }}
         {{ end }}
     {{ end }}
+    {{ $productItems := $data.items }}
+    {{ if $useMarkdownFallback }}
+        {{ $productItems = slice }}
+        {{ range first 4 (where site.RegularPages "Section" "products").ByWeight }}
+            {{ $productItems = $productItems | append (dict
+                "id" (.Params.id | default .File.BaseFileName)
+                "name" .Title
+                "slug" .File.BaseFileName
+                "price" (.Params.price | default 0)
+                "discount_price" (.Params.discount_price | default 0)
+                "stock" (.Params.stock | default 1)
+                "rating_average" (.Params.rating_average | default 0)
+                "rating_count" (.Params.rating_count | default 0)
+                "images" (.Params.images | default (slice))
+                "category" (.Params.category | default "")
+            ) }}
+        {{ end }}
+    {{ end }}
 
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 lg:gap-10">
-        {{ range $data.items }}
+        {{ range $productItems }}
+            {{ $product := . }}
+            {{ $stock := 1 }}
+            {{ if isset $product "stock" }}{{ $stock = int $product.stock }}{{ end }}
+            {{ $price := $product.price | default 0 }}
+            {{ $discountPrice := $product.discount_price | default 0 }}
+            {{ $ratingAverage := $product.rating_average | default 0 }}
+            {{ $ratingCount := int ($product.rating_count | default 0) }}
+            {{ $imageSrc := "" }}
+            {{ with $product.images }}
+                {{ if gt (len .) 0 }}
+                    {{ $firstImage := index . 0 }}
+                    {{ if or (hasPrefix $firstImage "/") (hasPrefix $firstImage "http") }}
+                        {{ $imageSrc = $firstImage }}
+                    {{ else }}
+                        {{ $imageSrc = printf "/api/files/products/%s/%s" $product.id $firstImage }}
+                    {{ end }}
+                {{ end }}
+            {{ end }}
             <div class="flex flex-col group bg-white dark:bg-bmw-surface border border-gray-100 dark:border-bmw-darkBorder/50 rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
                 
                 <!-- Product Image Area -->
                 <div class="aspect-[4/5] bg-gray-50 dark:bg-bmw-dark flex items-center justify-center relative overflow-hidden">
-                    <a href="{{ printf "/products/%s/" .slug | relLangURL }}" class="absolute inset-0 z-10"></a>
-                    {{ if and .images (gt (len .images) 0) }}
-                        <img src="/api/files/products/{{ .id }}/{{ index .images 0 }}" alt="{{ .name }}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+                    <a href="{{ printf "/products/%s/" $product.slug | relLangURL }}" class="absolute inset-0 z-10"></a>
+                    {{ if $imageSrc }}
+                        <img src="{{ $imageSrc }}" alt="{{ $product.name }}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
                     {{ else }}
                         <div class="w-full h-full bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
                             <span class="text-gray-400 dark:text-gray-600 tracking-widest uppercase text-[10px] md:text-xs font-semibold">{{ i18n "no_image" }}</span>
@@ -102,15 +139,15 @@
                     {{ end }}
                     
                     <button @click="$dispatch('add-to-cart', {
-                                id: {{ .id | jsonify }}, 
-                                name: {{ .name | jsonify }}, 
-                                price: {{ if and .discount_price (gt .discount_price 0) }}{{ .discount_price }}{{ else }}{{ .price }}{{ end }}, 
-                                image: {{ if and .images (gt (len .images) 0) }}{{ printf "/api/files/products/%s/%s" .id (index .images 0) | jsonify }}{{ else }}null{{ end }},
+                                id: {{ $product.id | jsonify }},
+                                name: {{ $product.name | jsonify }},
+                                price: {{ if gt $discountPrice 0 }}{{ $discountPrice }}{{ else }}{{ $price }}{{ end }},
+                                image: {{ if $imageSrc }}{{ $imageSrc | jsonify }}{{ else }}null{{ end }},
                                 quantity: 1
                             })" 
                             class="absolute bottom-4 left-1/2 -translate-x-1/2 w-[85%] bg-white/95 dark:bg-bmw-surface/95 backdrop-blur text-gray-900 dark:text-white py-3 rounded-xl text-xs font-bold uppercase tracking-widest opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 z-20 hover:bg-bmw-blue hover:text-white dark:hover:bg-bmw-blue dark:hover:text-white shadow-[0_8px_16px_rgba(0,0,0,0.1)] hidden md:block"
-                            {{ if le .stock 0 }}disabled{{ end }}>
-                        {{ if gt .stock 0 }}
+                            {{ if le $stock 0 }}disabled{{ end }}>
+                        {{ if gt $stock 0 }}
                             {{ i18n "add_to_cart" }}
                         {{ else }}
                             {{ i18n "sold_out" }}
@@ -119,9 +156,9 @@
 
                     <!-- Status Badges -->
                     <div class="absolute top-3 left-3 flex flex-col gap-2 z-20">
-                        {{ if le .stock 0 }}
+                        {{ if le $stock 0 }}
                             <span class="bg-red-500 text-white text-[10px] font-bold px-2 py-1 uppercase rounded tracking-wider shadow-sm">{{ i18n "sold_out" }}</span>
-                        {{ else if eq .stock 1 }}
+                        {{ else if eq $stock 1 }}
                             <span class="bg-orange-500 text-white text-[10px] font-bold px-2 py-1 uppercase rounded tracking-wider shadow-sm">{{ i18n "last_item" }}</span>
                         {{ end }}
                     </div>
@@ -129,30 +166,43 @@
                 
                 <!-- Product Details Area -->
                 <div class="p-4 md:p-6 flex flex-col flex-grow relative bg-white dark:bg-bmw-surface">
-                    <a href="{{ printf "/products/%s/" .slug | relLangURL }}" class="group-hover:text-bmw-blue transition-colors mb-1 block z-10 relative">
-                        <h3 class="text-sm md:text-base font-medium line-clamp-2 text-gray-900 dark:text-gray-100 leading-snug">{{ .name }}</h3>
+                    <a href="{{ printf "/products/%s/" $product.slug | relLangURL }}" class="group-hover:text-bmw-blue transition-colors mb-1 block z-10 relative">
+                        <h3 class="text-sm md:text-base font-medium line-clamp-2 text-gray-900 dark:text-gray-100 leading-snug">{{ $product.name }}</h3>
                     </a>
+                    <div class="mt-2 flex min-h-[18px] items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        {{ if gt $ratingCount 0 }}
+                            <span class="inline-flex items-center gap-0.5 text-orange-400" aria-label="{{ i18n "rating_average_label" }} {{ printf "%.1f" (float $ratingAverage) }}">
+                                <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20" aria-hidden="true">
+                                    <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                                </svg>
+                                <span class="font-medium text-gray-700 dark:text-gray-200">{{ printf "%.1f" (float $ratingAverage) }}</span>
+                            </span>
+                            <span>({{ $ratingCount }})</span>
+                        {{ else }}
+                            <span class="text-gray-400 dark:text-gray-500">{{ i18n "rating_empty_short" }}</span>
+                        {{ end }}
+                    </div>
                     <div class="mt-auto pt-3 md:pt-4 flex items-end justify-between">
                         <div class="text-base md:text-lg font-bold text-gray-900 dark:text-white tracking-tight">
-                            {{ if and .discount_price (gt .discount_price 0) }}
-                                <span class="line-through text-gray-400 text-sm font-normal mr-1">₩{{ lang.FormatNumberCustom 0 .price }}</span>
-                                <span class="text-red-500">₩{{ lang.FormatNumberCustom 0 .discount_price }}</span>
+                            {{ if gt $discountPrice 0 }}
+                                <span class="line-through text-gray-400 text-sm font-normal mr-1">₩{{ lang.FormatNumberCustom 0 $price }}</span>
+                                <span class="text-red-500">₩{{ lang.FormatNumberCustom 0 $discountPrice }}</span>
                             {{ else }}
-                                ₩{{ lang.FormatNumberCustom 0 .price }}
+                                ₩{{ lang.FormatNumberCustom 0 $price }}
                             {{ end }}
                         </div>
                         
                         <!-- Mobile Add to Cart Icon Button -->
                         <button @click="$dispatch('add-to-cart', {
-                                id: {{ .id | jsonify }}, 
-                                name: {{ .name | jsonify }}, 
-                                price: {{ if and .discount_price (gt .discount_price 0) }}{{ .discount_price }}{{ else }}{{ .price }}{{ end }}, 
-                                image: {{ if and .images (gt (len .images) 0) }}{{ printf "/api/files/products/%s/%s" .id (index .images 0) | jsonify }}{{ else }}null{{ end }},
+                                id: {{ $product.id | jsonify }},
+                                name: {{ $product.name | jsonify }},
+                                price: {{ if gt $discountPrice 0 }}{{ $discountPrice }}{{ else }}{{ $price }}{{ end }},
+                                image: {{ if $imageSrc }}{{ $imageSrc | jsonify }}{{ else }}null{{ end }},
                                 quantity: 1
                             })"
                             class="md:hidden w-10 h-10 rounded-full bg-bmw-dark text-white dark:bg-white dark:text-bmw-dark flex items-center justify-center shadow-md active:scale-95 transition-transform z-20"
-                            {{ if le .stock 0 }}disabled{{ end }}>
-                            {{ if gt .stock 0 }}
+                            {{ if le $stock 0 }}disabled{{ end }}>
+                            {{ if gt $stock 0 }}
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                             {{ else }}
                                 <svg class="w-5 h-5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>

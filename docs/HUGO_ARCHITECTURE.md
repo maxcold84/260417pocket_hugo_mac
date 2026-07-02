@@ -3,6 +3,7 @@
 ## Architecture Rules
 - Everything runs inside a single PocketBase binary — no separate servers
 - Hugo builds static output into `pb_public/` directory
+- In Linux service deployments, start PocketBase with explicit `--publicDir=pb_public` plus matching `--hooksDir`, `--dir`, and `--migrationsDir` so it serves this repository's generated site regardless of the service working directory or binary location.
 - All dynamic routes live in `pb_hooks/*.pb.js` using `routerAdd()`
 - HTML templates are JS template literals inside `pb_hooks/templates/*.js`
 
@@ -12,6 +13,8 @@ pb_hooks/
   main.pb.js            ← Hook loader (requires route files)
   routes/
     admin.pb.js         ← CMS rebuild/settings routes, guarded CMS order update/status routes, admin cancel approval (POST /api/cms/orders/{id}/approve-cancel)
+    comments.pb.js      ← Product comment API routes
+    inquiries.pb.js     ← Product inquiry API routes and CMS inquiry answer/status/delete routes
     main.pb.js          ← User-facing routes: order prep, cancel request, cancel withdrawal
   routes.pb.js          ← Dynamic route registration (checkout, orders, order-prep API)
   portone.pb.js         ← PortOne webhook + payment verification routes
@@ -20,6 +23,8 @@ pb_hooks/
       dashboard.html    ← CMS admin dashboard entry point
       order-detail.html ← Order detail view
   utils/
+    comments.js         ← Comment validation, purchase eligibility, response shaping
+    inquiries.js        ← Inquiry validation, secret masking, response shaping
     render.js           ← HTML layout rendering utility
 pb_data/                ← SQLite DB + uploaded files (gitignored)
 pb_migrations/          ← Schema and seed data migrations
@@ -28,7 +33,7 @@ hugo/                   ← Hugo source (content, themes, config)
     .gitkeep            ← Keeps the generated-content directory present in deployments
   layouts/
     index.html          ← Homepage catalog (resources.GetRemote from PocketBase REST API)
-    products/single.html ← Product detail page (Hugo image optimization via GetRemote + Process)
+    products/single.html ← Product detail page (static product content with dynamic inquiry and comment islands)
     cms/list.html       ← CMS admin dashboard (Alpine.js + PocketBase JS SDK, superuser-only)
     login/single.html   ← Login/register page (Alpine.js + PocketBase JS SDK)
     my-orders/list.html ← User order history (Alpine.js + PocketBase SDK, client-side dynamic)
@@ -48,7 +53,7 @@ hugo/                   ← Hugo source (content, themes, config)
     - The CMS admin dashboard (`/cms/`) allows superusers to manage products and trigger a full site rebuild via `POST /api/cms/rebuild`.
     - The rebuild route (`pb_hooks/routes/admin.pb.js`) iterates all products **sorted by `sort_order`**, generates `hugo/content/products/{slug}.md` files with frontmatter (title, price, weight, image URL), then runs `hugo --ignoreCache` to compile fresh static pages into `pb_public/`.
     - The rebuild route calls `cmsUtil.prepareHugoContentTree()` before cleanup/write operations. This recreates `hugo/content/products/` with `$os.mkdirAll()` if the directory was omitted from deployment or manually deleted.
-    - The rebuild route delegates product Markdown generation to `cmsUtil.syncProductsToMarkdown()`. This utility writes empty `category` frontmatter for uncategorized products and clears stale `products.category` values when the referenced category record no longer exists.
+    - The rebuild route delegates product Markdown generation to `cmsUtil.syncProductsToMarkdown()`. This utility writes empty `category` frontmatter for uncategorized products, writes `rating_average`/`rating_count` frontmatter for static fallback rendering, and clears stale `products.category` values when the referenced category record no longer exists.
     - Before syncing categories from TOML, the rebuild route calls `cmsUtil.pruneCategoryTomlToDb()`. Any `[[params.categories]]` block whose `slug` no longer exists in the `categories` collection is removed from `hugo.toml`, preventing deleted PocketBase CMS categories from being recreated during sync build.
     - **Recovery:** If product Markdown sync fails because `hugo/content/products/` is missing, deploy the latest hooks and click **동기화 및 사이트 빌드** again. The same sync route now repairs the missing directory before writing `.md` files.
     - **Rule:** Always pass `--ignoreCache` to the Hugo command when rebuilding programmatically, to ensure `resources.GetRemote` (used for product images) fetches fresh data instead of reusing stale cached responses.
@@ -83,8 +88,20 @@ hugo/                   ← Hugo source (content, themes, config)
     - The order list fetches pages without `sort: '-created'` and sorts the merged array client-side by `created` descending to avoid PocketBase v0.36 system-field sort errors.
     - Status dropdown options are derived from the current status so the UI does not offer impossible payment-state transitions.
     - List-page changes call `POST /api/cms/orders/{id}/status`; detail-page edits call `POST /api/cms/orders/{id}/update`. Both routes enforce the same non-payment transition rules.
+11. **Product Comments Stay Dynamic**:
+    - Product comments are stored in `product_comments` and served through `/api/products/{productId}/comments` custom routes. The route key may be either the DB record id or the product slug.
+    - Product ratings are stored as `product_comments.rating`; public rating aggregates are stored on `products.rating_average` and `products.rating_count` and recalculated after create/edit/delete or CMS hide/restore/delete.
+    - Comment creation, edits, hides, restores, and deletes do not write Hugo Markdown and do not require a rebuild for the product detail dynamic island. Homepage/catalog cards read the aggregate fields from PocketBase during Hugo builds, with Markdown frontmatter as fallback.
+    - The product detail page sends the Hugo file slug to the comments route, then loads comments and rating summary client-side after the static page is served and updates Alpine state after writes so new comments and average ratings appear immediately.
+    - The CMS comments tab reads `product_comments` as a superuser and sorts the full client-side result by `created` string.
     - Refund approval is not a normal status edit. `refunded` can only be written by `POST /api/cms/orders/{id}/approve-cancel` after the PortOne cancel API succeeds.
-11. **Hugo HTML Minifier and Spacing Collapse (Whitespace bug)**:
+12. **Product Inquiries Stay Dynamic**:
+    - Product inquiries are stored in `product_inquiries` and served through `/api/products/{productId}/inquiries` custom routes. The route key may be either the DB record id or the product slug.
+    - Inquiry creation, edits, deletes, answers, hides, restores, and deletes do not write Hugo Markdown and do not require a rebuild for the product detail dynamic island.
+    - The product detail page sends the Hugo file slug to the inquiry route, then loads inquiries client-side after the static page is served and updates Alpine state after writes.
+    - Secret inquiries are masked in user-facing API responses for everyone except the author. The CMS inquiry tab can see full content as superuser and manages answers via guarded custom routes.
+    - The CMS inquiries tab reads all inquiry records as a superuser, sorts the full client-side result by `created` string, and sends answer/status/delete mutations through `pb.send()`.
+13. **Hugo HTML Minifier and Spacing Collapse (Whitespace bug)**:
     - Hugo has `minifyOutput = true` under `[minify]` in `hugo.toml` which aggressively minifies HTML outputs and collapses whitespace adjacent to inline/block elements (like `<br>`).
     - If you attempt to split a multi-word title to conditionally inject a `<br class="md:hidden" />` for mobile viewports, the minifier will strip the space on desktop viewports where `<br>` is hidden via CSS, making "소중한 시간을 닮다" render as "소중한 시간을닮다" (no space at all).
     - **Rule:** Never place a plain space immediately adjacent to a responsive `<br>` tag inside standard loops. Instead, wrap the desktop-only space in an inline element with non-breaking whitespace: `<br class="md:hidden" /><span class="hidden md:inline">&nbsp;</span>`. This prevents the minifier from stripping the space on desktop and avoids rendering a leading space on a new line on mobile.

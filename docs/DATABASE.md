@@ -2,10 +2,12 @@
 
 ## PocketBase Collections (DB Schema)
 - `users` (auth collection): email, name, nickname, address, phone
-- `products`: name, slug, description, price, images (file, max 5), stock, sort_order, category (optional relation→categories) — **listRule/viewRule: public**
+- `products`: name, slug, description, price, images (file, max 5), stock, sort_order, category (optional relation→categories), rating_average, rating_count — **listRule/viewRule: public**
 - `categories`: name, slug, sort_order — **listRule/viewRule: public**
 - `orders`: user (relation→users), status (pending/paid/cancel_requested/cancelled/refunded/shipping/completed), total_amount, portone_tx_id, guest_info (JSON: guest contact, `email_lookup`, `phone_lookup`, password hash, cleanup nonce hash), tracking_number, courier_name, created
 - `order_items`: order (relation→orders), product (relation→products), quantity, unit_price
+- `product_comments`: product (relation→products, required, cascade delete), user (relation→users, required), author_name (text snapshot), rating (number, 1-5 enforced by custom routes), content (text), status (`published`/`hidden`)
+- `product_inquiries`: product (relation→products, required, cascade delete), user (relation→users, required), author_name (text snapshot), title, content, is_secret, status (`pending`/`answered`/`hidden`), answer, answered_at, answered_by
 
 > **Order Status Lifecycle:**
 > `pending` → `paid` → `cancel_requested` (user request) → `refunded` (admin approval via PortOne) or back to `paid` (user withdrawal/admin rejection)
@@ -24,6 +26,8 @@
         - `orders`: `@request.auth.id != "" && user = @request.auth.id`
         - `order_items`: `@request.auth.id != "" && order.user = @request.auth.id`
 - **Guard Requirement**: Always include `@request.auth.id != ""` in rules for collections that have relation fields with empty values (like `user = ""`), otherwise unauthenticated requests might match empty fields.
+- **Product Comments & Ratings**: `product_comments` collection API rules remain superuser-only. Public reads and member writes use custom routes only. `POST/PATCH/DELETE` routes validate logged-in `users` auth, purchased-product eligibility for create, one review per user/product, ownership for edit/delete, 1-5 rating values, and plain-text content length. Public product rating aggregates are stored on `products.rating_average` and `products.rating_count`, recalculated from published comments with ratings.
+- **Product Inquiries**: `product_inquiries` collection API rules remain superuser-only. Public reads and member writes use custom routes only. Logged-in `users` can create inquiries without purchase history, edit/delete only their own `pending` inquiries, and cannot modify answered or hidden inquiries. Secret inquiries are masked for everyone except the author and superusers; hidden inquiries are omitted from the product page API.
 
 ## Category Deletion Consistency
 - Deleting a category through the custom CMS route (`POST /api/cms/categories/delete`) removes the matching `hugo.toml` category block, clears `products.category`, regenerates product Markdown, and rebuilds Hugo.

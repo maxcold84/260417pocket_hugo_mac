@@ -91,12 +91,14 @@ This document records the security improvements required before this PocketBase 
 - Do not use the PocketBase order id as the guest login credential.
 - Do not use phone last-four digits as a default password.
 - Store only a server-side hash/HMAC of the guest password in `guest_info`.
+- For legacy guest orders that still have `guest_info.password`, upgrade to `guest_info.password_hash` and remove the plaintext password after successful exact identifier + password verification.
 - Return generic failure messages so attackers cannot distinguish "order exists" from "bad password".
 
 **Acceptance check:**
 - A lookup with only phone last-four digits fails.
 - A lookup with only order id fails.
 - A lookup with exact guest phone or email plus valid guest password succeeds.
+- A legacy plaintext guest password lookup succeeds once, then persists `password_hash` without `password`.
 
 ## P2 Hardening
 
@@ -135,6 +137,17 @@ Every new `routerAdd()` should update this table.
 | `POST /api/guest/order-lookup` | exact temporary id (guest phone/email) + guest password | no | no | generic failures; no order-id login; no phone last-four fallback |
 | `POST /api/guest/orders/{id}/request-cancel` | exact temporary id (guest phone/email) + guest password | yes | no | guest `paid` to `cancel_requested` |
 | `POST /api/guest/orders/{id}/withdraw-cancel` | exact temporary id (guest phone/email) + guest password | yes | no | guest `cancel_requested` to `paid` |
+| `GET /api/products/{productId}/comments` | optional user token | no | no | `{productId}` accepts id or slug; returns published comments only; hides internal `user` relation |
+| `POST /api/products/{productId}/comments` | user token | yes | no | `{productId}` accepts id or slug; requires prior `paid`, `shipping`, or `completed` order for the product |
+| `PATCH /api/products/{productId}/comments/{commentId}` | author user token | yes | no | `{productId}` accepts id or slug; validates product relation and author ownership |
+| `DELETE /api/products/{productId}/comments/{commentId}` | author user token | yes | no | `{productId}` accepts id or slug; validates product relation and author ownership |
+| `GET /api/products/{productId}/inquiries` | optional user token | no | no | `{productId}` accepts id or slug; returns non-hidden inquiries; masks secret title/content/answer/author for non-authors |
+| `POST /api/products/{productId}/inquiries` | user token | yes | no | logged-in member inquiry create; no purchase requirement |
+| `PATCH /api/products/{productId}/inquiries/{inquiryId}` | author user token | yes | no | validates product relation, author ownership, and `pending` status |
+| `DELETE /api/products/{productId}/inquiries/{inquiryId}` | author user token | yes | no | validates product relation, author ownership, and `pending` status |
+| `POST /api/cms/inquiries/{id}/answer` | superuser | yes | no | writes answer metadata and sets `answered` |
+| `POST /api/cms/inquiries/{id}/status` | superuser | yes | no | hides or restores inquiry; restore derives `pending`/`answered` from answer presence |
+| `POST /api/cms/inquiries/{id}/delete` | superuser | yes | no | deletes inquiry from CMS |
 | `POST /api/cms/rebuild` | superuser | filesystem + build | Hugo command | admin only |
 | `GET /api/cms/settings` | superuser | no | no | admin only |
 | `POST /api/cms/settings/update` | superuser | filesystem + build | Hugo command | admin only |

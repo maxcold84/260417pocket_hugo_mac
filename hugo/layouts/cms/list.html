@@ -561,6 +561,309 @@
                         </div>
                     </div>
                 </template>
+                    <template x-if="currentTab === 'comments'">
+                        <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden">
+                            <div class="p-4 border-b border-gray-200 bg-gray-50 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                <div class="relative w-full lg:max-w-md">
+                                    <input type="text" x-model="commentSearchQuery" placeholder="상품명, 작성자, 댓글 검색" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition text-sm">
+                                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                    <select x-model="commentStatusFilter" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue">
+                                        <option value="">전체 상태</option>
+                                        <option value="published">공개</option>
+                                        <option value="hidden">숨김</option>
+                                    </select>
+                                    <button type="button" @click="fetchComments()" class="inline-flex min-h-10 items-center justify-center rounded bg-gray-900 px-4 py-2 text-xs font-bold uppercase text-white transition hover:bg-gray-700">
+                                        새로고침
+                                    </button>
+                                </div>
+                            </div>
+                            <table class="hidden min-w-full divide-y divide-gray-200 lg:table">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작성자</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">평점</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">댓글</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "ui_date" }}</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ i18n "actions" }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-if="commentsLoading">
+                                        <tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">댓글을 불러오는 중입니다.</td></tr>
+                                    </template>
+                                    <template x-for="comment in filteredComments()" :key="comment.id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold" :class="commentStatusClass(comment.status)" x-text="commentStatusLabel(comment.status)"></span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-900">
+                                                <div class="max-w-[180px] truncate font-medium" x-text="commentProductName(comment)"></div>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-500">
+                                                <div class="max-w-[180px] truncate" x-text="commentAuthor(comment)"></div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">
+                                                <span class="inline-flex items-center gap-1 text-orange-500">
+                                                    <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path></svg>
+                                                    <span x-text="commentRatingLabel(comment)"></span>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-700">
+                                                <p class="max-w-xl whitespace-pre-line break-words" x-text="comment.content"></p>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(comment.created)"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <template x-if="comment.status === 'published'">
+                                                        <button type="button" @click="setCommentStatus(comment, 'hidden')" class="rounded bg-gray-800 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-gray-700">숨김</button>
+                                                    </template>
+                                                    <template x-if="comment.status === 'hidden'">
+                                                        <button type="button" @click="setCommentStatus(comment, 'published')" class="rounded bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700">복구</button>
+                                                    </template>
+                                                    <template x-if="commentDeleteConfirmId !== comment.id">
+                                                        <button type="button" @click="commentDeleteConfirmId = comment.id" class="text-xs font-medium text-red-600 hover:text-red-900">삭제</button>
+                                                    </template>
+                                                    <template x-if="commentDeleteConfirmId === comment.id">
+                                                        <div class="inline-flex items-center gap-1.5 rounded border border-red-200 bg-red-50 p-1">
+                                                            <span class="text-[10px] font-medium text-red-700">삭제?</span>
+                                                            <button type="button" @click="deleteComment(comment.id)" class="rounded bg-red-600 px-1.5 py-0.5 text-[9px] text-white shadow hover:bg-red-700">확인</button>
+                                                            <button type="button" @click="commentDeleteConfirmId = ''" class="rounded bg-gray-200 px-1.5 py-0.5 text-[9px] text-gray-700 hover:bg-gray-300">취소</button>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template x-if="!commentsLoading && filteredComments().length === 0">
+                                        <tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">표시할 댓글이 없습니다.</td></tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                            <div class="divide-y divide-gray-200 lg:hidden">
+                                <template x-if="commentsLoading">
+                                    <div class="px-4 py-8 text-center text-sm text-gray-500">댓글을 불러오는 중입니다.</div>
+                                </template>
+                                <template x-for="comment in filteredComments()" :key="comment.id">
+                                    <article class="bg-white p-4">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-semibold text-gray-900" x-text="commentProductName(comment)"></p>
+                                                <p class="mt-1 truncate text-xs text-gray-500" x-text="commentAuthor(comment)"></p>
+                                                <p class="mt-1 inline-flex items-center gap-1 text-xs font-medium text-orange-500">
+                                                    <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path></svg>
+                                                    <span x-text="commentRatingLabel(comment)"></span>
+                                                </p>
+                                            </div>
+                                            <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold" :class="commentStatusClass(comment.status)" x-text="commentStatusLabel(comment.status)"></span>
+                                        </div>
+                                        <p class="mt-3 whitespace-pre-line break-words text-sm leading-6 text-gray-700" x-text="comment.content"></p>
+                                        <p class="mt-3 text-xs text-gray-500" x-text="formatDate(comment.created)"></p>
+                                        <div class="mt-4 flex flex-wrap gap-2">
+                                            <template x-if="comment.status === 'published'">
+                                                <button type="button" @click="setCommentStatus(comment, 'hidden')" class="inline-flex min-h-10 flex-1 items-center justify-center rounded bg-gray-800 px-3 py-2 text-xs font-bold text-white transition hover:bg-gray-700">숨김</button>
+                                            </template>
+                                            <template x-if="comment.status === 'hidden'">
+                                                <button type="button" @click="setCommentStatus(comment, 'published')" class="inline-flex min-h-10 flex-1 items-center justify-center rounded bg-green-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-green-700">복구</button>
+                                            </template>
+                                            <template x-if="commentDeleteConfirmId !== comment.id">
+                                                <button type="button" @click="commentDeleteConfirmId = comment.id" class="inline-flex min-h-10 items-center justify-center rounded border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600">삭제</button>
+                                            </template>
+                                        </div>
+                                        <template x-if="commentDeleteConfirmId === comment.id">
+                                            <div class="mt-3 flex items-center justify-between gap-2 rounded border border-red-200 bg-white p-2">
+                                                <span class="text-xs font-medium text-red-700">삭제할까요?</span>
+                                                <div class="flex gap-2">
+                                                    <button type="button" @click="deleteComment(comment.id)" class="rounded bg-red-600 px-3 py-1.5 text-xs font-bold text-white">확인</button>
+                                                    <button type="button" @click="commentDeleteConfirmId = ''" class="rounded bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700">취소</button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </article>
+                                </template>
+                                <template x-if="!commentsLoading && filteredComments().length === 0">
+                                    <div class="px-4 py-8 text-center text-sm text-gray-500">표시할 댓글이 없습니다.</div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="currentTab === 'inquiries'">
+                        <div class="overflow-hidden rounded border border-gray-200 bg-white shadow-sm">
+                            <div class="flex flex-col gap-3 border-b border-gray-200 bg-gray-50 p-4 lg:flex-row lg:items-center lg:justify-between">
+                                <div class="relative w-full lg:max-w-md">
+                                    <input type="text" x-model="inquirySearchQuery" placeholder="상품명, 작성자, 제목, 문의 검색" class="w-full rounded border border-gray-300 py-2 pl-10 pr-4 text-sm outline-none transition focus:border-bmw-blue focus:ring-2 focus:ring-bmw-blue">
+                                    <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                    <select x-model="inquiryStatusFilter" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-bmw-blue focus:ring-2 focus:ring-bmw-blue">
+                                        <option value="">전체 상태</option>
+                                        <option value="pending">답변대기</option>
+                                        <option value="answered">답변완료</option>
+                                        <option value="hidden">숨김</option>
+                                    </select>
+                                    <select x-model="inquirySecretFilter" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-bmw-blue focus:ring-2 focus:ring-bmw-blue">
+                                        <option value="">전체 공개</option>
+                                        <option value="secret">비밀글</option>
+                                        <option value="public">공개글</option>
+                                    </select>
+                                    <button type="button" @click="fetchInquiries()" class="inline-flex min-h-10 items-center justify-center rounded bg-gray-900 px-4 py-2 text-xs font-bold uppercase text-white transition hover:bg-gray-700">
+                                        새로고침
+                                    </button>
+                                </div>
+                            </div>
+                            <table class="hidden min-w-full divide-y divide-gray-200 lg:table">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">상태</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">공개</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">상품</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">작성자</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">문의</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">답변</th>
+                                        <th class="min-w-28 whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ i18n "ui_date" }}</th>
+                                        <th class="min-w-28 whitespace-nowrap px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ i18n "actions" }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white">
+                                    <template x-if="inquiriesLoading">
+                                        <tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">문의를 불러오는 중입니다.</td></tr>
+                                    </template>
+                                    <template x-for="inquiry in filteredInquiries()" :key="inquiry.id">
+                                        <tr class="align-top hover:bg-gray-50">
+                                            <td class="px-4 py-4">
+                                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold" :class="inquiryStatusClass(inquiry.status)" x-text="inquiryStatusLabel(inquiry.status)"></span>
+                                            </td>
+                                            <td class="px-4 py-4">
+                                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold" :class="inquirySecretClass(inquiry)" x-text="inquirySecretLabel(inquiry)"></span>
+                                            </td>
+                                            <td class="px-4 py-4 text-sm text-gray-900">
+                                                <div class="max-w-[150px] truncate font-medium" x-text="inquiryProductName(inquiry)"></div>
+                                            </td>
+                                            <td class="px-4 py-4 text-sm text-gray-500">
+                                                <div class="max-w-[150px] truncate" x-text="inquiryAuthor(inquiry)"></div>
+                                            </td>
+                                            <td class="px-4 py-4 text-sm text-gray-700">
+                                                <p class="max-w-md font-medium text-gray-900 [overflow-wrap:anywhere] [word-break:keep-all]" x-text="inquiry.title"></p>
+                                                <p class="mt-2 max-w-md whitespace-pre-line text-gray-600 [overflow-wrap:anywhere] [word-break:keep-all]" x-text="inquiry.content"></p>
+                                            </td>
+                                            <td class="px-4 py-4 text-sm text-gray-700">
+                                                <template x-if="answerEditId !== inquiry.id">
+                                                    <div>
+                                                        <p class="max-w-md whitespace-pre-line [overflow-wrap:anywhere] [word-break:keep-all]" :class="inquiry.answer ? 'text-gray-700' : 'text-gray-400'" x-text="inquiry.answer || '답변 없음'"></p>
+                                                        <p class="mt-2 text-xs text-gray-400" x-show="inquiry.answered_at" x-text="formatDate(inquiry.answered_at)"></p>
+                                                    </div>
+                                                </template>
+                                                <template x-if="answerEditId === inquiry.id">
+                                                    <div class="space-y-2">
+                                                        <textarea x-model="answerContent" rows="5" maxlength="2000" class="w-full resize-y rounded border border-gray-300 p-3 text-sm outline-none focus:border-bmw-blue focus:ring-2 focus:ring-bmw-blue"></textarea>
+                                                        <div class="flex items-center justify-between gap-2">
+                                                            <span class="text-xs text-gray-400" x-text="answerContent.length + '/2000'"></span>
+                                                            <div class="flex gap-2">
+                                                                <button type="button" @click="saveInquiryAnswer(inquiry)" :disabled="answerSavingId === inquiry.id" class="rounded bg-bmw-blue px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-700 disabled:opacity-50">저장</button>
+                                                                <button type="button" @click="cancelInquiryAnswer()" class="rounded bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700">취소</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </td>
+                                            <td class="min-w-28 whitespace-nowrap px-4 py-4 text-sm text-gray-500" x-text="formatDate(inquiry.created)"></td>
+                                            <td class="min-w-28 px-4 py-4 text-right text-sm font-medium">
+                                                <div class="flex flex-wrap items-center justify-end gap-2">
+                                                    <button type="button" @click="startInquiryAnswer(inquiry)" class="rounded bg-bmw-blue px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-700">답변</button>
+                                                    <template x-if="inquiry.status !== 'hidden'">
+                                                        <button type="button" @click="setInquiryStatus(inquiry, 'hidden')" class="rounded bg-gray-800 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-gray-700">숨김</button>
+                                                    </template>
+                                                    <template x-if="inquiry.status === 'hidden'">
+                                                        <button type="button" @click="setInquiryStatus(inquiry, 'restore')" class="rounded bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700">복구</button>
+                                                    </template>
+                                                    <template x-if="inquiryDeleteConfirmId !== inquiry.id">
+                                                        <button type="button" @click="inquiryDeleteConfirmId = inquiry.id" class="text-xs font-medium text-red-600 hover:text-red-900">삭제</button>
+                                                    </template>
+                                                    <template x-if="inquiryDeleteConfirmId === inquiry.id">
+                                                        <div class="inline-flex items-center gap-1.5 rounded border border-red-200 bg-red-50 p-1">
+                                                            <span class="text-[10px] font-medium text-red-700">삭제?</span>
+                                                            <button type="button" @click="deleteInquiry(inquiry.id)" class="rounded bg-red-600 px-1.5 py-0.5 text-[9px] text-white shadow hover:bg-red-700">확인</button>
+                                                            <button type="button" @click="inquiryDeleteConfirmId = ''" class="rounded bg-gray-200 px-1.5 py-0.5 text-[9px] text-gray-700 hover:bg-gray-300">취소</button>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template x-if="!inquiriesLoading && filteredInquiries().length === 0">
+                                        <tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">표시할 문의가 없습니다.</td></tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                            <div class="divide-y divide-gray-200 lg:hidden">
+                                <template x-if="inquiriesLoading">
+                                    <div class="px-4 py-8 text-center text-sm text-gray-500">문의를 불러오는 중입니다.</div>
+                                </template>
+                                <template x-for="inquiry in filteredInquiries()" :key="inquiry.id">
+                                    <article class="bg-white p-4">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-semibold text-gray-900" x-text="inquiryProductName(inquiry)"></p>
+                                                <p class="mt-1 truncate text-xs text-gray-500" x-text="inquiryAuthor(inquiry)"></p>
+                                            </div>
+                                            <div class="flex shrink-0 flex-col items-end gap-1">
+                                                <span class="rounded-full px-2.5 py-1 text-xs font-bold" :class="inquiryStatusClass(inquiry.status)" x-text="inquiryStatusLabel(inquiry.status)"></span>
+                                                <span class="rounded-full px-2.5 py-1 text-xs font-bold" :class="inquirySecretClass(inquiry)" x-text="inquirySecretLabel(inquiry)"></span>
+                                            </div>
+                                        </div>
+                                        <p class="mt-3 text-sm font-semibold text-gray-900 [overflow-wrap:anywhere] [word-break:keep-all]" x-text="inquiry.title"></p>
+                                        <p class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-700 [overflow-wrap:anywhere] [word-break:keep-all]" x-text="inquiry.content"></p>
+                                        <div class="mt-3 rounded border border-gray-200 bg-gray-50 p-3">
+                                            <p class="mb-1 text-xs font-bold uppercase tracking-wider text-gray-500">답변</p>
+                                            <template x-if="answerEditId !== inquiry.id">
+                                                <p class="whitespace-pre-line text-sm text-gray-700 [overflow-wrap:anywhere] [word-break:keep-all]" :class="inquiry.answer ? 'text-gray-700' : 'text-gray-400'" x-text="inquiry.answer || '답변 없음'"></p>
+                                            </template>
+                                            <template x-if="answerEditId === inquiry.id">
+                                                <div class="space-y-2">
+                                                    <textarea x-model="answerContent" rows="5" maxlength="2000" class="w-full resize-y rounded border border-gray-300 p-3 text-sm outline-none focus:border-bmw-blue focus:ring-2 focus:ring-bmw-blue"></textarea>
+                                                    <div class="flex items-center justify-between gap-2">
+                                                        <span class="text-xs text-gray-400" x-text="answerContent.length + '/2000'"></span>
+                                                        <div class="flex gap-2">
+                                                            <button type="button" @click="saveInquiryAnswer(inquiry)" :disabled="answerSavingId === inquiry.id" class="rounded bg-bmw-blue px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">저장</button>
+                                                            <button type="button" @click="cancelInquiryAnswer()" class="rounded bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700">취소</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <p class="mt-3 text-xs text-gray-500" x-text="formatDate(inquiry.created)"></p>
+                                        <div class="mt-4 flex flex-wrap gap-2">
+                                            <button type="button" @click="startInquiryAnswer(inquiry)" class="inline-flex min-h-10 flex-1 items-center justify-center rounded bg-bmw-blue px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700">답변</button>
+                                            <template x-if="inquiry.status !== 'hidden'">
+                                                <button type="button" @click="setInquiryStatus(inquiry, 'hidden')" class="inline-flex min-h-10 flex-1 items-center justify-center rounded bg-gray-800 px-3 py-2 text-xs font-bold text-white transition hover:bg-gray-700">숨김</button>
+                                            </template>
+                                            <template x-if="inquiry.status === 'hidden'">
+                                                <button type="button" @click="setInquiryStatus(inquiry, 'restore')" class="inline-flex min-h-10 flex-1 items-center justify-center rounded bg-green-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-green-700">복구</button>
+                                            </template>
+                                            <template x-if="inquiryDeleteConfirmId !== inquiry.id">
+                                                <button type="button" @click="inquiryDeleteConfirmId = inquiry.id" class="inline-flex min-h-10 items-center justify-center rounded border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600">삭제</button>
+                                            </template>
+                                        </div>
+                                        <template x-if="inquiryDeleteConfirmId === inquiry.id">
+                                            <div class="mt-3 flex items-center justify-between gap-2 rounded border border-red-200 bg-white p-2">
+                                                <span class="text-xs font-medium text-red-700">삭제할까요?</span>
+                                                <div class="flex gap-2">
+                                                    <button type="button" @click="deleteInquiry(inquiry.id)" class="rounded bg-red-600 px-3 py-1.5 text-xs font-bold text-white">확인</button>
+                                                    <button type="button" @click="inquiryDeleteConfirmId = ''" class="rounded bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700">취소</button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </article>
+                                </template>
+                                <template x-if="!inquiriesLoading && filteredInquiries().length === 0">
+                                    <div class="px-4 py-8 text-center text-sm text-gray-500">표시할 문의가 없습니다.</div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
                     <!-- Settings Tab -->
                     <template x-if="currentTab === 'settings'">
                         <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden p-4 sm:p-6 lg:p-8">
@@ -926,6 +1229,16 @@
                         icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>'
                     },
                     {
+                        key: 'comments',
+                        label: '댓글',
+                        icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h6m-8 8l-2 2V5a2 2 0 012-2h14a2 2 0 012 2v9a2 2 0 01-2 2H9l-4 4z" /></svg>'
+                    },
+                    {
+                        key: 'inquiries',
+                        label: '문의',
+                        icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h5m-8 7l3.5-3.5H19a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10.5a2 2 0 002 2H5v3.5z" /></svg>'
+                    },
+                    {
                         key: 'orderArchive',
                         label: '보관함',
                         icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7.5V18a2 2 0 01-2 2H6a2 2 0 01-2-2V7.5m16 0L17.5 4h-11L4 7.5m16 0H4m5 4h6" /></svg>'
@@ -939,6 +1252,8 @@
                 products: [],
                 orders: [],
                 archiveOrders: [],
+                comments: [],
+                inquiries: [],
                 archivedOrderStatuses: ['completed', 'refunded', 'cancelled'],
                 orderStatusOptions: [
                     { value: 'pending', label: '결제대기' },
@@ -958,10 +1273,22 @@
                 archiveCounts: { all: 0, completed: 0, refunded: 0, cancelled: 0 },
                 orderSearchQuery: '',
                 productSearchQuery: '',
+                commentSearchQuery: '',
+                commentStatusFilter: '',
+                commentsLoading: false,
+                inquirySearchQuery: '',
+                inquiryStatusFilter: '',
+                inquirySecretFilter: '',
+                inquiriesLoading: false,
                 cmsCategoryFilter: '',
                 cancelConfirmId: '',
                 deleteProductConfirmId: '',
                 deleteOrderConfirmId: '',
+                commentDeleteConfirmId: '',
+                inquiryDeleteConfirmId: '',
+                answerEditId: '',
+                answerContent: '',
+                answerSavingId: '',
                 deleteCategoryConfirmId: '',
                 cancelApproving: false,
                 toastMsg: '',
@@ -1037,6 +1364,10 @@
 
                         if (this.currentTab === 'orders' || this.currentTab === 'orderArchive') {
                             this.fetchOrders();
+                        } else if (this.currentTab === 'comments') {
+                            this.fetchComments();
+                        } else if (this.currentTab === 'inquiries') {
+                            this.fetchInquiries();
                         } else if (this.currentTab === 'settings') {
                             this.fetchSettings();
                         } else {
@@ -1135,6 +1466,10 @@
                     this.cancelConfirmId = '';
                     this.deleteProductConfirmId = '';
                     this.deleteOrderConfirmId = '';
+                    this.commentDeleteConfirmId = '';
+                    this.inquiryDeleteConfirmId = '';
+                    this.answerEditId = '';
+                    this.answerContent = '';
                     const url = new URL(window.location.href);
                     url.searchParams.set('tab', tab);
                     if (tab !== 'orderArchive') {
@@ -1143,6 +1478,10 @@
                     window.history.replaceState({}, '', url.toString());
                     if (tab === 'orders' || tab === 'orderArchive') {
                         this.fetchOrders();
+                    } else if (tab === 'comments') {
+                        this.fetchComments();
+                    } else if (tab === 'inquiries') {
+                        this.fetchInquiries();
                     } else if (tab === 'settings') {
                         this.fetchSettings();
                     } else {
@@ -1192,6 +1531,252 @@
                 },
                 formatDate(value) {
                     return value ? new Date(value).toLocaleString() : '';
+                },
+                async fetchAllComments() {
+                    const pageSize = 200;
+                    let page = 1;
+                    let allComments = [];
+                    while (true) {
+                        const result = await pb.collection('product_comments').getList(page, pageSize, {
+                            expand: 'product,user'
+                        });
+                        allComments = allComments.concat(result.items || []);
+                        if (!result.items || result.items.length < pageSize || page >= result.totalPages) {
+                            break;
+                        }
+                        page += 1;
+                    }
+                    allComments.sort((left, right) => String(right.created || '').localeCompare(String(left.created || '')));
+                    return allComments;
+                },
+                async fetchComments() {
+                    this.commentsLoading = true;
+                    try {
+                        this.comments = await this.fetchAllComments();
+                    } catch (err) {
+                        this.handleError(err, '댓글 불러오기 실패');
+                    } finally {
+                        this.commentsLoading = false;
+                    }
+                },
+                filteredComments() {
+                    const query = this.commentSearchQuery.trim().toLowerCase();
+                    return this.comments.filter(comment => {
+                        if (this.commentStatusFilter && comment.status !== this.commentStatusFilter) {
+                            return false;
+                        }
+                        if (!query) {
+                            return true;
+                        }
+                        const values = [
+                            comment.content,
+                            comment.rating,
+                            comment.author_name,
+                            comment.expand?.product?.name,
+                            comment.expand?.product?.slug,
+                            comment.expand?.user?.name,
+                            comment.expand?.user?.nickname,
+                            comment.expand?.user?.email
+                        ];
+                        return values.some(value => String(value || '').toLowerCase().includes(query));
+                    });
+                },
+                commentStatusLabel(status) {
+                    return status === 'hidden' ? '숨김' : '공개';
+                },
+                commentStatusClass(status) {
+                    return status === 'hidden'
+                        ? 'bg-gray-100 text-gray-700'
+                        : 'bg-green-100 text-green-700';
+                },
+                commentProductName(comment) {
+                    return comment.expand?.product?.name || comment.product || '알 수 없는 상품';
+                },
+                commentAuthor(comment) {
+                    const user = comment.expand?.user || {};
+                    return comment.author_name || user.name || user.nickname || user.email || '회원';
+                },
+                commentRatingLabel(comment) {
+                    const rating = Number(comment.rating) || 0;
+                    return rating > 0 ? rating.toFixed(1) : '미등록';
+                },
+                async setCommentStatus(comment, status) {
+                    try {
+                        const result = await pb.send('/api/cms/comments/' + encodeURIComponent(comment.id) + '/status', {
+                            method: 'POST',
+                            body: { status }
+                        });
+                        const updated = result.item || { status };
+                        this.comments = this.comments.map(item => item.id === comment.id ? { ...item, ...updated } : item);
+                        this.commentDeleteConfirmId = '';
+                        this.showToast(status === 'hidden' ? '댓글을 숨김 처리했습니다.' : '댓글을 복구했습니다.');
+                    } catch (err) {
+                        this.handleError(err, '댓글 상태 변경 실패');
+                    }
+                },
+                async deleteComment(id) {
+                    try {
+                        await pb.send('/api/cms/comments/' + encodeURIComponent(id), {
+                            method: 'DELETE'
+                        });
+                        this.comments = this.comments.filter(comment => comment.id !== id);
+                        this.commentDeleteConfirmId = '';
+                        this.showToast('댓글이 삭제되었습니다.');
+                    } catch (err) {
+                        this.handleError(err, '댓글 삭제 실패');
+                    }
+                },
+                async fetchAllInquiries() {
+                    const pageSize = 200;
+                    let page = 1;
+                    let allInquiries = [];
+                    while (true) {
+                        const result = await pb.collection('product_inquiries').getList(page, pageSize, {
+                            expand: 'product,user'
+                        });
+                        allInquiries = allInquiries.concat(result.items || []);
+                        if (!result.items || result.items.length < pageSize || page >= result.totalPages) {
+                            break;
+                        }
+                        page += 1;
+                    }
+                    allInquiries.sort((left, right) => String(right.created || '').localeCompare(String(left.created || '')));
+                    return allInquiries;
+                },
+                async fetchInquiries() {
+                    this.inquiriesLoading = true;
+                    try {
+                        this.inquiries = await this.fetchAllInquiries();
+                        this.inquiryDeleteConfirmId = '';
+                        this.answerEditId = '';
+                        this.answerContent = '';
+                    } catch (err) {
+                        this.handleError(err, '문의 불러오기 실패');
+                    } finally {
+                        this.inquiriesLoading = false;
+                    }
+                },
+                filteredInquiries() {
+                    const query = this.inquirySearchQuery.trim().toLowerCase();
+                    return this.inquiries.filter(inquiry => {
+                        if (this.inquiryStatusFilter && inquiry.status !== this.inquiryStatusFilter) {
+                            return false;
+                        }
+                        if (this.inquirySecretFilter === 'secret' && !inquiry.is_secret) {
+                            return false;
+                        }
+                        if (this.inquirySecretFilter === 'public' && inquiry.is_secret) {
+                            return false;
+                        }
+                        if (!query) {
+                            return true;
+                        }
+                        const values = [
+                            inquiry.title,
+                            inquiry.content,
+                            inquiry.answer,
+                            inquiry.author_name,
+                            inquiry.answered_by,
+                            inquiry.expand?.product?.name,
+                            inquiry.expand?.product?.slug,
+                            inquiry.expand?.user?.name,
+                            inquiry.expand?.user?.nickname,
+                            inquiry.expand?.user?.email
+                        ];
+                        return values.some(value => String(value || '').toLowerCase().includes(query));
+                    });
+                },
+                inquiryStatusLabel(status) {
+                    if (status === 'answered') return '답변완료';
+                    if (status === 'hidden') return '숨김';
+                    return '답변대기';
+                },
+                inquiryStatusClass(status) {
+                    if (status === 'answered') return 'bg-green-100 text-green-700';
+                    if (status === 'hidden') return 'bg-gray-100 text-gray-700';
+                    return 'bg-orange-100 text-orange-700';
+                },
+                inquirySecretLabel(inquiry) {
+                    return inquiry.is_secret ? '비밀글' : '공개글';
+                },
+                inquirySecretClass(inquiry) {
+                    return inquiry.is_secret ? 'bg-gray-900 text-white' : 'bg-blue-100 text-blue-700';
+                },
+                inquiryProductName(inquiry) {
+                    return inquiry.expand?.product?.name || inquiry.product || '알 수 없는 상품';
+                },
+                inquiryAuthor(inquiry) {
+                    const user = inquiry.expand?.user || {};
+                    return inquiry.author_name || user.name || user.nickname || user.email || '회원';
+                },
+                replaceInquiry(updated) {
+                    this.inquiries = this.inquiries.map(item => {
+                        if (item.id !== updated.id) return item;
+                        return { ...item, ...updated, expand: item.expand };
+                    });
+                },
+                startInquiryAnswer(inquiry) {
+                    this.answerEditId = inquiry.id;
+                    this.answerContent = inquiry.answer || '';
+                    this.inquiryDeleteConfirmId = '';
+                },
+                cancelInquiryAnswer() {
+                    this.answerEditId = '';
+                    this.answerContent = '';
+                    this.answerSavingId = '';
+                },
+                async saveInquiryAnswer(inquiry) {
+                    const answer = this.answerContent.trim();
+                    if (!answer) {
+                        this.showToast('답변 내용을 입력해 주세요.', 'error');
+                        return;
+                    }
+                    this.answerSavingId = inquiry.id;
+                    try {
+                        const result = await pb.send('/api/cms/inquiries/' + encodeURIComponent(inquiry.id) + '/answer', {
+                            method: 'POST',
+                            body: { answer }
+                        });
+                        if (result.item) {
+                            this.replaceInquiry(result.item);
+                        }
+                        this.cancelInquiryAnswer();
+                        this.showToast('문의 답변을 저장했습니다.');
+                    } catch (err) {
+                        this.handleError(err, '문의 답변 저장 실패');
+                    } finally {
+                        this.answerSavingId = '';
+                    }
+                },
+                async setInquiryStatus(inquiry, status) {
+                    try {
+                        const result = await pb.send('/api/cms/inquiries/' + encodeURIComponent(inquiry.id) + '/status', {
+                            method: 'POST',
+                            body: { status }
+                        });
+                        if (result.item) {
+                            this.replaceInquiry(result.item);
+                        }
+                        this.inquiryDeleteConfirmId = '';
+                        this.showToast(status === 'hidden' ? '문의를 숨김 처리했습니다.' : '문의를 복구했습니다.');
+                    } catch (err) {
+                        this.handleError(err, '문의 상태 변경 실패');
+                    }
+                },
+                async deleteInquiry(id) {
+                    try {
+                        await pb.send('/api/cms/inquiries/' + encodeURIComponent(id) + '/delete', {
+                            method: 'POST'
+                        });
+                        this.inquiries = this.inquiries.filter(inquiry => inquiry.id !== id);
+                        this.inquiryDeleteConfirmId = '';
+                        if (this.answerEditId === id) {
+                            this.cancelInquiryAnswer();
+                        }
+                        this.showToast('문의가 삭제되었습니다.');
+                    } catch (err) {
+                        this.handleError(err, '문의 삭제 실패');
+                    }
                 },
                 productStatCards() {
                     const productCount = this.products.length;

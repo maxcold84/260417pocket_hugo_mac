@@ -336,7 +336,7 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
 
                 const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
                 if (!guestSecurity.matchesGuestIdentifier(guestInfo, identifier)) continue;
-                if (!guestSecurity.verifyGuestPassword(guestInfo, password, env)) continue;
+                if (!guestSecurity.verifyGuestPasswordForOrder(order, guestInfo, password, env, $app)) continue;
 
                 matchedOrders.push({
                     order: order,
@@ -441,7 +441,7 @@ routerAdd("POST", "/api/guest/orders/{id}/request-cancel", (e) => {
             return e.json(404, { error: "비회원 주문 정보를 찾을 수 없습니다." });
         }
 
-        if (!guestSecurity.matchesGuestIdentifier(guestInfo, identifier) || !guestSecurity.verifyGuestPassword(guestInfo, password, env)) {
+        if (!guestSecurity.matchesGuestIdentifier(guestInfo, identifier) || !guestSecurity.verifyGuestPasswordForOrder(order, guestInfo, password, env, $app)) {
             return e.json(401, { error: "권한이 없습니다." });
         }
 
@@ -488,7 +488,7 @@ routerAdd("POST", "/api/guest/orders/{id}/withdraw-cancel", (e) => {
             return e.json(404, { error: "비회원 주문 정보를 찾을 수 없습니다." });
         }
 
-        if (!guestSecurity.matchesGuestIdentifier(guestInfo, identifier) || !guestSecurity.verifyGuestPassword(guestInfo, password, env)) {
+        if (!guestSecurity.matchesGuestIdentifier(guestInfo, identifier) || !guestSecurity.verifyGuestPasswordForOrder(order, guestInfo, password, env, $app)) {
             return e.json(401, { error: "권한이 없습니다." });
         }
 

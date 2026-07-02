@@ -186,7 +186,7 @@
                 {{ end }}
 
                 {{ if $hasOAuth }}
-                <div x-show="tab !== 'forgot'">
+                <div x-show="tab !== 'forgot' && hasOAuthProvider()" x-cloak>
                     <div class="mt-8 text-center text-sm text-gray-500 relative">
                         <span class="bg-bmw-surface px-4 relative z-10 uppercase">{{ i18n "or_continue_with" }}</span>
                         <div class="absolute inset-0 flex items-center justify-center">
@@ -196,13 +196,13 @@
 
                     <div class="mt-8 space-y-4">
                         {{ if site.Params.oauth.google }}
-                        <button @click="oauthLogin('google')" class="w-full bg-white text-black hover:bg-gray-200 px-8 py-3 uppercase tracking-wider text-sm font-bold transition duration-300 flex justify-center items-center gap-2">
+                        <button type="button" x-show="isOAuthProviderAvailable('google')" :disabled="loading" @click="oauthLogin('google')" class="w-full bg-white text-black hover:bg-gray-200 disabled:opacity-50 px-8 py-3 uppercase tracking-wider text-sm font-bold transition duration-300 flex justify-center items-center gap-2">
                             <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>
                             {{ i18n "google_login" }}
                         </button>
                         {{ end }}
                         {{ if site.Params.oauth.kakao }}
-                        <button @click="oauthLogin('kakao')" class="w-full bg-[#FEE500] text-black hover:bg-[#FEE500]/90 px-8 py-3 uppercase tracking-wider text-sm font-bold transition duration-300 flex justify-center items-center gap-2">
+                        <button type="button" x-show="isOAuthProviderAvailable('kakao')" :disabled="loading" @click="oauthLogin('kakao')" class="w-full bg-[#FEE500] text-black hover:bg-[#FEE500]/90 disabled:opacity-50 px-8 py-3 uppercase tracking-wider text-sm font-bold transition duration-300 flex justify-center items-center gap-2">
                             <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3C6.477 3 2 6.55 2 10.93c0 2.822 1.83 5.304 4.582 6.643l-1.18 4.316a.4.4 0 0 0 .59.43l5.06-3.328c.31.026.626.04 9.426.04 5.523 0 10-3.55 10-7.93S17.523 3 12 3z"/></svg>
                             {{ i18n "kakao_login" }}
                         </button>
@@ -221,6 +221,7 @@
                     error: '',
                     success: '',
                     pb: null,
+                    oauthProviders: {},
                     loginData: { email: '', password: '' },
                     regData: { email: '', password: '', passwordConfirm: '', nickname: '', phone: '', address: '', address_detail: '' },
                     resetEmail: '',
@@ -228,11 +229,40 @@
                     
                     init() {
                         this.pb = new PocketBase(window.location.origin);
+                        this.loadOAuthProviders();
                         const savedEmail = localStorage.getItem('savedEmail');
                         if (savedEmail) {
                             this.loginData.email = savedEmail;
                             this.saveId = true;
                         }
+                    },
+
+                    async loadOAuthProviders() {
+                        try {
+                            const methods = await this.pb.collection('users').listAuthMethods();
+                            const providers = (methods.oauth2 && methods.oauth2.providers) || methods.authProviders || methods.providers || [];
+                            const nextProviders = {};
+                            providers.forEach((provider) => {
+                                const name = typeof provider === 'string'
+                                    ? provider
+                                    : (provider.name || provider.provider || provider.id || '');
+                                if (name) {
+                                    nextProviders[name] = true;
+                                }
+                            });
+                            this.oauthProviders = nextProviders;
+                        } catch (err) {
+                            console.warn('Failed to load OAuth providers', err);
+                            this.oauthProviders = {};
+                        }
+                    },
+
+                    hasOAuthProvider() {
+                        return Object.keys(this.oauthProviders).some((provider) => this.oauthProviders[provider]);
+                    },
+
+                    isOAuthProviderAvailable(provider) {
+                        return !!this.oauthProviders[provider];
                     },
                     
                     async login() {
@@ -291,15 +321,22 @@
                         }
                     },
                     
-                    async oauthLogin(provider) {
+                    oauthLogin(provider) {
                         this.error = '';
-                        try {
-                            await this.pb.collection('users').authWithOAuth2({ provider: provider });
+                        if (!this.isOAuthProviderAvailable(provider)) {
+                            this.error = provider + ' OAuth is not configured in PocketBase.';
+                            return;
+                        }
+                        this.loading = true;
+                        return this.pb.collection('users').authWithOAuth2({ provider: provider }).then(() => {
                             document.cookie = 'pb_auth=' + this.pb.authStore.token + '; path=/; max-age=2592000; SameSite=Lax';
                             window.location.href = '/products/';
-                        } catch (err) {
-                            this.error = 'OAuth2 Login Failed: ' + (err.message || '');
-                        }
+                        }).catch((err) => {
+                            const message = (err && err.response && err.response.message) || (err && err.message) || 'Provider authentication failed.';
+                            this.error = 'OAuth2 Login Failed: ' + message;
+                        }).finally(() => {
+                            this.loading = false;
+                        });
                     }
                 };
             }

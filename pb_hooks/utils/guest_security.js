@@ -140,7 +140,51 @@ function createGuestInfo(data, env) {
 
 function verifyGuestPassword(guestInfo, password, env) {
     if (!guestInfo || !password || !guestInfo.password_hash) return false;
-    return constantTimeEqual(guestInfo.password_hash, hashSecret(password, env));
+    const expectedHash = hashSecret(password, env);
+    if (!expectedHash) return false;
+    return constantTimeEqual(guestInfo.password_hash, expectedHash);
+}
+
+function upgradeLegacyGuestPassword(order, guestInfo, password, env, app) {
+    if (!order || !guestInfo || !password || guestInfo.password_hash || !guestInfo.password) return false;
+    if (!app || typeof app.save !== "function") return false;
+    if (!constantTimeEqual(guestInfo.password, password)) return false;
+
+    const passwordHash = hashSecret(password, env);
+    if (!passwordHash) return false;
+
+    const upgradedGuestInfo = {};
+    const keys = Object.keys(guestInfo);
+    for (const key of keys) {
+        if (key === "password") continue;
+        upgradedGuestInfo[key] = guestInfo[key];
+    }
+
+    upgradedGuestInfo.password_hash = passwordHash;
+    if (!upgradedGuestInfo.phone_lookup && upgradedGuestInfo.phone) {
+        upgradedGuestInfo.phone_lookup = normalizePhone(upgradedGuestInfo.phone);
+    }
+    if (!upgradedGuestInfo.email_lookup && upgradedGuestInfo.email) {
+        upgradedGuestInfo.email_lookup = normalizeEmail(upgradedGuestInfo.email);
+    }
+
+    order.set("guest_info", upgradedGuestInfo);
+    app.save(order);
+
+    for (const key of keys) {
+        delete guestInfo[key];
+    }
+    const upgradedKeys = Object.keys(upgradedGuestInfo);
+    for (const key of upgradedKeys) {
+        guestInfo[key] = upgradedGuestInfo[key];
+    }
+
+    return true;
+}
+
+function verifyGuestPasswordForOrder(order, guestInfo, password, env, app) {
+    if (verifyGuestPassword(guestInfo, password, env)) return true;
+    return upgradeLegacyGuestPassword(order, guestInfo, password, env, app);
 }
 
 function verifyCleanupNonce(guestInfo, cleanupNonce, env) {
@@ -156,5 +200,6 @@ module.exports = {
     normalizeLookupIdentifier: normalizeLookupIdentifier,
     parseGuestInfo: parseGuestInfo,
     verifyCleanupNonce: verifyCleanupNonce,
-    verifyGuestPassword: verifyGuestPassword
+    verifyGuestPassword: verifyGuestPassword,
+    verifyGuestPasswordForOrder: verifyGuestPasswordForOrder
 };

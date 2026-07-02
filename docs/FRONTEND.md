@@ -69,3 +69,25 @@
     - **Rule:** Use `pb.send('/api/cms/orders/' + id + '/status', { method: 'POST', body: { status } })` for list-page status changes and `/api/cms/orders/{id}/update` for guarded detail-page edits.
     - **Rule:** The CMS order archive/list must page through all `orders` result pages before calculating counts or filtered views. Do not assume `getList(1, 50)` contains the full archive.
     - **Rule:** For newest-first order display, fetch without `sort: '-created'`, then sort the combined client-side array by the `created` string.
+
+18. **OAuth Button Visibility Must Follow PocketBase Auth Methods**:
+    - `hugo.toml` only controls whether a social login button is allowed to render in the static template. It does not configure PocketBase provider credentials.
+    - **Rule:** Before showing OAuth buttons, call `pb.collection('users').listAuthMethods()` and only show providers returned by PocketBase. This prevents a visible Google/Kakao button when `users.oauth2.enabled` is true but `oauth2.providers` is empty or `null`.
+    - **Rule:** Do not use `async/await` directly in the OAuth click handler. Use a promise chain for `authWithOAuth2()` so strict browsers do not treat the OAuth popup as detached from the user click.
+    - **Rule:** OAuth error handling should surface provider configuration failures instead of only displaying a generic "Something went wrong" message.
+19. **Static Product Page + Dynamic Comments Pattern**:
+    - Product detail pages remain Hugo-generated static pages. Comments are the only dynamic island on the page.
+    - **Rule:** Load the PocketBase SDK UMD only on `hugo/layouts/products/single.html` and call custom comment routes with `pb.send()` so the SDK attaches the auth token for logged-in users.
+    - **Rule:** Use the Hugo product page slug as the comment API product key. The backend resolves both DB ids and slugs, which prevents stale Markdown frontmatter ids from blocking eligible buyers.
+    - **Rule:** Render comment body and author snapshots with `x-text` only. Never inject user comment text with `x-html`.
+    - **Rule:** Keep comment UI state (`editingId`, `deleteConfirmId`, loading flags, notices) on the Alpine component instead of mutating fetched comment objects.
+    - **Rule:** Comments appear immediately after successful create/update/delete by updating Alpine state; no Hugo rebuild is needed for comment changes.
+    - **Rule:** Product ratings live inside the same dynamic island. The UI must send a 1-5 integer rating with comment create/update requests, display rating text with SVG icons (not emoji), and update the returned `summary` in Alpine state so the visible average changes without a rebuild.
+    - **Rule:** A logged-in buyer can create one review per product. If a review already exists, guide the user to edit the existing review instead of posting duplicates.
+20. **Static Product Page + Dynamic Product Inquiries Pattern**:
+    - Product detail pages remain Hugo-generated static pages. Inquiries are a second dynamic island on `hugo/layouts/products/single.html` and use the Hugo product slug as the API product key.
+    - **Rule:** Call inquiry custom routes with `pb.send()` so logged-in user auth is attached consistently.
+    - **Rule:** Render inquiry title, content, author snapshot, and admin answer with `x-text` only. Never inject inquiry text with `x-html`.
+    - **Rule:** Keep inquiry UI state (`editingId`, `deleteConfirmId`, loading flags, notices, secret toggles) on the Alpine component instead of mutating fetched records.
+    - **Rule:** Secret inquiries must be masked for non-authors: show only locked/private state and answer status, never the title, content, answer, or author snapshot.
+    - **Rule:** Users can edit/delete only their own `pending` inquiries. Answered inquiries are read-only on the product page.

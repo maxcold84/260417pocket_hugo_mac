@@ -312,6 +312,9 @@ function syncProductsToMarkdown(app) {
 
         const sortOrder = p.getInt("sort_order");
         const discountPrice = p.getInt("discount_price");
+        const stock = p.getInt("stock");
+        const ratingAverage = Number(p.get("rating_average") || 0);
+        const ratingCount = p.getInt("rating_count");
         const categoryId = p.getString("category");
         let categorySlug = "";
         if (categoryId) {
@@ -330,7 +333,7 @@ function syncProductsToMarkdown(app) {
             }
         }
 
-        const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + '\ndiscount_price: ' + discountPrice + '\nweight: ' + sortOrder + '\ncategory: "' + categorySlug + '"' + imageLine + '\n---\n' + description + '\n';
+        const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + '\ndiscount_price: ' + discountPrice + '\nstock: ' + stock + '\nrating_average: ' + ratingAverage + '\nrating_count: ' + ratingCount + '\nweight: ' + sortOrder + '\ncategory: "' + categorySlug + '"' + imageLine + '\n---\n' + description + '\n';
         $os.writeFile("hugo/content/products/" + slug + ".md", content, 0o644);
         syncedCount++;
     }
@@ -352,13 +355,47 @@ function syncProductsAndRunHugo(app, e) {
     };
 }
 
+function addCommandCandidate(candidates, value) {
+    const candidate = String(value || "").trim();
+    if (!candidate) return;
+    for (const existing of candidates) {
+        if (existing === candidate) return;
+    }
+    candidates.push(candidate);
+}
+
+function shellQuote(value) {
+    return "'" + String(value || "").replace(/'/g, "'\\''") + "'";
+}
+
+function decodeOutput(outputBytes) {
+    const binaryStr = Array.from(outputBytes).map(b => String.fromCharCode(b)).join('');
+    try {
+        return decodeURIComponent(escape(binaryStr));
+    } catch (err) {
+        return binaryStr;
+    }
+}
+
+function buildHugoPaths(envUtil) {
+    const paths = [];
+    addCommandCandidate(paths, envUtil.get("HUGO_BIN"));
+    addCommandCandidate(paths, envUtil.get("HUGO_PATH"));
+    addCommandCandidate(paths, "/usr/local/bin/hugo");
+    addCommandCandidate(paths, "/usr/bin/hugo");
+    addCommandCandidate(paths, "/opt/homebrew/bin/hugo");
+    addCommandCandidate(paths, "hugo");
+    return paths;
+}
+
 function runHugo(e) {
     let baseURL = "";
     let internalURL = "";
+    let envUtil = null;
 
     // 1. Resolve internal URL
     try {
-        const envUtil = require(`${__hooks}/utils/env.js`);
+        envUtil = require(`${__hooks}/utils/env.js`);
         internalURL = envUtil.get("POCKETBASE_INTERNAL_URL") || "http://127.0.0.1:8090/";
     } catch (err) {
         internalURL = "http://127.0.0.1:8090/";
@@ -387,7 +424,7 @@ function runHugo(e) {
     // If still empty, fall back to environment variable or site default
     if (!baseURL) {
         try {
-            const envUtil = require(`${__hooks}/utils/env.js`);
+            if (!envUtil) envUtil = require(`${__hooks}/utils/env.js`);
             baseURL = envUtil.get("HUGO_BASEURL") || "http://localhost:8090/";
         } catch (err) {
             baseURL = "http://localhost:8090/";
@@ -402,39 +439,39 @@ function runHugo(e) {
     console.log("[runHugo] Building site with baseURL: " + baseURL + ", internalURL: " + internalURL);
 
     const envPrefix = [];
-    envPrefix.push("HUGO_POCKETBASE_INTERNAL_URL=" + internalURL);
-    envPrefix.push("POCKETBASE_INTERNAL_URL=" + internalURL);
-    envPrefix.push("HUGO_BASEURL=" + baseURL);
+    envPrefix.push("HUGO_POCKETBASE_INTERNAL_URL=" + shellQuote(internalURL));
+    envPrefix.push("POCKETBASE_INTERNAL_URL=" + shellQuote(internalURL));
+    envPrefix.push("HUGO_BASEURL=" + shellQuote(baseURL));
 
-    const paths = ["/opt/homebrew/bin/hugo", "/usr/local/bin/hugo", "hugo"];
-    let lastErr = null;
+    if (!envUtil) {
+        envUtil = {
+            get: function() { return ""; }
+        };
+    }
+
+    const paths = buildHugoPaths(envUtil);
     let lastOutput = "";
-    for (let p of paths) {
+
+    for (const p of paths) {
         try {
-            // Build dynamic command prepended with environment variables
-            const cmdStr = envPrefix.join(" ") + " " + p + " --ignoreCache -b " + baseURL;
+            const cmdStr = envPrefix.join(" ") + " " + shellQuote(p) + " --ignoreCache -b " + shellQuote(baseURL);
             const cmd = $os.cmd("sh", "-c", cmdStr);
             cmd.dir = "hugo";
 
-            // CombinedOutput()으로 stdout + stderr 모두 캡처
             let outputBytes;
             try {
                 outputBytes = cmd.output();
             } catch (outputErr) {
-                // output()이 없는 경우(구 버전) run()으로 폴백
                 cmd.run();
                 console.log("[runHugo] Successfully executed (run): " + cmdStr);
                 return { success: true, output: "" };
             }
 
-            // Go []byte → JS string 변환
-            const outputStr = Array.from(outputBytes).map(b => String.fromCharCode(b)).join('');
+            const outputStr = decodeOutput(outputBytes);
             console.log("[runHugo] Successfully executed: " + cmdStr);
             console.log("[runHugo] Hugo output:\n" + outputStr);
             return { success: true, output: outputStr };
         } catch (err) {
-            lastErr = err;
-            // 에러 객체에서 출력 캡처 시도 (Go exec.ExitError에 Stderr 포함)
             const errStr = String(err);
             lastOutput = errStr;
             console.warn("[runHugo] Failed execution for '" + p + "': " + errStr);

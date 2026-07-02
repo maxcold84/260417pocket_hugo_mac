@@ -5,3 +5,5 @@
 require(`${__hooks}/routes/main.pb.js`);
 require(`${__hooks}/routes/portone.pb.js`);
 require(`${__hooks}/routes/admin.pb.js`);
+require(`${__hooks}/routes/comments.pb.js`);
+require(`${__hooks}/routes/inquiries.pb.js`);
