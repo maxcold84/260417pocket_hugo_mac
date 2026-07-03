@@ -396,7 +396,7 @@
                                     <input type="text" x-model="orderSearchQuery" @input.debounce.500ms="fetchOrders()" :placeholder="currentTab === 'orderArchive' ? '보관 주문 검색' : '{{ i18n "search_placeholder" }}'" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-bmw-blue focus:border-bmw-blue outline-none transition text-sm">
                                     <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                                 </div>
-                                <div class="text-xs font-medium text-gray-500 whitespace-nowrap sm:ml-4" x-text="currentTab === 'orderArchive' ? '배송완료 · 환불 · 취소' : '진행중 주문'"></div>
+                                <div class="text-xs font-medium text-gray-500 whitespace-nowrap sm:ml-4" x-text="currentTab === 'orderArchive' ? '배송완료 · 구매확정 · 환불 · 취소' : '진행중 주문'"></div>
                             </div>
                             <table class="hidden min-w-full divide-y divide-gray-200 lg:table">
                                 <thead class="bg-gray-50">
@@ -864,6 +864,131 @@
                             </div>
                         </div>
                     </template>
+                    <template x-if="currentTab === 'coupons'">
+                        <div class="space-y-6">
+                            <section class="rounded border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+                                <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-900">리뷰 보상 쿠폰 설정</h3>
+                                        <p class="mt-1 text-sm text-gray-500">구매확정 후 첫 리뷰 작성 시 회원에게 자동 지급되는 쿠폰 조건입니다.</p>
+                                    </div>
+                                    <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <input type="checkbox" x-model="couponSetting.enabled" class="rounded border-gray-300 text-bmw-blue focus:ring-bmw-blue">
+                                        <span>활성화</span>
+                                    </label>
+                                </div>
+                                <div class="grid grid-cols-1 gap-4 lg:grid-cols-5">
+                                    <label class="block">
+                                        <span class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">할인 방식</span>
+                                        <select x-model="couponSetting.discountType" class="w-full rounded border border-gray-300 bg-white p-2 text-sm focus:border-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue">
+                                            <option value="fixed">고정 금액</option>
+                                            <option value="percent">정률</option>
+                                        </select>
+                                    </label>
+                                    <label class="block">
+                                        <span class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">할인값</span>
+                                        <input type="number" min="1" x-model.number="couponSetting.discountValue" class="w-full rounded border border-gray-300 p-2 text-sm focus:border-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue">
+                                    </label>
+                                    <label class="block">
+                                        <span class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">유효기간(일)</span>
+                                        <input type="number" min="1" x-model.number="couponSetting.expiresDays" class="w-full rounded border border-gray-300 p-2 text-sm focus:border-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue">
+                                    </label>
+                                    <label class="block">
+                                        <span class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">최소 주문금액</span>
+                                        <input type="number" min="0" x-model.number="couponSetting.minimumOrderAmount" class="w-full rounded border border-gray-300 p-2 text-sm focus:border-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue">
+                                    </label>
+                                    <label class="block">
+                                        <span class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">최대 할인액</span>
+                                        <input type="number" min="0" x-model.number="couponSetting.maxDiscountAmount" class="w-full rounded border border-gray-300 p-2 text-sm focus:border-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue">
+                                    </label>
+                                </div>
+                                <div class="mt-5 flex justify-end">
+                                    <button type="button" @click="saveCouponSetting()" :disabled="couponSaving || couponSettingLoading" class="inline-flex min-h-11 w-full items-center justify-center rounded bg-bmw-blue px-5 py-2 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-50 sm:w-auto">
+                                        <span x-show="!couponSaving">쿠폰 설정 저장</span>
+                                        <span x-show="couponSaving">저장 중...</span>
+                                    </button>
+                                </div>
+                            </section>
+
+                            <section class="overflow-hidden rounded border border-gray-200 bg-white shadow-sm">
+                                <div class="flex flex-col gap-3 border-b border-gray-200 bg-gray-50 p-4 lg:flex-row lg:items-center lg:justify-between">
+                                    <div class="relative w-full lg:max-w-md">
+                                        <input type="text" x-model="couponSearchQuery" placeholder="쿠폰 코드, 회원, 상품 검색" class="w-full rounded border border-gray-300 py-2 pl-10 pr-4 text-sm outline-none transition focus:border-bmw-blue focus:ring-2 focus:ring-bmw-blue">
+                                        <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                    </div>
+                                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                        <select x-model="couponStatusFilter" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-bmw-blue focus:ring-2 focus:ring-bmw-blue">
+                                            <option value="">전체 상태</option>
+                                            <option value="available">사용 가능</option>
+                                            <option value="reserved">예약</option>
+                                            <option value="used">사용 완료</option>
+                                            <option value="expired">만료</option>
+                                            <option value="void">무효</option>
+                                        </select>
+                                        <button type="button" @click="fetchCoupons()" class="inline-flex min-h-10 items-center justify-center rounded bg-gray-900 px-4 py-2 text-xs font-bold uppercase text-white transition hover:bg-gray-700">새로고침</button>
+                                    </div>
+                                </div>
+                                <table class="hidden min-w-full divide-y divide-gray-200 lg:table">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">상태</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">쿠폰</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">회원</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">보상 상품</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">발급/만료</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200 bg-white">
+                                        <template x-if="couponsLoading">
+                                            <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">쿠폰 내역을 불러오는 중입니다.</td></tr>
+                                        </template>
+                                        <template x-for="coupon in filteredCoupons()" :key="coupon.id">
+                                            <tr class="hover:bg-gray-50">
+                                                <td class="px-4 py-4"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold" :class="couponStatusClass(coupon.status)" x-text="couponStatusLabel(coupon.status)"></span></td>
+                                                <td class="px-4 py-4">
+                                                    <p class="font-mono text-sm font-semibold text-gray-900" x-text="coupon.code"></p>
+                                                    <p class="mt-1 text-xs text-gray-500" x-text="couponBenefitLabel(coupon)"></p>
+                                                </td>
+                                                <td class="px-4 py-4 text-sm text-gray-700" x-text="couponUserLabel(coupon)"></td>
+                                                <td class="px-4 py-4 text-sm text-gray-700" x-text="couponSourceLabel(coupon)"></td>
+                                                <td class="px-4 py-4 text-sm text-gray-500">
+                                                    <p x-text="formatDate(coupon.issuedAt)"></p>
+                                                    <p class="mt-1 text-xs" x-text="coupon.expiresAt ? '만료 ' + formatDate(coupon.expiresAt) : ''"></p>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <template x-if="!couponsLoading && filteredCoupons().length === 0">
+                                            <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">표시할 쿠폰이 없습니다.</td></tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                                <div class="divide-y divide-gray-200 lg:hidden">
+                                    <template x-if="couponsLoading">
+                                        <div class="px-4 py-8 text-center text-sm text-gray-500">쿠폰 내역을 불러오는 중입니다.</div>
+                                    </template>
+                                    <template x-for="coupon in filteredCoupons()" :key="coupon.id">
+                                        <article class="bg-white p-4">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="min-w-0">
+                                                    <p class="truncate font-mono text-sm font-semibold text-gray-900" x-text="coupon.code"></p>
+                                                    <p class="mt-1 text-xs text-gray-500" x-text="couponBenefitLabel(coupon)"></p>
+                                                </div>
+                                                <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold" :class="couponStatusClass(coupon.status)" x-text="couponStatusLabel(coupon.status)"></span>
+                                            </div>
+                                            <div class="mt-3 grid grid-cols-1 gap-2 text-sm text-gray-700">
+                                                <p x-text="couponUserLabel(coupon)"></p>
+                                                <p x-text="couponSourceLabel(coupon)"></p>
+                                                <p class="text-xs text-gray-500" x-text="coupon.expiresAt ? '만료 ' + formatDate(coupon.expiresAt) : ''"></p>
+                                            </div>
+                                        </article>
+                                    </template>
+                                    <template x-if="!couponsLoading && filteredCoupons().length === 0">
+                                        <div class="px-4 py-8 text-center text-sm text-gray-500">표시할 쿠폰이 없습니다.</div>
+                                    </template>
+                                </div>
+                            </section>
+                        </div>
+                    </template>
                     <!-- Settings Tab -->
                     <template x-if="currentTab === 'settings'">
                         <div class="bg-white shadow-sm rounded border border-gray-200 overflow-hidden p-4 sm:p-6 lg:p-8">
@@ -1239,6 +1364,11 @@
                         icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h5m-8 7l3.5-3.5H19a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10.5a2 2 0 002 2H5v3.5z" /></svg>'
                     },
                     {
+                        key: 'coupons',
+                        label: '쿠폰',
+                        icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v13m0-13V6a4 4 0 00-4-4c-1.38 0-2.63.56-3.54 1.46M12 8V6a4 4 0 014-4c1.38 0 2.63.56 3.54 1.46M12 8H5.61M12 8h6.39M3 13h18v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6zm0-5h18v4H3V8z" /></svg>'
+                    },
+                    {
                         key: 'orderArchive',
                         label: '보관함',
                         icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7.5V18a2 2 0 01-2 2H6a2 2 0 01-2-2V7.5m16 0L17.5 4h-11L4 7.5m16 0H4m5 4h6" /></svg>'
@@ -1254,23 +1384,26 @@
                 archiveOrders: [],
                 comments: [],
                 inquiries: [],
-                archivedOrderStatuses: ['completed', 'refunded', 'cancelled'],
+                coupons: [],
+                archivedOrderStatuses: ['completed', 'purchase_confirmed', 'refunded', 'cancelled'],
                 orderStatusOptions: [
                     { value: 'pending', label: '결제대기' },
                     { value: 'paid', label: '결제완료' },
                     { value: 'cancel_requested', label: '취소요청' },
                     { value: 'shipping', label: '배송중' },
                     { value: 'completed', label: '배송완료' },
+                    { value: 'purchase_confirmed', label: '구매확정' },
                     { value: 'cancelled', label: '취소' },
                     { value: 'refunded', label: '환불' }
                 ],
                 archiveStatusFilter: '',
                 archiveStatusOptions: [
                     { value: 'completed', label: '배송완료' },
+                    { value: 'purchase_confirmed', label: '구매확정' },
                     { value: 'refunded', label: '환불' },
                     { value: 'cancelled', label: '취소' }
                 ],
-                archiveCounts: { all: 0, completed: 0, refunded: 0, cancelled: 0 },
+                archiveCounts: { all: 0, completed: 0, purchase_confirmed: 0, refunded: 0, cancelled: 0 },
                 orderSearchQuery: '',
                 productSearchQuery: '',
                 commentSearchQuery: '',
@@ -1280,6 +1413,19 @@
                 inquiryStatusFilter: '',
                 inquirySecretFilter: '',
                 inquiriesLoading: false,
+                couponSearchQuery: '',
+                couponStatusFilter: '',
+                couponsLoading: false,
+                couponSettingLoading: false,
+                couponSaving: false,
+                couponSetting: {
+                    enabled: true,
+                    discountType: 'fixed',
+                    discountValue: 5000,
+                    expiresDays: 30,
+                    minimumOrderAmount: 0,
+                    maxDiscountAmount: 0
+                },
                 cmsCategoryFilter: '',
                 cancelConfirmId: '',
                 deleteProductConfirmId: '',
@@ -1368,6 +1514,8 @@
                             this.fetchComments();
                         } else if (this.currentTab === 'inquiries') {
                             this.fetchInquiries();
+                        } else if (this.currentTab === 'coupons') {
+                            this.fetchCouponDashboard();
                         } else if (this.currentTab === 'settings') {
                             this.fetchSettings();
                         } else {
@@ -1482,6 +1630,8 @@
                         this.fetchComments();
                     } else if (tab === 'inquiries') {
                         this.fetchInquiries();
+                    } else if (tab === 'coupons') {
+                        this.fetchCouponDashboard();
                     } else if (tab === 'settings') {
                         this.fetchSettings();
                     } else {
@@ -1508,6 +1658,7 @@
                 orderStatusClass(status) {
                     if (status === 'paid') return 'text-green-600';
                     if (status === 'cancel_requested') return 'text-orange-600 font-bold';
+                    if (status === 'purchase_confirmed') return 'text-emerald-600 font-bold';
                     if (status === 'cancelled' || status === 'refunded') return 'text-red-600';
                     return 'text-gray-700';
                 },
@@ -1520,6 +1671,7 @@
                         cancel_requested: ['cancel_requested', 'paid'],
                         shipping: ['shipping', 'completed'],
                         completed: ['completed', 'shipping'],
+                        purchase_confirmed: ['purchase_confirmed'],
                         refunded: ['refunded'],
                         cancelled: ['cancelled']
                     };
@@ -1942,7 +2094,7 @@
                     }
                 },
                 refreshArchiveCounts(archiveOrders) {
-                    const counts = { all: archiveOrders.length, completed: 0, refunded: 0, cancelled: 0 };
+                    const counts = { all: archiveOrders.length, completed: 0, purchase_confirmed: 0, refunded: 0, cancelled: 0 };
                     for (const order of archiveOrders) {
                         if (Object.prototype.hasOwnProperty.call(counts, order.status)) {
                             counts[order.status] += 1;
@@ -1966,7 +2118,7 @@
                 },
                 orderStatusFilter() {
                     if (this.currentTab === 'orderArchive') {
-                        return '(status = "completed" || status = "refunded" || status = "cancelled")';
+                        return '(status = "completed" || status = "purchase_confirmed" || status = "refunded" || status = "cancelled")';
                     }
                     return '(status = "pending" || status = "paid" || status = "cancel_requested" || status = "shipping")';
                 },
@@ -2103,6 +2255,123 @@
                         console.error('Error fetching settings:', err);
                         this.handleError(err, '설정 불러오기 실패');
                     }
+                },
+                async fetchCouponDashboard() {
+                    await Promise.all([this.fetchCouponSetting(), this.fetchCoupons()]);
+                },
+                async fetchCouponSetting() {
+                    this.couponSettingLoading = true;
+                    try {
+                        const data = await pb.send('/api/cms/coupon-settings', { method: 'GET' });
+                        if (data.setting) {
+                            this.couponSetting = {
+                                enabled: !!data.setting.enabled,
+                                discountType: data.setting.discountType || 'fixed',
+                                discountValue: Number(data.setting.discountValue) || 5000,
+                                expiresDays: Number(data.setting.expiresDays) || 30,
+                                minimumOrderAmount: Number(data.setting.minimumOrderAmount) || 0,
+                                maxDiscountAmount: Number(data.setting.maxDiscountAmount) || 0
+                            };
+                        }
+                    } catch (err) {
+                        this.handleError(err, '쿠폰 설정 불러오기 실패');
+                    } finally {
+                        this.couponSettingLoading = false;
+                    }
+                },
+                async saveCouponSetting() {
+                    if (Number(this.couponSetting.discountValue) < 1) {
+                        this.showToast('쿠폰 할인값은 1 이상이어야 합니다.', 'error');
+                        return;
+                    }
+                    if (this.couponSetting.discountType === 'percent' && Number(this.couponSetting.discountValue) > 100) {
+                        this.showToast('정률 쿠폰 할인율은 100%를 넘을 수 없습니다.', 'error');
+                        return;
+                    }
+                    this.couponSaving = true;
+                    try {
+                        const data = await pb.send('/api/cms/coupon-settings', {
+                            method: 'POST',
+                            body: this.couponSetting
+                        });
+                        if (data.setting) {
+                            this.couponSetting = {
+                                enabled: !!data.setting.enabled,
+                                discountType: data.setting.discountType || 'fixed',
+                                discountValue: Number(data.setting.discountValue) || 5000,
+                                expiresDays: Number(data.setting.expiresDays) || 30,
+                                minimumOrderAmount: Number(data.setting.minimumOrderAmount) || 0,
+                                maxDiscountAmount: Number(data.setting.maxDiscountAmount) || 0
+                            };
+                        }
+                        this.showToast(data.message || '쿠폰 설정이 저장되었습니다.', 'success');
+                    } catch (err) {
+                        this.handleError(err, '쿠폰 설정 저장 실패');
+                    } finally {
+                        this.couponSaving = false;
+                    }
+                },
+                async fetchCoupons() {
+                    this.couponsLoading = true;
+                    try {
+                        const data = await pb.send('/api/cms/coupons', { method: 'GET' });
+                        this.coupons = data.items || [];
+                    } catch (err) {
+                        this.handleError(err, '쿠폰 내역 불러오기 실패');
+                    } finally {
+                        this.couponsLoading = false;
+                    }
+                },
+                filteredCoupons() {
+                    const query = this.couponSearchQuery.trim().toLowerCase();
+                    return this.coupons.filter(coupon => {
+                        if (this.couponStatusFilter && coupon.status !== this.couponStatusFilter) {
+                            return false;
+                        }
+                        if (!query) return true;
+                        const values = [
+                            coupon.code,
+                            coupon.userEmail,
+                            coupon.userName,
+                            coupon.productName,
+                            coupon.productSlug,
+                            coupon.status
+                        ];
+                        return values.some(value => String(value || '').toLowerCase().includes(query));
+                    });
+                },
+                couponStatusLabel(status) {
+                    const labels = {
+                        available: '사용 가능',
+                        reserved: '예약',
+                        used: '사용 완료',
+                        expired: '만료',
+                        void: '무효'
+                    };
+                    return labels[status] || status;
+                },
+                couponStatusClass(status) {
+                    if (status === 'available') return 'bg-green-100 text-green-700';
+                    if (status === 'reserved') return 'bg-blue-100 text-blue-700';
+                    if (status === 'used') return 'bg-gray-900 text-white';
+                    if (status === 'expired') return 'bg-orange-100 text-orange-700';
+                    return 'bg-red-100 text-red-700';
+                },
+                couponBenefitLabel(coupon) {
+                    const value = Number(coupon.discountValue || 0);
+                    const benefit = coupon.discountType === 'percent' ? value + '%' : this.formatCurrency(value);
+                    const minimum = Number(coupon.minimumOrderAmount || 0) > 0 ? ' · 최소 ' + this.formatCurrency(coupon.minimumOrderAmount) : '';
+                    const max = Number(coupon.maxDiscountAmount || 0) > 0 ? ' · 최대 ' + this.formatCurrency(coupon.maxDiscountAmount) : '';
+                    return benefit + ' 할인' + minimum + max;
+                },
+                couponUserLabel(coupon) {
+                    return coupon.userName || coupon.userEmail || '회원';
+                },
+                couponSourceLabel(coupon) {
+                    if (coupon.sourceType === 'review_reward') {
+                        return coupon.productName ? '리뷰 보상 · ' + coupon.productName : '리뷰 보상';
+                    }
+                    return coupon.sourceType || '기타';
                 },
                 async saveSettings() {
                     this.loading = true;

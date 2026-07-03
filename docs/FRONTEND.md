@@ -32,6 +32,7 @@
 8. **Manual Authorization Header in `fetch()`**:
     - PocketBase's custom API routes (`routerAdd`) require an explicit `Authorization: Bearer <token>` header if they use `e.auth`. Unlike the SDK's `pb.send()`, native `fetch()` does NOT attach the token automatically.
     - **Rule:** When calling custom endpoints like `/api/orders/prep` from the frontend, manually extract the token from `localStorage` and include it in the headers to avoid being treated as a Guest.
+    - **Rule:** If the checkout sends `couponId`, do not trust any client-side discount amount. The UI may show an estimate, but PortOne must receive only the `amount` returned by `/api/orders/prep`.
 9. **Back-Relation Expansion Syntax**:
     - To expand related records from a collection pointing TO the current one, use the `collection_via_field` syntax.
     - **Example:** `pb.collection('orders').getList(1, 50, { expand: 'order_items_via_order' })` where `order_items` has an `order` field.
@@ -83,7 +84,8 @@
     - **Rule:** Keep comment UI state (`editingId`, `deleteConfirmId`, loading flags, notices) on the Alpine component instead of mutating fetched comment objects.
     - **Rule:** Comments appear immediately after successful create/update/delete by updating Alpine state; no Hugo rebuild is needed for comment changes.
     - **Rule:** Product ratings live inside the same dynamic island. The UI must send a 1-5 integer rating with comment create/update requests, display rating text with SVG icons (not emoji), and update the returned `summary` in Alpine state so the visible average changes without a rebuild.
-    - **Rule:** A logged-in buyer can create one review per product. If a review already exists, guide the user to edit the existing review instead of posting duplicates.
+    - **Rule:** A logged-in buyer can create one review per product only after the related order is `purchase_confirmed`. If a review already exists, guide the user to edit the existing review instead of posting duplicates.
+    - **Rule:** The comment create response may include `couponIssued`, `coupon`, and `couponMessage`. Show the reward message as a notice after the successful create response, but do not attempt to mint or reserve coupons on the client.
 20. **Static Product Page + Dynamic Product Inquiries Pattern**:
     - Product detail pages remain Hugo-generated static pages. Inquiries are a second dynamic island on `hugo/layouts/products/single.html` and use the Hugo product slug as the API product key.
     - **Rule:** Call inquiry custom routes with `pb.send()` so logged-in user auth is attached consistently.
@@ -91,3 +93,13 @@
     - **Rule:** Keep inquiry UI state (`editingId`, `deleteConfirmId`, loading flags, notices, secret toggles) on the Alpine component instead of mutating fetched records.
     - **Rule:** Secret inquiries must be masked for non-authors: show only locked/private state and answer status, never the title, content, answer, or author snapshot.
     - **Rule:** Users can edit/delete only their own `pending` inquiries. Answered inquiries are read-only on the product page.
+
+21. **Member Order History Purchase Confirmation Pattern**:
+    - `/my-orders/` is a static Hugo page with an Alpine.js dynamic order island. It must show the purchase-confirm CTA only for logged-in member orders in `completed` status, never for guest orders.
+    - **Rule:** Use `pb.send('/api/orders/{id}/confirm-purchase', { method: 'POST' })` for confirmation so the SDK attaches auth. Keep confirmation and loading state on component-level properties such as `confirmAction` and `confirmingPurchase`.
+    - **Rule:** After confirmation, update the local order status to `purchase_confirmed` and reveal product review links without requiring a page reload.
+
+22. **Checkout Coupon Pattern**:
+    - Logged-in checkout pages may load available coupons with `pb.send('/api/coupons/available')`. Guest checkout must not show coupon controls.
+    - **Rule:** Show coupon discounts and final totals as estimates before order prep. The authoritative subtotal, discount, coupon snapshot, and payable amount are the `/api/orders/prep` response.
+    - **Rule:** Disable or explain coupon choices that would reduce the payable amount to 0 or below, because this storefront has no zero-payment order flow.

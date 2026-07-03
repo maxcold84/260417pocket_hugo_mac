@@ -57,7 +57,7 @@ routerAdd("POST", "/api/products/{productId}/comments", (e) => {
         }
 
         if (!commentUtil.hasPurchasedProduct($app, e.auth.id, product.id)) {
-            return e.json(403, { error: "구매 완료 이력이 있는 회원만 댓글을 작성할 수 있습니다." });
+            return e.json(403, { error: "구매확정된 주문 상품만 리뷰를 작성할 수 있습니다." });
         }
 
         const content = commentUtil.normalizeContent(data.content);
@@ -76,19 +76,33 @@ routerAdd("POST", "/api/products/{productId}/comments", (e) => {
             return e.json(409, { error: "이미 이 상품에 평점과 댓글을 남겼습니다. 기존 댓글을 수정해 주세요." });
         }
 
-        const collection = $app.findCollectionByNameOrId("product_comments");
-        const comment = new Record(collection);
-        comment.set("product", product.id);
-        comment.set("user", e.auth.id);
-        comment.set("author_name", commentUtil.displayName(e.auth));
-        comment.set("rating", rating);
-        comment.set("content", content);
-        comment.set("status", "published");
-        $app.save(comment);
+        const couponUtil = require(`${__hooks}/utils/coupons.js`);
+        let comment = null;
+        let summary = null;
+        let reward = null;
 
-        const summary = commentUtil.updateProductRatingSummary($app, product.id);
+        $app.runInTransaction((txApp) => {
+            const collection = txApp.findCollectionByNameOrId("product_comments");
+            comment = new Record(collection);
+            comment.set("product", product.id);
+            comment.set("user", e.auth.id);
+            comment.set("author_name", commentUtil.displayName(e.auth));
+            comment.set("rating", rating);
+            comment.set("content", content);
+            comment.set("status", "published");
+            txApp.save(comment);
 
-        return e.json(200, { item: commentUtil.exportComment(comment, e.auth), summary: summary });
+            summary = commentUtil.updateProductRatingSummary(txApp, product.id);
+            reward = couponUtil.issueReviewReward(txApp, e.auth.id, product.id, comment.id);
+        });
+
+        return e.json(200, {
+            item: commentUtil.exportComment(comment, e.auth),
+            summary: summary,
+            couponIssued: !!(reward && reward.issued),
+            coupon: reward && reward.coupon ? reward.coupon : null,
+            couponMessage: reward && reward.issued ? "리뷰 보상 쿠폰이 지급되었습니다." : ""
+        });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }

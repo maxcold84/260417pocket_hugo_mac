@@ -18,14 +18,14 @@
 - CMS order status updates must not mark an order `paid`, `refunded`, or `cancelled` directly. `paid` belongs to payment verification, and `refunded` belongs to the PortOne cancel approval flow.
 
 ## Checkout Flow — localStorage Cart to Server Order
-- The checkout process sends the client-side `localStorage` cart array to `POST /api/orders/prep`.
+- The checkout process sends the client-side `localStorage` cart array to `POST /api/orders/prep`. Logged-in members may also send `couponId`.
 - **Auth Header:** When calling `/api/orders/prep`, the frontend MUST manually attach `Authorization: Bearer <token>` from `localStorage` to ensure the order is correctly linked to the authenticated user ID.
-- The server validates each item against the DB (price, stock), creates a `pending` order + order_items, and returns `{ orderId, amount, cleanupNonce }`.
+- The server validates each item against the DB (price, stock), recalculates subtotal, validates any selected coupon, creates a `pending` order + order_items, reserves the coupon when present, and returns `{ orderId, amount, subtotalAmount, discountAmount, coupon, cleanupNonce }`.
 - Guest orders store the checkout phone/email as the temporary lookup id and store only a server-side hash of the guest password.
-- The client then calls PortOne SDK with the returned orderId and amount.
+- The client then calls PortOne SDK with the returned orderId and amount. Never use a client-calculated coupon amount for PortOne.
 - The client must pass `forceRedirect: true` and include `orderId` + `cleanupNonce` in the redirect URL so failed/cancelled redirect flows can clean up only the matching pending order.
 - On successful payment, the client clears localStorage cart and redirects to `/payment/complete`.
-- PortOne webhook independently verifies and updates order status to `paid`.
+- PortOne webhook independently verifies and updates order status to `paid`. When the paid transition succeeds, any reserved coupon on the order is marked `used`. Failed or cancelled pending-order cleanup releases the reservation.
 
 ## Cancel / Refund Flow
 - User requests cancellation from `/my-orders` → order status changes to `cancel_requested`.

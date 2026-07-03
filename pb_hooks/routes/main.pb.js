@@ -4,6 +4,7 @@ routerAdd("POST", "/api/orders/prep", (e) => {
     try {
         const env = require(`${__hooks}/utils/env.js`);
         const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
+        const couponUtil = require(`${__hooks}/utils/coupons.js`);
         const data = e.requestInfo().body || {};
         const cart = data.cart;
         if (!cart || !Array.isArray(cart) || cart.length === 0) {
@@ -34,10 +35,19 @@ routerAdd("POST", "/api/orders/prep", (e) => {
             itemsToSave.push({ product: product, quantity: qty, unitPrice: price });
         }
 
+        const requestedCouponId = String(data.couponId || "").trim();
+        const couponValidation = couponUtil.validateCouponForUse($app, requestedCouponId, userId, subtotal);
+        if (!couponValidation.ok) {
+            return e.json(couponValidation.statusCode || 400, { error: couponValidation.error });
+        }
+        const discountAmount = couponValidation.discountAmount || 0;
+        const finalAmount = couponValidation.finalAmount || subtotal;
+
         // Create pending order
         const ordersCollection = $app.findCollectionByNameOrId("orders");
         const newOrder = new Record(ordersCollection);
-        newOrder.set("total_amount", subtotal);
+        newOrder.set("subtotal_amount", subtotal);
+        newOrder.set("total_amount", finalAmount);
         newOrder.set("status", "pending");
         newOrder.set("recipient_name", data.recipientName || "");
         newOrder.set("recipient_phone", data.recipientPhone || "");
@@ -63,20 +73,46 @@ routerAdd("POST", "/api/orders/prep", (e) => {
             cleanupNonce = guestResult.cleanupNonce;
             newOrder.set("guest_info", guestResult.guestInfo);
         }
+        if (couponValidation.coupon) {
+            newOrder.set("coupon", couponValidation.coupon.id);
+            newOrder.set("coupon_discount_amount", discountAmount);
+            newOrder.set("coupon_code_snapshot", couponValidation.coupon.getString("code"));
+        } else {
+            newOrder.set("coupon_discount_amount", 0);
+            newOrder.set("coupon_code_snapshot", "");
+        }
         $app.save(newOrder);
 
-        // Create order items
-        const orderItemsCollection = $app.findCollectionByNameOrId("order_items");
-        for (let savedItem of itemsToSave) {
-            const newItem = new Record(orderItemsCollection);
-            newItem.set("order", newOrder.id);
-            newItem.set("product", savedItem.product.id);
-            newItem.set("quantity", savedItem.quantity);
-            newItem.set("unit_price", savedItem.unitPrice);
-            $app.save(newItem);
+        let buildStage = "reservation";
+        try {
+            couponUtil.reserveCouponForOrder($app, couponValidation.coupon, newOrder);
+            buildStage = "items";
+            const orderItemsCollection = $app.findCollectionByNameOrId("order_items");
+            for (let savedItem of itemsToSave) {
+                const newItem = new Record(orderItemsCollection);
+                newItem.set("order", newOrder.id);
+                newItem.set("product", savedItem.product.id);
+                newItem.set("quantity", savedItem.quantity);
+                newItem.set("unit_price", savedItem.unitPrice);
+                $app.save(newItem);
+            }
+        } catch (buildErr) {
+            try {
+                couponUtil.releaseCouponReservationForOrder($app, newOrder);
+                $app.delete(newOrder);
+            } catch (cleanupErr) {}
+            const statusCode = buildStage === "reservation" ? 409 : 500;
+            return e.json(statusCode, { error: buildErr.toString() });
         }
 
-        return e.json(200, { orderId: newOrder.id, amount: subtotal, cleanupNonce: cleanupNonce });
+        return e.json(200, {
+            orderId: newOrder.id,
+            amount: finalAmount,
+            subtotalAmount: subtotal,
+            discountAmount: discountAmount,
+            coupon: couponValidation.coupon ? couponUtil.exportCoupon(couponValidation.coupon) : null,
+            cleanupNonce: cleanupNonce
+        });
     } catch(err) {
         return e.json(500, { error: err.toString() });
     }
@@ -87,6 +123,7 @@ routerAdd("POST", "/api/orders/{id}/cancel-pending", (e) => {
     try {
         const env = require(`${__hooks}/utils/env.js`);
         const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
+        const couponUtil = require(`${__hooks}/utils/coupons.js`);
         const data = e.requestInfo().body || {};
         const orderId = e.request.pathValue("id");
         const order = $app.findRecordById("orders", orderId);
@@ -110,6 +147,7 @@ routerAdd("POST", "/api/orders/{id}/cancel-pending", (e) => {
             }
         }
 
+        couponUtil.releaseCouponReservationForOrder($app, order);
         $app.delete(order);
         return e.json(200, { message: "Pending order deleted successfully" });
     } catch (err) {
@@ -153,6 +191,7 @@ routerAdd("GET", "/payment/complete", (c) => {
         const portone = require(`${__hooks}/services/portone-verify.js`);
         const env = require(`${__hooks}/utils/env.js`);
         const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
+        const couponUtil = require(`${__hooks}/utils/coupons.js`);
         const query = c.request.url.query();
         const paymentId = query.get("paymentId") || query.get("payment_id") || query.get("orderId") || "Unknown";
         const code = query.get("code");
@@ -191,6 +230,7 @@ routerAdd("GET", "/payment/complete", (c) => {
                     const order = $app.findRecordById("orders", paymentId);
                     const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
                     if (order.getString("status") === "pending" && guestSecurity.verifyCleanupNonce(guestInfo, cleanupNonce, env)) {
+                        couponUtil.releaseCouponReservationForOrder($app, order);
                         $app.delete(order);
                     }
                 } catch (cleanupErr) {}
@@ -223,6 +263,7 @@ routerAdd("GET", "/payment/complete", (c) => {
             $app.save(order);
             console.log("Synced order status to paid via redirect callback: " + paymentId);
         }
+        couponUtil.markCouponUsedForOrder($app, order);
 
         const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
         if (!order.getString("user") && guestInfo) {
@@ -306,6 +347,52 @@ routerAdd("POST", "/api/orders/{id}/withdraw-cancel", (e) => {
         $app.save(order);
 
         return e.json(200, { message: "취소 요청이 철회되었습니다." });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+});
+
+
+routerAdd("POST", "/api/orders/{id}/confirm-purchase", (e) => {
+    try {
+        if (!e.auth || e.auth.collection().name !== "users") {
+            return e.json(401, { error: "로그인이 필요합니다." });
+        }
+
+        const orderId = e.request.pathValue("id");
+        const order = $app.findRecordById("orders", orderId);
+
+        if (order.getString("user") !== e.auth.id) {
+            return e.json(403, { error: "본인 주문만 구매확정할 수 있습니다." });
+        }
+
+        const status = order.getString("status");
+        if (status === "purchase_confirmed") {
+            return e.json(200, {
+                message: "이미 구매확정된 주문입니다.",
+                order: {
+                    id: order.id,
+                    status: status,
+                    purchase_confirmed_at: order.getString("purchase_confirmed_at")
+                }
+            });
+        }
+        if (status !== "completed") {
+            return e.json(400, { error: "배송완료 주문만 구매확정할 수 있습니다." });
+        }
+
+        order.set("status", "purchase_confirmed");
+        order.set("purchase_confirmed_at", new Date().toISOString());
+        $app.save(order);
+
+        return e.json(200, {
+            message: "구매가 확정되었습니다. 이제 리뷰를 작성할 수 있습니다.",
+            order: {
+                id: order.id,
+                status: order.getString("status"),
+                purchase_confirmed_at: order.getString("purchase_confirmed_at")
+            }
+        });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }

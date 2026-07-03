@@ -3,6 +3,7 @@ routerAdd("POST", "/api/payment/webhook", (e) => {
     try {
         const portone = require(`${__hooks}/services/portone-verify.js`);
         const env = require(`${__hooks}/utils/env.js`);
+        const couponUtil = require(`${__hooks}/utils/coupons.js`);
 
         const getHeader = (name) => {
             try {
@@ -68,6 +69,7 @@ routerAdd("POST", "/api/payment/webhook", (e) => {
                 order.set("portone_tx_id", verified.transactionId);
                 $app.save(order);
             }
+            couponUtil.markCouponUsedForOrder($app, order);
         } else if (status === "CANCELLED") {
             const currentStatus = order.getString("status");
             if (currentStatus === "paid" || currentStatus === "cancel_requested") {
@@ -76,6 +78,7 @@ routerAdd("POST", "/api/payment/webhook", (e) => {
             }
         } else if (status === "FAILED") {
             if (order.getString("status") === "pending") {
+                couponUtil.releaseCouponReservationForOrder($app, order);
                 $app.delete(order);
             }
         }

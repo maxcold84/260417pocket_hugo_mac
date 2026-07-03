@@ -14,8 +14,10 @@ pb_hooks/
   routes/
     admin.pb.js         ← CMS rebuild/settings routes, guarded CMS order update/status routes, admin cancel approval (POST /api/cms/orders/{id}/approve-cancel)
     comments.pb.js      ← Product comment API routes
+    coupons.pb.js       ← Coupon availability and CMS coupon setting/history routes
     inquiries.pb.js     ← Product inquiry API routes and CMS inquiry answer/status/delete routes
-    main.pb.js          ← User-facing routes: order prep, cancel request, cancel withdrawal
+    main.pb.js          ← User-facing routes: order prep, purchase confirmation, cancel request, cancel withdrawal
+  order_coupon_guard.pb.js ← Releases reserved coupons when pending orders are deleted
   routes.pb.js          ← Dynamic route registration (checkout, orders, order-prep API)
   portone.pb.js         ← PortOne webhook + payment verification routes
   views/
@@ -24,6 +26,7 @@ pb_hooks/
       order-detail.html ← Order detail view
   utils/
     comments.js         ← Comment validation, purchase eligibility, response shaping
+    coupons.js          ← Coupon settings, review reward issue, coupon reservation/use/release helpers
     inquiries.js        ← Inquiry validation, secret masking, response shaping
     render.js           ← HTML layout rendering utility
 pb_data/                ← SQLite DB + uploaded files (gitignored)
@@ -42,7 +45,7 @@ hugo/                   ← Hugo source (content, themes, config)
 ## Build Workflows & Gotchas
 1. **Static Frontend vs JSVM Routing Separation**:
    - **Static Pages:** Routes requiring no server-side compilation (e.g. `index`, `login/register`, `catalog`) MUST be compiled statically via Hugo into `pb_public`.
-   - **JSVM Pages:** ONLY routes requiring strict server-side logic (e.g. calculating precise `/cart` subtotals or verifying `/checkout` pre-flight PortOne logic) should use `routerAdd()` + `templates/` hooks.
+   - **JSVM Pages:** ONLY routes requiring strict server-side logic (e.g. calculating precise `/cart` subtotals, loading available coupons, or verifying `/checkout` pre-flight PortOne logic) should use `routerAdd()` + `templates/` hooks.
 2. **Hugo Rebuild Necessity for Shared UI Elements**:
    - Modifying layout files under `hugo/layouts/` (e.g., adding sidebar modals, changing `<nav>` logic) will NOT automatically reflect in the active browser, because PocketBase serves the static `/pb_public` directory.
    - **Rule:** Always run `hugo` inside the `/hugo` directory immediately after editing any global HTML layouts or static Markdown pages so that changes are correctly compiled to `pb_public` and picked up by `/pocketbase serve`.
@@ -86,12 +89,13 @@ hugo/                   ← Hugo source (content, themes, config)
 10. **CMS Order Management**:
     - The CMS dashboard separates active orders from archive views in Alpine.js, but both views must be built from fully paged PocketBase results.
     - The order list fetches pages without `sort: '-created'` and sorts the merged array client-side by `created` descending to avoid PocketBase v0.36 system-field sort errors.
-    - Status dropdown options are derived from the current status so the UI does not offer impossible payment-state transitions.
-    - List-page changes call `POST /api/cms/orders/{id}/status`; detail-page edits call `POST /api/cms/orders/{id}/update`. Both routes enforce the same non-payment transition rules.
+    - Status dropdown options are derived from the current status so the UI does not offer impossible payment-state transitions. `purchase_confirmed` is an archive/terminal user state and is displayed read-only in order status controls.
+    - List-page changes call `POST /api/cms/orders/{id}/status`; detail-page edits call `POST /api/cms/orders/{id}/update`. Both routes enforce the same non-payment transition rules. Purchase confirmation is not a CMS transition; members confirm their own `completed` orders through `POST /api/orders/{id}/confirm-purchase`.
 11. **Product Comments Stay Dynamic**:
     - Product comments are stored in `product_comments` and served through `/api/products/{productId}/comments` custom routes. The route key may be either the DB record id or the product slug.
     - Product ratings are stored as `product_comments.rating`; public rating aggregates are stored on `products.rating_average` and `products.rating_count` and recalculated after create/edit/delete or CMS hide/restore/delete.
     - Comment creation, edits, hides, restores, and deletes do not write Hugo Markdown and do not require a rebuild for the product detail dynamic island. Homepage/catalog cards read the aggregate fields from PocketBase during Hugo builds, with Markdown frontmatter as fallback.
+    - Comment creation requires a logged-in member order in `purchase_confirmed` status for that product. The create route issues the configured review reward coupon once per member/product inside the same transaction as the comment and rating update.
     - The product detail page sends the Hugo file slug to the comments route, then loads comments and rating summary client-side after the static page is served and updates Alpine state after writes so new comments and average ratings appear immediately.
     - The CMS comments tab reads `product_comments` as a superuser and sorts the full client-side result by `created` string.
     - Refund approval is not a normal status edit. `refunded` can only be written by `POST /api/cms/orders/{id}/approve-cancel` after the PortOne cancel API succeeds.

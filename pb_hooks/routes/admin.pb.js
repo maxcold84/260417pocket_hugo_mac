@@ -129,7 +129,7 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
         const fromTab = e.request.url.query().get("from");
         const returnTab = fromTab === "orderArchive" ? "orderArchive" : "orders";
         const archiveStatus = e.request.url.query().get("archiveStatus");
-        const validArchiveStatus = archiveStatus === "completed" || archiveStatus === "refunded" || archiveStatus === "cancelled";
+        const validArchiveStatus = archiveStatus === "completed" || archiveStatus === "purchase_confirmed" || archiveStatus === "refunded" || archiveStatus === "cancelled";
         const returnHref = returnTab === "orderArchive"
             ? "/cms/?tab=orderArchive" + (validArchiveStatus ? "&archiveStatus=" + archiveStatus : "")
             : "/cms/?tab=orders";
@@ -270,7 +270,7 @@ routerAdd("POST", "/api/cms/orders/{id}/update", (e) => {
         const order = $app.findRecordById("orders", orderId);
 
         const status = getVal("status");
-        const validStatuses = ["pending", "paid", "cancel_requested", "cancelled", "refunded", "shipping", "completed"];
+        const validStatuses = ["pending", "paid", "cancel_requested", "cancelled", "refunded", "shipping", "completed", "purchase_confirmed"];
         if (validStatuses.indexOf(status) === -1) {
             return e.json(400, { error: "유효하지 않은 주문 상태입니다." });
         }
@@ -278,8 +278,12 @@ routerAdd("POST", "/api/cms/orders/{id}/update", (e) => {
         const validateAdminStatusTransition = (fromStatus, toStatus) => {
             if (fromStatus === toStatus) return { ok: true };
 
-            if (fromStatus === "refunded" || fromStatus === "cancelled") {
+            if (fromStatus === "purchase_confirmed" || fromStatus === "refunded" || fromStatus === "cancelled") {
                 return { ok: false, error: "완료된 환불/취소 주문의 상태는 직접 변경할 수 없습니다." };
+            }
+
+            if (toStatus === "purchase_confirmed") {
+                return { ok: false, error: "구매확정 상태는 회원 구매확정 경로로만 변경할 수 있습니다." };
             }
 
             if (toStatus === "refunded" || toStatus === "cancelled") {
@@ -350,7 +354,7 @@ routerAdd("POST", "/api/cms/orders/{id}/status", (e) => {
         const orderId = e.request.pathValue("id");
         const bodyData = e.requestInfo().body || {};
         const nextStatus = String(bodyData.status || "").trim();
-        const validStatuses = ["pending", "paid", "cancel_requested", "shipping", "completed"];
+        const validStatuses = ["pending", "paid", "cancel_requested", "shipping", "completed", "purchase_confirmed"];
         if (validStatuses.indexOf(nextStatus) === -1) {
             return e.json(400, { error: "이 경로에서 변경할 수 없는 주문 상태입니다." });
         }
@@ -360,8 +364,12 @@ routerAdd("POST", "/api/cms/orders/{id}/status", (e) => {
         const validateAdminStatusTransition = (fromStatus, toStatus) => {
             if (fromStatus === toStatus) return { ok: true };
 
-            if (fromStatus === "refunded" || fromStatus === "cancelled") {
+            if (fromStatus === "purchase_confirmed" || fromStatus === "refunded" || fromStatus === "cancelled") {
                 return { ok: false, error: "완료된 환불/취소 주문의 상태는 직접 변경할 수 없습니다." };
+            }
+
+            if (toStatus === "purchase_confirmed") {
+                return { ok: false, error: "구매확정 상태는 회원 구매확정 경로로만 변경할 수 있습니다." };
             }
 
             if (fromStatus === "pending") {

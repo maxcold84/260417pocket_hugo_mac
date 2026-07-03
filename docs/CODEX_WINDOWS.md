@@ -65,3 +65,22 @@ where.exe rg
 ```
 
 The first `where.exe rg` result should be the user PATH shim, not the WindowsApps path.
+
+## Local PocketBase Shim
+
+This workstation uses local-only PocketBase shims so `pocketbase serve` works from the repository root even when the installed PocketBase binary lives outside the repo:
+
+```text
+C:\Users\Droll\.local\bin\pocketbase.cmd
+C:\Users\Droll\.local\bin\pocketbase
+```
+
+Expected command discovery:
+
+```powershell
+where.exe pocketbase
+```
+
+The first entries should be the `.local\bin` shims, before the installed `pocketbase.exe`. The shims are not tracked by git. When run from a directory containing `pb_data/`, `pb_hooks/`, `pb_migrations/`, and `pb_public/`, they invoke PocketBase with explicit project runtime paths so the homepage is served from this repository's `pb_public/`.
+
+If `pocketbase serve` returns `404 File not found` for `/`, check command discovery first. A direct call to an installed binary outside the repo may default `--dir` and `--publicDir` to the binary installation directory instead of this workspace.

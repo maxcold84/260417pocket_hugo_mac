@@ -96,17 +96,12 @@ function compareCreatedDesc(left, right) {
 function hasPurchasedProduct(app, userId, productId) {
     if (!userId || !productId) return false;
 
-    const validStatuses = {
-        paid: true,
-        shipping: true,
-        completed: true
-    };
     const pageSize = 100;
 
     for (let offset = 0; ; offset += pageSize) {
         const orders = app.findRecordsByFilter("orders", "user = {:userId}", "", pageSize, offset, { userId: userId }) || [];
         for (const order of orders) {
-            if (!validStatuses[order.getString("status")]) {
+            if (order.getString("status") !== "purchase_confirmed") {
                 continue;
             }
 

@@ -46,16 +46,16 @@ This document records the security improvements required before this PocketBase 
 
 ### 3. Guard admin order status transitions
 
-**Risk:** CMS order screens must not be able to mark orders `paid`, `refunded`, or `cancelled` without the corresponding PortOne verification or refund flow.
+**Risk:** CMS order screens must not be able to mark orders `paid`, `refunded`, `cancelled`, or `purchase_confirmed` without the corresponding payment, refund, or member owner confirmation flow.
 
 **Required checks:**
 - `pending` can become `paid` only through the shared PortOne payment verification helper.
 - `refunded` can be written only after the PortOne cancel API succeeds in `/api/cms/orders/{id}/approve-cancel`.
-- CMS status/update routes reject direct creation of terminal payment states and reject moving out of terminal states.
+- CMS status/update routes reject direct creation of terminal payment states, reject direct creation of `purchase_confirmed`, and reject moving out of terminal states.
 - CMS frontend code calls guarded custom routes instead of `pb.collection('orders').update(id, { status })`.
 
 **Acceptance check:**
-- CMS list/detail status controls cannot perform `pending -> paid`, direct `paid -> refunded`, direct `paid -> cancelled`, or any transition out of `refunded`/`cancelled`.
+- CMS list/detail status controls cannot perform `pending -> paid`, direct `paid -> refunded`, direct `paid -> cancelled`, direct `completed -> purchase_confirmed`, or any transition out of `refunded`/`cancelled`/`purchase_confirmed`.
 
 ## P1 High Priority
 
@@ -129,6 +129,8 @@ Every new `routerAdd()` should update this table.
 | --- | --- | --- | --- | --- |
 | `POST /api/orders/prep` | optional user token; guest allowed with required password | yes | no | validates cart against DB, hashes guest password for guests, returns cleanup nonce for pending cleanup |
 | `POST /api/orders/{id}/cancel-pending` | owner user token or cleanup nonce | yes | no | only deletes `pending` orders |
+| `POST /api/orders/{id}/confirm-purchase` | owner user token | yes | no | member-only `completed` to `purchase_confirmed`; idempotent when already confirmed |
+| `GET /api/coupons/available` | user token | no | no | returns the member's available, non-expired coupons only |
 | `GET /checkout` | optional user token | no | no | server-renders PortOne public config and checkout form |
 | `GET /payment/complete` | none | yes | PortOne verify | verifies shared helper before paid transition |
 | `POST /api/payment/webhook` | PortOne signature | yes | PortOne verify | uses raw-body signature verification and shared paid verification |
@@ -138,7 +140,7 @@ Every new `routerAdd()` should update this table.
 | `POST /api/guest/orders/{id}/request-cancel` | exact temporary id (guest phone/email) + guest password | yes | no | guest `paid` to `cancel_requested` |
 | `POST /api/guest/orders/{id}/withdraw-cancel` | exact temporary id (guest phone/email) + guest password | yes | no | guest `cancel_requested` to `paid` |
 | `GET /api/products/{productId}/comments` | optional user token | no | no | `{productId}` accepts id or slug; returns published comments only; hides internal `user` relation |
-| `POST /api/products/{productId}/comments` | user token | yes | no | `{productId}` accepts id or slug; requires prior `paid`, `shipping`, or `completed` order for the product |
+| `POST /api/products/{productId}/comments` | user token | yes | no | `{productId}` accepts id or slug; requires prior `purchase_confirmed` order for the product and issues one review reward coupon per member/product |
 | `PATCH /api/products/{productId}/comments/{commentId}` | author user token | yes | no | `{productId}` accepts id or slug; validates product relation and author ownership |
 | `DELETE /api/products/{productId}/comments/{commentId}` | author user token | yes | no | `{productId}` accepts id or slug; validates product relation and author ownership |
 | `GET /api/products/{productId}/inquiries` | optional user token | no | no | `{productId}` accepts id or slug; returns non-hidden inquiries; masks secret title/content/answer/author for non-authors |
@@ -151,9 +153,12 @@ Every new `routerAdd()` should update this table.
 | `POST /api/cms/rebuild` | superuser | filesystem + build | Hugo command | admin only |
 | `GET /api/cms/settings` | superuser | no | no | admin only |
 | `POST /api/cms/settings/update` | superuser | filesystem + build | Hugo command | admin only |
+| `GET /api/cms/coupon-settings` | superuser | no | no | returns review reward coupon defaults |
+| `POST /api/cms/coupon-settings` | superuser | yes | no | validates and saves review reward coupon defaults |
+| `GET /api/cms/coupons` | superuser | no | no | returns issued coupon history for CMS dashboard |
 | `GET /cms/orders/{id}` | verified superuser cookie | no | no | SSR admin detail page |
 | `POST /api/cms/orders/{id}/update` | verified superuser cookie | yes | no | admin shipping update plus guarded non-payment status transitions |
-| `POST /api/cms/orders/{id}/status` | verified superuser cookie | yes | no | guarded CMS list status transitions; cannot directly create `paid`, `refunded`, or `cancelled` payment state |
+| `POST /api/cms/orders/{id}/status` | verified superuser cookie | yes | no | guarded CMS list status transitions; cannot directly create `paid`, `refunded`, `cancelled`, or `purchase_confirmed` state |
 | `POST /api/cms/orders/{id}/approve-cancel` | superuser | yes | PortOne cancel | idempotent for already refunded orders |
 | `POST /api/cms/categories/add` | superuser | yes | Hugo command | updates `hugo.toml` and categories |
 | `POST /api/cms/categories/delete` | superuser | yes | Hugo command | removes category and clears product relations |
@@ -166,6 +171,7 @@ Recommended next controls:
 - Add short TTLs for pending orders.
 - Keep audit logs for order state transitions: old status, new status, actor, request source, and PortOne payment id.
 - Keep rejecting impossible status transitions server-side when new admin/user order actions are added.
+- Keep coupon use server-authored: checkout may submit only `couponId`, while the server recalculates subtotal, discount, final amount, reservation, release, and use state.
 
 ## Implementation Order
 
@@ -189,8 +195,10 @@ Run these checks before release:
 - A valid webhook fixture passes signature verification.
 - A tampered webhook body fails signature verification.
 - CMS order detail/update routes reject forged or unsigned cookies.
-- CMS status routes reject `pending -> paid`, direct refund/cancel terminal changes, and terminal-state exits.
+- CMS status routes reject `pending -> paid`, direct refund/cancel/purchase-confirm terminal changes, and terminal-state exits.
 - CMS order list does not call `pb.collection('orders').update(id, { status })` or request `sort: '-created'`.
+- Review creation before purchase confirmation fails; first review after purchase confirmation creates one coupon; subsequent edit/delete/recreate does not create another.
+- A failed or deleted pending order with a reserved coupon releases that coupon.
 - Guest lookup fails with phone last-four only.
 - Guest lookup fails with order id only.
 - Guest lookup succeeds with exact guest phone or email plus the valid guest password.

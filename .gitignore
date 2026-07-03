@@ -20,6 +20,10 @@ hugo/content/products/*
 .env
 token.json
 
+# Local QA/runtime artifacts
+qa-*.png
+pb-serve-*.log
+
 # Local Codex Windows desktop tooling
 tools/windows/
 tools/rg.cmd

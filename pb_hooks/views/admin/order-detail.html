@@ -340,7 +340,7 @@
                                                       body: payload
                                                   });
 
-                                                  const isArchived = ['completed', 'refunded', 'cancelled'].includes(payload.status);
+                                                  const isArchived = ['completed', 'purchase_confirmed', 'refunded', 'cancelled'].includes(payload.status);
                                                   this.$dispatch('toast', {message: isArchived ? '변경사항이 저장되어 보관함으로 이동합니다.' : '변경사항이 저장되었습니다.'});
                                                   if (isArchived) {
                                                       setTimeout(() => { window.location.href = '/cms/?tab=orderArchive'; }, 900);
@@ -368,6 +368,9 @@
                                             {{if or (eq .order.status "paid") (eq .order.status "shipping") (eq .order.status "completed")}}
                                             <option value="shipping">Shipping (배송중)</option>
                                             <option value="completed">Completed (배송완료)</option>
+                                            {{end}}
+                                            {{if eq .order.status "purchase_confirmed"}}
+                                            <option value="purchase_confirmed">Purchase Confirmed (구매확정)</option>
                                             {{end}}
                                             {{if eq .order.status "cancelled"}}
                                             <option value="cancelled">Cancelled (취소)</option>

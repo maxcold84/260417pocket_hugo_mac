@@ -48,12 +48,17 @@ kakao = false
    ```
 
 2. **서버 실행 (PocketBase)**
-   Linux 서버나 systemd 서비스에서는 작업 디렉터리와 정적 파일 경로가 흔들리지 않도록 저장소 기준 경로를 명시해서 구동합니다.
+   이 Windows/Codex 로컬 환경에서는 저장소 루트에서 아래처럼 실행하면 로컬 `pocketbase` shim이 `pb_data`, `pb_hooks`, `pb_migrations`, `pb_public` 경로를 자동으로 연결합니다.
+   ```bash
+   pocketbase serve
+   ```
+
+   Linux 서버나 systemd 서비스처럼 shim이 없는 환경에서는 작업 디렉터리와 정적 파일 경로가 흔들리지 않도록 저장소 기준 경로를 명시해서 구동합니다.
    ```bash
    ./pocketbase serve --dir=pb_data --hooksDir=pb_hooks --migrationsDir=pb_migrations --publicDir=pb_public
    ```
 
-   개발 중 상세 로그가 필요하면 `--dev`를 추가합니다. PocketBase 바이너리를 저장소 루트에 두고 루트에서 실행하는 경우에는 기존처럼 `./pocketbase serve`도 동작할 수 있지만, 서비스 배포에서는 위처럼 경로를 명시하는 편이 안전합니다.
+   개발 중 상세 로그가 필요하면 `--dev`를 추가합니다. PocketBase 바이너리를 저장소 루트에 두고 루트에서 실행하는 경우에도 기존처럼 `./pocketbase serve`가 동작할 수 있지만, 서비스 배포에서는 위처럼 경로를 명시하는 편이 안전합니다.
 
 3. **초기 관리자 접속 및 동기화**
    - 브라우저에서 `http://127.0.0.1:8090/_/` (기본 포켓베이스 관리자 페이지) 접속 후, 포트원 결제 연동 등을 위한 세팅을 확인합니다.
