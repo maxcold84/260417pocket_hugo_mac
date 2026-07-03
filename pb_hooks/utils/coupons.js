@@ -70,25 +70,64 @@ function parseDiscountType(value) {
     return type === "percent" ? "percent" : "fixed";
 }
 
-function parseNonNegativeInt(value) {
-    const parsed = parseInt(value, 10);
-    if (!Number.isFinite(parsed) || parsed < 0) return 0;
-    return parsed;
+function hasInput(data, camelName, snakeName) {
+    return Object.prototype.hasOwnProperty.call(data, camelName)
+        || Object.prototype.hasOwnProperty.call(data, snakeName);
 }
 
-function parsePositiveInt(value, fallback) {
-    const parsed = parseInt(value, 10);
-    if (!Number.isFinite(parsed) || parsed < 1) return fallback;
-    return parsed;
+function inputValue(data, camelName, snakeName, fallback) {
+    if (Object.prototype.hasOwnProperty.call(data, camelName)) return data[camelName];
+    if (Object.prototype.hasOwnProperty.call(data, snakeName)) return data[snakeName];
+    return fallback;
+}
+
+function parseIntegerInput(value, label, minValue) {
+    if (value === undefined || value === null || value === "") {
+        return { ok: false, error: label + " 값을 입력해 주세요." };
+    }
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || Math.floor(parsed) !== parsed) {
+        return { ok: false, error: label + " 값은 정수로 입력해 주세요." };
+    }
+    if (parsed < minValue) {
+        return { ok: false, error: label + " 값은 " + minValue + " 이상이어야 합니다." };
+    }
+    return { ok: true, value: parsed };
 }
 
 function updateReviewRewardSetting(app, data) {
     const setting = getReviewRewardSetting(app);
     const discountType = parseDiscountType(data.discountType || data.discount_type);
-    const discountValue = parsePositiveInt(data.discountValue || data.discount_value, 0);
-    const expiresDays = parsePositiveInt(data.expiresDays || data.expires_days, 30);
-    const minimumOrderAmount = parseNonNegativeInt(data.minimumOrderAmount || data.minimum_order_amount);
-    const maxDiscountAmount = parseNonNegativeInt(data.maxDiscountAmount || data.max_discount_amount);
+    const discountValueResult = parseIntegerInput(inputValue(data, "discountValue", "discount_value", undefined), "쿠폰 할인값", 1);
+    if (!discountValueResult.ok) {
+        return { ok: false, error: discountValueResult.error };
+    }
+
+    const expiresDaysResult = parseIntegerInput(inputValue(data, "expiresDays", "expires_days", undefined), "쿠폰 유효기간", 1);
+    if (!expiresDaysResult.ok) {
+        return { ok: false, error: expiresDaysResult.error };
+    }
+
+    const minimumInput = hasInput(data, "minimumOrderAmount", "minimum_order_amount")
+        ? inputValue(data, "minimumOrderAmount", "minimum_order_amount", 0)
+        : 0;
+    const minimumResult = parseIntegerInput(minimumInput, "최소 주문금액", 0);
+    if (!minimumResult.ok) {
+        return { ok: false, error: minimumResult.error };
+    }
+
+    const maxInput = hasInput(data, "maxDiscountAmount", "max_discount_amount")
+        ? inputValue(data, "maxDiscountAmount", "max_discount_amount", 0)
+        : 0;
+    const maxResult = parseIntegerInput(maxInput, "최대 할인액", 0);
+    if (!maxResult.ok) {
+        return { ok: false, error: maxResult.error };
+    }
+
+    const discountValue = discountValueResult.value;
+    const expiresDays = expiresDaysResult.value;
+    const minimumOrderAmount = minimumResult.value;
+    const maxDiscountAmount = maxResult.value;
 
     if (discountValue < 1) {
         return { ok: false, error: "쿠폰 할인값은 1 이상이어야 합니다." };

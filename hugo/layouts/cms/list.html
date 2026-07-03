@@ -2280,14 +2280,38 @@
                     }
                 },
                 async saveCouponSetting() {
-                    if (Number(this.couponSetting.discountValue) < 1) {
+                    const discountValue = Number(this.couponSetting.discountValue);
+                    const expiresDays = Number(this.couponSetting.expiresDays);
+                    const minimumOrderAmount = Number(this.couponSetting.minimumOrderAmount);
+                    const maxDiscountAmount = Number(this.couponSetting.maxDiscountAmount);
+                    if (!Number.isFinite(discountValue) || discountValue < 1) {
                         this.showToast('쿠폰 할인값은 1 이상이어야 합니다.', 'error');
                         return;
                     }
-                    if (this.couponSetting.discountType === 'percent' && Number(this.couponSetting.discountValue) > 100) {
+                    if (!Number.isInteger(discountValue)) {
+                        this.showToast('쿠폰 할인값은 정수로 입력해 주세요.', 'error');
+                        return;
+                    }
+                    if (this.couponSetting.discountType === 'percent' && discountValue > 100) {
                         this.showToast('정률 쿠폰 할인율은 100%를 넘을 수 없습니다.', 'error');
                         return;
                     }
+                    if (!Number.isFinite(expiresDays) || expiresDays < 1 || !Number.isInteger(expiresDays)) {
+                        this.showToast('쿠폰 유효기간은 1일 이상 정수로 입력해 주세요.', 'error');
+                        return;
+                    }
+                    if (!Number.isFinite(minimumOrderAmount) || minimumOrderAmount < 0 || !Number.isInteger(minimumOrderAmount)) {
+                        this.showToast('최소 주문금액은 0원 이상 정수로 입력해 주세요.', 'error');
+                        return;
+                    }
+                    if (!Number.isFinite(maxDiscountAmount) || maxDiscountAmount < 0 || !Number.isInteger(maxDiscountAmount)) {
+                        this.showToast('최대 할인액은 0원 이상 정수로 입력해 주세요.', 'error');
+                        return;
+                    }
+                    this.couponSetting.discountValue = discountValue;
+                    this.couponSetting.expiresDays = expiresDays;
+                    this.couponSetting.minimumOrderAmount = minimumOrderAmount;
+                    this.couponSetting.maxDiscountAmount = maxDiscountAmount;
                     this.couponSaving = true;
                     try {
                         const data = await pb.send('/api/cms/coupon-settings', {
