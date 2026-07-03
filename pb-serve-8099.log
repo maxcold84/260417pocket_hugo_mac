@@ -585,3 +585,7 @@ INFO GET /api/products/오리/inquiries?offset=0&limit=20
 [0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 's1nhg1kvba4x35s' AND `product_comments`.`status` = 'published') LIMIT 100
 [0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 's1nhg1kvba4x35s' AND `product_comments`.`status` = 'published') LIMIT 100
 INFO GET /api/products/오리/comments?offset=0&limit=20
+ERROR GET /.well-known/appspecific/com.chrome.devtools.json
+└─ File not found.
+ERROR GET /.well-known/appspecific/com.chrome.devtools.json
+└─ File not found.

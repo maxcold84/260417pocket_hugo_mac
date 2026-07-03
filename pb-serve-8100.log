@@ -1,0 +1,152 @@
+[6.00ms] CREATE TABLE IF NOT EXISTS `_migrations` (file VARCHAR(255) PRIMARY KEY NOT NULL, applied INTEGER NOT NULL)
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1640988000_aux_init.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1640988000_init.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1717233556_v0.23_migrate.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1717233557_v0.23_migrate2.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1717233558_v0.23_migrate3.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1717233559_v0.23_migrate4.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1763020353_update_default_auth_alert_templates.go' LIMIT 1
+[3.00ms] SELECT `_collections`.* FROM `_collections` ORDER BY `rowid` ASC
+[1.00ms] SELECT `_params`.* FROM `_params` WHERE `id`='settings'
+[0.00ms] SELECT `_collections`.* FROM `_collections` ORDER BY `rowid` ASC
+[0.00ms] SELECT `_collections`.* FROM `_collections` WHERE `id`='categories' OR LOWER(`name`)='categories' LIMIT 1
+[0.00ms] SELECT `categories`.* FROM `categories` WHERE 1 = 1 ORDER BY `categories`.`sort_order` ASC LIMIT 100
+[6.00ms] UPDATE `categories` SET `id`='nsqhxs9qo6a9t3g', `name`='기본', `slug`='base', `sort_order`=1 WHERE `id`='nsqhxs9qo6a9t3g'
+2026/07/03 11:22:47 [cms-util] Successfully synced 1 categories to DB.
+[0.00ms] SELECT `_collections`.* FROM `_collections` WHERE `id`='orders' OR LOWER(`name`)='orders' LIMIT 1
+[0.00ms] SELECT `_collections`.* FROM `_collections` WHERE `id`='pbc_3527180448'
+[0.00ms] SELECT count(*) FROM `_collections` WHERE (LOWER(`name`)='orders') AND (`id`<>'pbc_3527180448') LIMIT 1
+[0.00ms] SELECT `_collections`.* FROM `_collections` WHERE `id`='orders'
+[0.00ms] SELECT `_collections`.* FROM `_collections` WHERE `id`='pbc_3527180448' OR LOWER(`name`)='pbc_3527180448' LIMIT 1
+[0.00ms] SELECT `_collections`.* FROM `_collections` WHERE `id`='pbc_3527180448' OR LOWER(`name`)='pbc_3527180448' LIMIT 1
+[1.00ms] UPDATE `_collections` SET `createRule`=NULL, `created`='2026-07-02 09:50:31.368Z', `deleteRule`=NULL, `fields`='[{"autogeneratePattern":"[a-z0-9]{15}","hidden":false,"id":"text3208210256","max":15,"min":15,"name":"id","pattern":"^[a-z0-9]+$","presentable":false,"primaryKey":true,"required":true,"system":true,"type":"text"},{"cascadeDelete":false,"collectionId":"_pb_users_auth_","hidden":false,"id":"relation2375276105","maxSelect":0,"minSelect":0,"name":"user","presentable":false,"required":false,"system":false,"type":"relation"},{"autogeneratePattern":"","hidden":false,"id":"text79930299","max":0,"min":0,"name":"payment_id","pattern":"","presentable":false,"primaryKey":false,"required":false,"system":false,"type":"text"},{"hidden":false,"id":"select2063623452","maxSelect":1,"name":"status","presentable":false,"required":false,"system":false,"type":"select","values":["pending","paid","cancelled","refunded","shipping","completed","cancel_requested"]},{"hidden":false,"id":"number1186288468","max":null,"min":null,"name":"total_amount","onlyInt":false,"presentable":false,"required":true,"system":false,"type":"number"},{"hidden":false,"id":"json3776899405","maxSize":0,"name":"items","presentable":false,"required":false,"system":false,"type":"json"},{"hidden":false,"id":"json4013124618","maxSize":0,"name":"guest_info","presentable":false,"required":false,"system":false,"type":"json"},{"autogeneratePattern":"","hidden":false,"id":"text4020170861","max":0,"min":0,"name":"portone_tx_id","pattern":"","presentable":false,"primaryKey":false,"required":false,"system":false,"type":"text"},{"autogeneratePattern":"","hidden":false,"id":"text2913987824","max":0,"min":0,"name":"recipient_name","pattern":"","presentable":false,"primaryKey":false,"required":false,"system":false,"type":"text"},{"autogeneratePattern":"","hidden":false,"id":"text274877542","max":0,"min":0,"name":"recipient_phone","pattern":"","presentable":false,"primaryKey":false,"required":false,"system":false,"type":"text"},{"autogeneratePattern":"","hidden":false,"id":"text3943065925","max":0,"min":0,"name":"shipping_address","pattern":"","presentable":false,"primaryKey":false,"required":false,"system":false,"type":"text"},{"autogeneratePattern":"","hidden":false,"id":"text1623437253","max":0,"min":0,"name":"shipping_address_detail","pattern":"","presentable":false,"primaryKey":false,"required":false,"system":false,"type":"text"},{"autogeneratePattern":"","hidden":false,"id":"text989201960","max":0,"min":0,"name":"shipping_memo","pattern":"","presentable":false,"primaryKey":false,"required":false,"system":false,"type":"text"},{"autogeneratePattern":"","hidden":false,"id":"text3169071870","max":0,"min":0,"name":"courier_name","pattern":"","presentable":false,"primaryKey":false,"required":false,"system":false,"type":"text"},{"autogeneratePattern":"","hidden":false,"id":"text1042062360","max":0,"min":0,"name":"tracking_number","pattern":"","presentable":false,"primaryKey":false,"required":false,"system":false,"type":"text"},{"hidden":false,"id":"autodate_created","name":"created","onCreate":true,"onUpdate":false,"presentable":false,"system":false,"type":"autodate"},{"hidden":false,"id":"autodate_updated","name":"updated","onCreate":true,"onUpdate":true,"presentable":false,"system":false,"type":"autodate"}]', `id`='pbc_3527180448', `indexes`='[]', `listRule`=0x9b682b48a0, `name`='orders', `options`='{}', `system`=false, `type`='base', `updateRule`=NULL, `updated`='2026-07-03 02:22:47.639Z', `viewRule`=0x9b682b48b0 WHERE `id`='pbc_3527180448'
+[0.00ms] SELECT (1) FROM `sqlite_schema` WHERE (`type` IN ('table', 'view')) AND (LOWER(`name`)=LOWER('orders')) LIMIT 1
+[0.00ms] PRAGMA optimize
+[0.00ms] SELECT `_collections`.* FROM `_collections` WHERE `type`='view' ORDER BY `rowid` ASC
+[0.00ms] SELECT `_collections`.* FROM `_collections` ORDER BY `rowid` ASC
+[0.00ms] SELECT `_collections`.* FROM `_collections` WHERE `id`='order_items' OR LOWER(`name`)='order_items' LIMIT 1
+[0.00ms] SELECT `_collections`.* FROM `_collections` WHERE `id`='pbc_2456927940'
+[0.00ms] SELECT count(*) FROM `_collections` WHERE (LOWER(`name`)='order_items') AND (`id`<>'pbc_2456927940') LIMIT 1
+[0.00ms] SELECT `_collections`.* FROM `_collections` WHERE `id`='order_items'
+[0.00ms] UPDATE `_collections` SET `createRule`=NULL, `created`='2026-07-02 09:50:31.372Z', `deleteRule`=NULL, `fields`='[{"autogeneratePattern":"[a-z0-9]{15}","hidden":false,"id":"text3208210256","max":15,"min":15,"name":"id","pattern":"^[a-z0-9]+$","presentable":false,"primaryKey":true,"required":true,"system":true,"type":"text"},{"cascadeDelete":true,"collectionId":"pbc_3527180448","hidden":false,"id":"relation4113142680","maxSelect":0,"minSelect":0,"name":"order","presentable":false,"required":true,"system":false,"type":"relation"},{"cascadeDelete":false,"collectionId":"pbc_4092854851","hidden":false,"id":"relation3544843437","maxSelect":0,"minSelect":0,"name":"product","presentable":false,"required":true,"system":false,"type":"relation"},{"hidden":false,"id":"number2683508278","max":null,"min":null,"name":"quantity","onlyInt":false,"presentable":false,"required":true,"system":false,"type":"number"},{"hidden":false,"id":"number1106926802","max":null,"min":null,"name":"unit_price","onlyInt":false,"presentable":false,"required":true,"system":false,"type":"number"}]', `id`='pbc_2456927940', `indexes`='[]', `listRule`=0x9b67c301c0, `name`='order_items', `options`='{}', `system`=false, `type`='base', `updateRule`=NULL, `updated`='2026-07-03 02:22:47.654Z', `viewRule`=0x9b67c301d0 WHERE `id`='pbc_2456927940'
+[0.00ms] SELECT (1) FROM `sqlite_schema` WHERE (`type` IN ('table', 'view')) AND (LOWER(`name`)=LOWER('order_items')) LIMIT 1
+[0.00ms] PRAGMA optimize
+[0.00ms] SELECT `_collections`.* FROM `_collections` WHERE `type`='view' ORDER BY `rowid` ASC
+[0.00ms] SELECT `_collections`.* FROM `_collections` ORDER BY `rowid` ASC
+2026/07/03 11:22:47 [bootstrap] API rules set for orders & order_items
+[0.00ms] CREATE TABLE IF NOT EXISTS `_migrations` (file VARCHAR(255) PRIMARY KEY NOT NULL, applied INTEGER NOT NULL)
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1640988000_aux_init.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1640988000_init.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1713230000_schema.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1713230002_users_schema.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1713230005_update_products_public.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1713230006_update_products_images_size.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1716000000_add_sort_order.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1717233556_v0.23_migrate.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1717233557_v0.23_migrate2.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1717233558_v0.23_migrate3.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1717233559_v0.23_migrate4.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1763020353_update_default_auth_alert_templates.go' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1777129200_updated_users.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1777872764_updated_orders.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1777872838_updated_order_items.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1777872855_updated_order_items.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1777872890_updated_orders.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1779000000_add_discount.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1780000000_add_shipping_info_to_orders.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1781000000_add_address_detail_to_users.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1782000000_add_tracking_info_to_orders.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1783000000_add_shipping_options_to_orders.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1784000000_add_product_comments.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1785000000_add_product_ratings.js' LIMIT 1
+[0.00ms] SELECT (1) FROM `_migrations` WHERE `file`='1786000000_add_product_inquiries.js' LIMIT 1
+2026/07/03 11:22:47 Server started at http://127.0.0.1:8100
+├─ REST API:  http://127.0.0.1:8100/api/
+└─ Dashboard: http://127.0.0.1:8100/_/
+[0.00ms] SELECT count(*) FROM `_superusers` WHERE NOT (`email`='__pbinstaller@example.com')
+[2.00ms] SELECT `products`.* FROM `products` ORDER BY `products`.`sort_order` ASC LIMIT 30
+[11.00ms] SELECT COUNT(DISTINCT `products`.`_rowid_`) FROM `products`
+INFO GET /api/collections/products/records?sort=sort_order&limit=20
+[0.00ms] SELECT COUNT(DISTINCT `products`.`_rowid_`) FROM `products`
+[0.00ms] SELECT `products`.* FROM `products` ORDER BY `products`.`sort_order` ASC LIMIT 30
+INFO GET /api/collections/products/records?sort=sort_order&limit=20
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='오리' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = '오리' LIMIT 1
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 's1nhg1kvba4x35s' AND `product_comments`.`status` = 'published') LIMIT 100
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 's1nhg1kvba4x35s' AND `product_comments`.`status` = 'published') LIMIT 100
+INFO GET /api/products/오리/comments
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+INFO GET /api/products/bmw-keychain/comments?offset=0&limit=20
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `product_inquiries`.* FROM `product_inquiries` WHERE `product_inquiries`.`product` = 'l5ytj60prag1o42' LIMIT 100
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+INFO GET /api/products/bmw-keychain/inquiries?offset=0&limit=20
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+INFO GET /api/products/bmw-keychain/comments?offset=0&limit=20
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `product_inquiries`.* FROM `product_inquiries` WHERE `product_inquiries`.`product` = 'l5ytj60prag1o42' LIMIT 100
+INFO GET /api/products/bmw-keychain/inquiries?offset=0&limit=20
+ERROR GET /favicon.ico
+└─ File not found.
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+INFO GET /api/products/bmw-keychain/comments?offset=0&limit=20
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `product_inquiries`.* FROM `product_inquiries` WHERE `product_inquiries`.`product` = 'l5ytj60prag1o42' LIMIT 100
+INFO GET /api/products/bmw-keychain/inquiries?offset=0&limit=20
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+INFO GET /api/products/bmw-keychain/comments?offset=0&limit=20
+[2.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `product_inquiries`.* FROM `product_inquiries` WHERE `product_inquiries`.`product` = 'l5ytj60prag1o42' LIMIT 100
+INFO GET /api/products/bmw-keychain/inquiries?offset=0&limit=20
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+INFO GET /api/products/bmw-keychain/comments?offset=0&limit=20
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `product_inquiries`.* FROM `product_inquiries` WHERE `product_inquiries`.`product` = 'l5ytj60prag1o42' LIMIT 100
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+INFO GET /api/products/bmw-keychain/inquiries?offset=0&limit=20
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+[0.00ms] SELECT `product_comments`.* FROM `product_comments` WHERE (`product_comments`.`product` = 'l5ytj60prag1o42' AND `product_comments`.`status` = 'published') LIMIT 100
+INFO GET /api/products/bmw-keychain/comments?offset=0&limit=20
+[1.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='bmw-keychain' LIMIT 1
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`slug` = 'bmw-keychain' LIMIT 1
+[0.00ms] SELECT `product_inquiries`.* FROM `product_inquiries` WHERE `product_inquiries`.`product` = 'l5ytj60prag1o42' LIMIT 100
+INFO GET /api/products/bmw-keychain/inquiries?offset=0&limit=20
+[0.00ms] SELECT COUNT(DISTINCT `products`.`_rowid_`) FROM `products`
+[0.00ms] SELECT `products`.* FROM `products` ORDER BY `products`.`sort_order` ASC LIMIT 30
+[6.00ms] SELECT COUNT(DISTINCT `products`.`_rowid_`) FROM `products`
+[6.00ms] SELECT `products`.* FROM `products` ORDER BY `products`.`sort_order` ASC LIMIT 30
+INFO GET /api/collections/products/records?sort=sort_order&limit=4&t=1783045523
+[0.00ms] SELECT `categories`.* FROM `categories` WHERE `categories`.`id`='nsqhxs9qo6a9t3g'
+INFO GET /api/collections/products/records?sort=sort_order&expand=category&t=1783045523
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='s1nhg1kvba4x35s' LIMIT 1
+INFO GET /api/files/products/s1nhg1kvba4x35s/4a7728e8429b65adcf2e096dd0f1ea4f_oye1wf8khz.jpg
+ERROR GET /favicon.ico
+└─ File not found.
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='s1nhg1kvba4x35s' LIMIT 1
+INFO GET /api/files/products/s1nhg1kvba4x35s/4a7728e8429b65adcf2e096dd0f1ea4f_oye1wf8khz.jpg
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='s1nhg1kvba4x35s' LIMIT 1
+INFO GET /api/files/products/s1nhg1kvba4x35s/4a7728e8429b65adcf2e096dd0f1ea4f_oye1wf8khz.jpg
+ERROR GET /favicon.ico
+└─ File not found.
+[0.00ms] SELECT `products`.* FROM `products` WHERE `products`.`id`='s1nhg1kvba4x35s' LIMIT 1
+INFO GET /api/files/products/s1nhg1kvba4x35s/4a7728e8429b65adcf2e096dd0f1ea4f_oye1wf8khz.jpg

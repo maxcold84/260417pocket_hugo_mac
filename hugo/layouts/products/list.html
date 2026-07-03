@@ -97,7 +97,7 @@
         {{ if isset $product "stock" }}{{ $stock = int $product.stock }}{{ end }}
         {{ $price := $product.price | default 0 }}
         {{ $discountPrice := $product.discount_price | default 0 }}
-        {{ $ratingAverage := $product.rating_average | default 0 }}
+        {{ $ratingAverage := float ($product.rating_average | default 0) }}
         {{ $ratingCount := int ($product.rating_count | default 0) }}
         {{ $imageSrc := "" }}
         {{ with $product.images }}
@@ -176,14 +176,14 @@
                         {{ $product.name }}</h3>
                 </a>
                 <div class="mt-2 flex min-h-[18px] items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ if gt $ratingCount 0 }}
+                    {{ if or (gt $ratingCount 0) (gt $ratingAverage 0.0) }}
                     <span class="inline-flex items-center gap-0.5 text-orange-400" aria-label="{{ i18n "rating_average_label" }} {{ printf "%.1f" (float $ratingAverage) }}">
                         <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20" aria-hidden="true">
                             <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
                         </svg>
                         <span class="font-medium text-gray-700 dark:text-gray-200">{{ printf "%.1f" (float $ratingAverage) }}</span>
                     </span>
-                    <span>({{ $ratingCount }})</span>
+                    {{ if gt $ratingCount 0 }}<span>({{ $ratingCount }})</span>{{ end }}
                     {{ else }}
                     <span class="text-gray-400 dark:text-gray-500">{{ i18n "rating_empty_short" }}</span>
                     {{ end }}
