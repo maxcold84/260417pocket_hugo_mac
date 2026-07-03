@@ -3,6 +3,68 @@
 {{ define "main" }}
 {{ $ratingAverage := .Params.rating_average | default 0 }}
 {{ $ratingCount := .Params.rating_count | default 0 }}
+{{ $recommendationLimit := int (site.Params.productRecommendationsLimit | default 5) }}
+{{ $recommendationIntervalMs := int (site.Params.productRecommendationIntervalMs | default 5000) }}
+{{ $pbBase := getenv "HUGO_POCKETBASE_INTERNAL_URL" | default site.BaseURL }}
+{{ if not (hasSuffix $pbBase "/") }}
+    {{ $pbBase = printf "%s/" $pbBase }}
+{{ end }}
+{{ $prodUrl := printf "%sapi/collections/products/records?sort=sort_order&expand=category&limit=1000&t=%d" $pbBase now.Unix }}
+{{ $data := dict "items" slice }}
+{{ $useMarkdownFallback := false }}
+{{ with try (resources.GetRemote $prodUrl) }}
+    {{ with .Err }}
+        {{ $useMarkdownFallback = true }}
+    {{ else }}
+        {{ $data = .Value | transform.Unmarshal }}
+    {{ end }}
+{{ end }}
+{{ $productItems := $data.items }}
+{{ if $useMarkdownFallback }}
+    {{ $productItems = slice }}
+    {{ range (where site.RegularPages "Section" "products").ByWeight }}
+        {{ $productItems = $productItems | append (dict
+            "id" (.Params.id | default .File.BaseFileName)
+            "name" .Title
+            "slug" .File.BaseFileName
+            "price" (.Params.price | default 0)
+            "discount_price" (.Params.discount_price | default 0)
+            "stock" (.Params.stock | default 1)
+            "rating_average" (.Params.rating_average | default 0)
+            "rating_count" (.Params.rating_count | default 0)
+            "images" (.Params.images | default (slice))
+            "category" (.Params.category | default "")
+        ) }}
+    {{ end }}
+{{ end }}
+{{ $currentSlug := .File.BaseFileName }}
+{{ $currentId := .Params.id | default "" }}
+{{ $currentCategory := .Params.category | default "" }}
+{{ $recommendations := slice }}
+{{ range $productItems }}
+    {{ $product := . }}
+    {{ $productCategory := "" }}
+    {{ with $product.category }}{{ $productCategory = . }}{{ end }}
+    {{ with $product.expand }}{{ with .category }}{{ with .slug }}{{ $productCategory = . }}{{ end }}{{ end }}{{ end }}
+    {{ $isCurrent := or (eq $product.slug $currentSlug) (and $currentId (eq $product.id $currentId)) }}
+    {{ $isSameCategory := and $currentCategory (eq $productCategory $currentCategory) }}
+    {{ if and (not $isCurrent) $isSameCategory (lt (len $recommendations) $recommendationLimit) }}
+        {{ $recommendations = $recommendations | append $product }}
+    {{ end }}
+{{ end }}
+{{ if lt (len $recommendations) $recommendationLimit }}
+    {{ range $productItems }}
+        {{ $product := . }}
+        {{ $productCategory := "" }}
+        {{ with $product.category }}{{ $productCategory = . }}{{ end }}
+        {{ with $product.expand }}{{ with .category }}{{ with .slug }}{{ $productCategory = . }}{{ end }}{{ end }}{{ end }}
+        {{ $isCurrent := or (eq $product.slug $currentSlug) (and $currentId (eq $product.id $currentId)) }}
+        {{ $isSameCategory := and $currentCategory (eq $productCategory $currentCategory) }}
+        {{ if and (not $isCurrent) (not $isSameCategory) (lt (len $recommendations) $recommendationLimit) }}
+            {{ $recommendations = $recommendations | append $product }}
+        {{ end }}
+    {{ end }}
+{{ end }}
 <main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full text-gray-800 dark:text-gray-200">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
         <!-- Image Gallery (Alpine.js) -->
@@ -74,6 +136,147 @@
             </button>
         </div>
     </div>
+
+    {{ if gt (len $recommendations) 0 }}
+    <section id="recommended-products"
+             class="mt-16 scroll-mt-12 border-t border-gray-200 pb-20 pt-6 dark:border-bmw-darkBorder md:scroll-mt-28 md:pb-0 md:pt-8"
+             x-data="productRecommendationCarousel({{ len $recommendations }}, {{ $recommendationIntervalMs }})"
+             x-init="init()"
+             @mouseenter="pauseAutoplay()"
+             @mouseleave="resumeAutoplay()"
+             @focusin="pauseAutoplay()"
+             @focusout="if (!$el.contains($event.relatedTarget)) resumeAutoplay()"
+             data-current-product-id="{{ $currentId }}">
+        <div class="relative mb-4 flex flex-col gap-4 md:mb-6 md:flex-row md:items-end md:justify-between">
+            <div>
+                <p class="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-bmw-blue">{{ i18n "recommended_products_label" }}</p>
+                <h2 class="text-2xl font-light text-gray-900 dark:text-white [word-break:keep-all] md:text-3xl">{{ i18n "recommended_products_title" }}</h2>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500 dark:text-gray-400 [word-break:keep-all]">{{ i18n "recommended_products_body" }}</p>
+            </div>
+            {{ if gt (len $recommendations) 1 }}
+            <div class="absolute right-0 top-0 flex items-center gap-2 md:static">
+                <button type="button"
+                        @click="prev()"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-sm border border-gray-200 bg-white text-gray-600 transition hover:border-bmw-blue hover:text-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue dark:border-bmw-darkBorder dark:bg-bmw-surface dark:text-gray-300 md:h-10 md:w-10"
+                        aria-label="{{ i18n "recommendation_previous" }}">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </button>
+                <button type="button"
+                        @click="next()"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-sm border border-gray-200 bg-white text-gray-600 transition hover:border-bmw-blue hover:text-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue dark:border-bmw-darkBorder dark:bg-bmw-surface dark:text-gray-300 md:h-10 md:w-10"
+                        aria-label="{{ i18n "recommendation_next" }}">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+            </div>
+            {{ end }}
+        </div>
+
+        <div class="overflow-hidden rounded-sm border border-gray-200 bg-white dark:border-bmw-darkBorder dark:bg-bmw-surface">
+            <div class="flex transition-transform duration-500 ease-out"
+                 :class="reduceMotion ? 'transition-none' : ''"
+                 :style="'transform: translateX(-' + (activeIndex * 100) + '%)'">
+                {{ range $index, $product := $recommendations }}
+                    {{ $stock := 1 }}
+                    {{ if isset $product "stock" }}{{ $stock = int $product.stock }}{{ end }}
+                    {{ $price := $product.price | default 0 }}
+                    {{ $discountPrice := $product.discount_price | default 0 }}
+                    {{ $ratingAverage := float ($product.rating_average | default 0) }}
+                    {{ $ratingCount := int ($product.rating_count | default 0) }}
+                    {{ $imageSrc := "" }}
+                    {{ with $product.images }}
+                        {{ if gt (len .) 0 }}
+                            {{ $firstImage := index . 0 }}
+                            {{ if or (hasPrefix $firstImage "/") (hasPrefix $firstImage "http") }}
+                                {{ $imageSrc = $firstImage }}
+                            {{ else }}
+                                {{ $imageSrc = printf "/api/files/products/%s/%s" $product.id $firstImage }}
+                            {{ end }}
+                        {{ end }}
+                    {{ end }}
+                    {{ $productURL := printf "/products/%s/" $product.slug | relLangURL }}
+                    <article class="grid min-w-full grid-cols-1 md:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]"
+                             data-recommendation-id="{{ $product.id }}"
+                             data-recommendation-slug="{{ $product.slug }}">
+                        <a href="{{ $productURL }}" class="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-gray-50 dark:bg-black md:aspect-auto md:min-h-[360px]">
+                            {{ if $imageSrc }}
+                                <img src="{{ $imageSrc }}" alt="{{ $product.name }}" loading="lazy" decoding="async" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');" class="h-full w-full object-cover transition-transform duration-700 hover:scale-105">
+                                <span class="hidden text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">{{ i18n "no_image" }}</span>
+                            {{ else }}
+                                <span class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">{{ i18n "no_image" }}</span>
+                            {{ end }}
+                            {{ if le $stock 0 }}
+                                <span class="absolute left-4 top-4 rounded-sm bg-red-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">{{ i18n "sold_out" }}</span>
+                            {{ else if eq $stock 1 }}
+                                <span class="absolute left-4 top-4 rounded-sm bg-orange-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">{{ i18n "last_item" }}</span>
+                            {{ end }}
+                        </a>
+                        <div class="flex min-h-[210px] flex-col justify-center p-4 md:min-h-[300px] md:p-8">
+                            <div class="mb-3 flex min-h-[20px] items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                {{ if or (gt $ratingCount 0) (gt $ratingAverage 0.0) }}
+                                    <span class="inline-flex items-center gap-0.5 text-orange-400" aria-label="{{ i18n "rating_average_label" }} {{ printf "%.1f" (float $ratingAverage) }}">
+                                        <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20" aria-hidden="true">
+                                            <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                                        </svg>
+                                        <span class="font-medium text-gray-700 dark:text-gray-200">{{ printf "%.1f" (float $ratingAverage) }}</span>
+                                    </span>
+                                    {{ if gt $ratingCount 0 }}<span>({{ $ratingCount }})</span>{{ end }}
+                                {{ else }}
+                                    <span class="text-gray-400 dark:text-gray-500">{{ i18n "rating_empty_short" }}</span>
+                                {{ end }}
+                            </div>
+                            <a href="{{ $productURL }}" class="transition hover:text-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue">
+                                <h3 class="text-xl font-light leading-tight text-gray-900 dark:text-white md:text-2xl">{{ $product.name }}</h3>
+                            </a>
+                            <div class="mt-4 text-lg font-bold tracking-tight text-gray-900 dark:text-white">
+                                {{ if gt $discountPrice 0 }}
+                                    <span class="mr-2 text-sm font-normal text-gray-400 line-through">₩{{ lang.FormatNumberCustom 0 $price }}</span>
+                                    <span class="text-red-500">₩{{ lang.FormatNumberCustom 0 $discountPrice }}</span>
+                                {{ else }}
+                                    ₩{{ lang.FormatNumberCustom 0 $price }}
+                                {{ end }}
+                            </div>
+                            <div class="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-3 md:mt-6">
+                                <a href="{{ $productURL }}"
+                                   class="inline-flex min-h-11 items-center justify-center rounded-sm border border-gray-300 px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-gray-700 transition hover:border-bmw-blue hover:text-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue dark:border-gray-700 dark:text-gray-300 sm:px-5 sm:text-xs sm:tracking-widest">
+                                    {{ i18n "recommendation_view_product" }}
+                                </a>
+                                <button type="button"
+                                        @click="$dispatch('add-to-cart', {
+                                            id: {{ $product.id | jsonify }},
+                                            name: {{ $product.name | jsonify }},
+                                            price: {{ if gt $discountPrice 0 }}{{ $discountPrice }}{{ else }}{{ $price }}{{ end }},
+                                            image: {{ if $imageSrc }}{{ $imageSrc | jsonify }}{{ else }}null{{ end }},
+                                            quantity: 1
+                                        })"
+                                        class="inline-flex min-h-11 items-center justify-center rounded-sm bg-bmw-blue px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-bmw-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-bmw-surface sm:px-5 sm:text-xs sm:tracking-widest"
+                                        {{ if le $stock 0 }}disabled{{ end }}>
+                                    {{ if gt $stock 0 }}{{ i18n "add_to_cart" }}{{ else }}{{ i18n "sold_out" }}{{ end }}
+                                </button>
+                            </div>
+                        </div>
+                    </article>
+                {{ end }}
+            </div>
+        </div>
+
+        {{ if gt (len $recommendations) 1 }}
+        <div class="mt-0 flex justify-center gap-2 md:mt-4" aria-label="{{ i18n "recommended_products_title" }}">
+            {{ range $index, $product := $recommendations }}
+                <button type="button"
+                        @click="goTo({{ $index }})"
+                        class="h-2.5 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-bmw-blue"
+                        :class="activeIndex === {{ $index }} ? 'w-8 bg-bmw-blue' : 'w-2.5 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-500'"
+                        :aria-current="activeIndex === {{ $index }} ? 'true' : 'false'"
+                        aria-label="{{ i18n "recommendation_slide_label" }} {{ add $index 1 }}"></button>
+            {{ end }}
+        </div>
+        {{ end }}
+    </section>
+    {{ end }}
 
     <section id="product-comments"
              class="mt-16 border-t border-gray-200 dark:border-bmw-darkBorder pt-6"
@@ -483,6 +686,75 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/pocketbase/dist/pocketbase.umd.js"></script>
 <script>
+    function productRecommendationCarousel(total, intervalMs) {
+        return {
+            activeIndex: 0,
+            total: Number(total) || 0,
+            intervalMs: Number(intervalMs) || 5000,
+            timer: null,
+            reduceMotion: false,
+            isPaused: false,
+
+            init() {
+                const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+                const syncMotionPreference = () => {
+                    this.reduceMotion = media.matches;
+                    if (this.reduceMotion) {
+                        this.stopAutoplay();
+                    } else if (!this.isPaused) {
+                        this.startAutoplay();
+                    }
+                };
+
+                this.reduceMotion = media.matches;
+                if (media.addEventListener) {
+                    media.addEventListener('change', syncMotionPreference);
+                } else if (media.addListener) {
+                    media.addListener(syncMotionPreference);
+                }
+                window.addEventListener('pagehide', () => this.stopAutoplay(), { once: true });
+                this.startAutoplay();
+            },
+
+            next() {
+                if (this.total <= 1) return;
+                this.activeIndex = (this.activeIndex + 1) % this.total;
+            },
+
+            prev() {
+                if (this.total <= 1) return;
+                this.activeIndex = (this.activeIndex - 1 + this.total) % this.total;
+            },
+
+            goTo(index) {
+                const target = Number(index);
+                if (Number.isNaN(target) || target < 0 || target >= this.total) return;
+                this.activeIndex = target;
+            },
+
+            startAutoplay() {
+                if (this.reduceMotion || this.total <= 1 || this.timer) return;
+                this.timer = setInterval(() => this.next(), this.intervalMs);
+            },
+
+            stopAutoplay() {
+                if (!this.timer) return;
+                clearInterval(this.timer);
+                this.timer = null;
+            },
+
+            pauseAutoplay() {
+                this.isPaused = true;
+                this.stopAutoplay();
+            },
+
+            resumeAutoplay() {
+                this.isPaused = false;
+                this.startAutoplay();
+            }
+        };
+    }
+
     function productInquiries(productId) {
         return {
             pb: null,

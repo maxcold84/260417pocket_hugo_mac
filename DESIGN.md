@@ -34,12 +34,14 @@
 - Empty, loading, and error states should be explicit but compact.
 - Product rating displays use inline SVG stars in Tailwind `text-orange-400/500` with compact numeric labels. Interactive rating inputs are 1-5 button groups with visible focus rings and stable inline dimensions.
 - Product inquiry rows use thin bordered panels, compact status pills, and a left-accented BMW-blue answer block. Secret inquiries use gray/black lock badges and masked body copy; never expose private text in decorative previews.
+- Product recommendation carousels use small-radius bordered panels, stable image/content grid dimensions, BMW-blue active dots and focus rings, SVG arrow controls, and transform-based slide motion.
 
 ## Interaction
 - Use inline confirmation UI instead of browser `confirm()` or `alert()`.
 - Use `x-text` for user-provided text.
 - Keep UI state on the Alpine component, not on fetched records.
 - For dynamic data on static pages, prefer a small Alpine island that calls PocketBase routes.
+- Autoplay interactions pause on hover or focus and must respect `prefers-reduced-motion`.
 
 ## Responsive
 - Controls must stack cleanly at `375px`, use denser two-column or flex layouts from tablet width, and preserve table alternatives for CMS mobile views.

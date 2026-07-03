@@ -54,6 +54,8 @@ enableRobotsTXT = true
 
 [params]
 heroImg = "https://cdn.midjourney.com/b26ef844-b04c-44e8-9a98-6438d86d3697/0_2.png"
+productRecommendationsLimit = 5
+productRecommendationIntervalMs = 5000
 
 [params.oauth]
 google = true
@@ -75,4 +77,3 @@ name = "기본"
 nameEn = "base"
 slug = "base"
 icon = "tag"
-
