@@ -63,6 +63,215 @@ function readUtf8File(path) {
     return decodeURIComponent(escape(binaryStr));
 }
 
+const THEME_ROOT = "hugo/themes";
+const DEFAULT_THEME_ID = "default";
+
+function isValidThemeId(themeId) {
+    return /^[a-z0-9][a-z0-9_-]*$/.test(String(themeId || ""));
+}
+
+function themePath(themeId) {
+    return THEME_ROOT + "/" + themeId;
+}
+
+function themeTomlPath(themeId) {
+    return themePath(themeId) + "/theme.toml";
+}
+
+function themeDirectoryExists(themeId) {
+    if (!isValidThemeId(themeId)) return false;
+    try {
+        $os.readDir(themePath(themeId));
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
+function tomlStringValue(tomlStr, key) {
+    const lines = String(tomlStr || "").split("\n");
+    const pattern = new RegExp("^\\s*" + key + "\\s*=\\s*\"([^\"]*)\"");
+    for (const line of lines) {
+        const match = line.match(pattern);
+        if (match) return match[1];
+    }
+    return "";
+}
+
+function parseThemeMetadata(themeId) {
+    let meta = "";
+    try {
+        meta = readUtf8File(themeTomlPath(themeId));
+    } catch (err) {
+        return null;
+    }
+
+    return {
+        id: themeId,
+        name: tomlStringValue(meta, "name") || themeId,
+        description: tomlStringValue(meta, "description") || "",
+        version: tomlStringValue(meta, "version") || "",
+        minVersion: tomlStringValue(meta, "min_version") || ""
+    };
+}
+
+function sortThemes(themes) {
+    themes.sort(function(left, right) {
+        if (left.id === DEFAULT_THEME_ID) return -1;
+        if (right.id === DEFAULT_THEME_ID) return 1;
+        return left.id.localeCompare(right.id);
+    });
+    return themes;
+}
+
+function listThemes() {
+    const themes = [];
+    let entries = [];
+    try {
+        entries = $os.readDir(THEME_ROOT);
+    } catch (err) {
+        return themes;
+    }
+
+    for (const entry of entries) {
+        const id = entry.name();
+        if (!isValidThemeId(id) || !themeDirectoryExists(id)) continue;
+        const metadata = parseThemeMetadata(id);
+        if (metadata) {
+            themes.push(metadata);
+        }
+    }
+
+    return sortThemes(themes);
+}
+
+function splitTopLevelToml(tomlStr) {
+    const lines = String(tomlStr || "").split("\n");
+    let firstTableIndex = lines.length;
+    for (let i = 0; i < lines.length; i++) {
+        if (/^\s*\[/.test(lines[i])) {
+            firstTableIndex = i;
+            break;
+        }
+    }
+    return { lines: lines, firstTableIndex: firstTableIndex };
+}
+
+function parseThemeValue(rawValue) {
+    const raw = String(rawValue || "").trim();
+    if (raw.indexOf("[") === 0) {
+        const themes = [];
+        const matcher = /"([^"]+)"/g;
+        let match = matcher.exec(raw);
+        while (match) {
+            themes.push(match[1]);
+            match = matcher.exec(raw);
+        }
+        return themes;
+    }
+
+    const stringMatch = raw.match(/^"([^"]+)"/);
+    return stringMatch ? [stringMatch[1]] : [];
+}
+
+function getActiveTheme(tomlStr) {
+    const topLevel = splitTopLevelToml(tomlStr);
+    for (let i = 0; i < topLevel.firstTableIndex; i++) {
+        const match = topLevel.lines[i].match(/^\s*theme\s*=\s*(.+)$/);
+        if (!match) continue;
+        const themes = parseThemeValue(match[1]);
+        if (themes.length > 0 && isValidThemeId(themes[0])) {
+            return themes[0];
+        }
+    }
+    return DEFAULT_THEME_ID;
+}
+
+function themeTomlLine(themeId) {
+    const themes = themeId === DEFAULT_THEME_ID
+        ? [DEFAULT_THEME_ID]
+        : [themeId, DEFAULT_THEME_ID];
+    return "theme = [" + themes.map(function(id) { return "\"" + id + "\""; }).join(", ") + "]";
+}
+
+function setTopLevelTheme(tomlStr, themeId) {
+    const topLevel = splitTopLevelToml(tomlStr);
+    let replaced = false;
+    const themeLine = themeTomlLine(themeId);
+
+    for (let i = 0; i < topLevel.firstTableIndex; i++) {
+        if (/^\s*theme\s*=/.test(topLevel.lines[i])) {
+            topLevel.lines[i] = themeLine;
+            replaced = true;
+            break;
+        }
+    }
+
+    if (!replaced) {
+        let insertIndex = topLevel.firstTableIndex;
+        for (let i = 0; i < topLevel.firstTableIndex; i++) {
+            if (/^\s*title\s*=/.test(topLevel.lines[i])) {
+                insertIndex = i + 1;
+            }
+        }
+        topLevel.lines.splice(insertIndex, 0, themeLine);
+    }
+
+    return topLevel.lines.join("\n");
+}
+
+function withActiveTheme(themes, activeTheme) {
+    return themes.map(function(theme) {
+        return {
+            id: theme.id,
+            name: theme.name,
+            description: theme.description,
+            version: theme.version,
+            minVersion: theme.minVersion,
+            active: theme.id === activeTheme
+        };
+    });
+}
+
+function resolveThemeSettings() {
+    const tomlStr = readUtf8File("hugo/hugo.toml");
+    const activeTheme = getActiveTheme(tomlStr);
+    return {
+        toml: tomlStr,
+        activeTheme: activeTheme,
+        themes: withActiveTheme(listThemes(), activeTheme)
+    };
+}
+
+function applyThemeSelection(themeId) {
+    const selectedTheme = String(themeId || "").trim();
+    if (!isValidThemeId(selectedTheme)) {
+        throw new Error("유효하지 않은 테마 ID입니다.");
+    }
+
+    const themes = listThemes();
+    let exists = false;
+    for (const theme of themes) {
+        if (theme.id === selectedTheme) {
+            exists = true;
+            break;
+        }
+    }
+
+    if (!exists) {
+        throw new Error("존재하지 않는 테마입니다: " + selectedTheme);
+    }
+
+    const updatedToml = setTopLevelTheme(readUtf8File("hugo/hugo.toml"), selectedTheme);
+    $os.writeFile("hugo/hugo.toml", updatedToml, 0o644);
+
+    return {
+        toml: updatedToml,
+        activeTheme: selectedTheme,
+        themes: withActiveTheme(themes, selectedTheme)
+    };
+}
+
 function removeCategoryFromTomlBySlug(slug) {
     if (!slug) {
         return { changed: false, toml: "" };
@@ -489,5 +698,9 @@ module.exports = {
     prepareHugoContentTree: prepareHugoContentTree,
     syncProductsToMarkdown: syncProductsToMarkdown,
     syncProductsAndRunHugo: syncProductsAndRunHugo,
+    listThemes: listThemes,
+    getActiveTheme: getActiveTheme,
+    resolveThemeSettings: resolveThemeSettings,
+    applyThemeSelection: applyThemeSelection,
     runHugo: runHugo
 };

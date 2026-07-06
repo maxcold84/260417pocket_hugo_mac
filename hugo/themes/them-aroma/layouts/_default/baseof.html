@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.LanguageCode | default "ko-kr" }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ .Title | default site.Title }} | {{ site.Title }}{{ end }}</title>
+    {{ with site.Params.description }}<meta name="description" content="{{ . }}">{{ end }}
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        aroma: {
+                            cream: '#F3F0EB',
+                            green: '#006839',
+                            deep: '#112A24',
+                            muted: '#C7C8C3',
+                            ink: '#292929',
+                            paper: '#FBFAF7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    {{ partial "them-aroma/head.html" . }}
+</head>
+<body class="aroma-shell min-h-screen flex flex-col" x-data="appData()" @add-to-cart.window="addToCart($event.detail)" @cart-updated.window="syncCart()" @open-cart.window="cartOpen = true">
+    {{ partial "them-aroma/header.html" . }}
+    {{ partial "them-aroma/cart-drawer.html" . }}
+
+    {{ block "main" . }}{{ end }}
+
+    {{ partial "them-aroma/footer.html" . }}
+    {{ partial "them-aroma/mobile-tabs.html" . }}
+
+    <script>
+        function appData() {
+            return {
+                loggedIn: false,
+                profileHref: '{{ "/profile/" | relLangURL }}',
+                loginHref: '{{ "/login/" | relLangURL }}',
+                mobileMenuOpen: false,
+                cartOpen: false,
+                darkMode: document.documentElement.classList.contains('dark'),
+                cart: [],
+                init() {
+                    this.syncAuth();
+                    this.syncCart();
+                    this.$watch('cart', value => localStorage.setItem('cart', JSON.stringify(value)));
+                    window.addEventListener('storage', event => {
+                        if (event.key === 'pocketbase_auth') this.syncAuth();
+                        if (event.key === 'cart') this.syncCart();
+                    });
+                },
+                parseStoredAuth() {
+                    try {
+                        const authData = JSON.parse(localStorage.getItem('pocketbase_auth') || 'null');
+                        return {
+                            token: authData && authData.token,
+                            userObj: (authData && authData.record) || (authData && authData.model)
+                        };
+                    } catch (e) {
+                        localStorage.removeItem('pocketbase_auth');
+                        return { token: '', userObj: null };
+                    }
+                },
+                isTokenFresh(token) {
+                    try {
+                        const payloadPart = token.split('.')[1];
+                        if (!payloadPart) return false;
+                        const padded = payloadPart.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - payloadPart.length % 4) % 4);
+                        const payload = JSON.parse(atob(padded));
+                        return !payload.exp || payload.exp * 1000 > Date.now();
+                    } catch (e) {
+                        return false;
+                    }
+                },
+                syncAuth() {
+                    const auth = this.parseStoredAuth();
+                    this.loggedIn = !!(auth.token && auth.userObj && this.isTokenFresh(auth.token));
+                    if (!this.loggedIn && document.cookie.includes('pb_auth=')) {
+                        document.cookie = 'pb_auth=; Max-Age=0; path=/';
+                    }
+                },
+                syncCart() {
+                    try {
+                        this.cart = JSON.parse(localStorage.getItem('cart') || '[]');
+                    } catch (e) {
+                        localStorage.removeItem('cart');
+                        this.cart = [];
+                    }
+                },
+                toggleDark() {
+                    this.darkMode = !this.darkMode;
+                    if (this.darkMode) {
+                        document.documentElement.classList.add('dark');
+                        localStorage.theme = 'dark';
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.theme = 'light';
+                    }
+                },
+                addToCart(product) {
+                    const existing = this.cart.find(item => item.id === product.id);
+                    if (existing) {
+                        existing.quantity += parseInt(product.quantity || 1, 10);
+                    } else {
+                        this.cart.push({
+                            id: product.id,
+                            name: product.name,
+                            price: Number(product.price || 0),
+                            image: product.image || '',
+                            quantity: parseInt(product.quantity || 1, 10)
+                        });
+                    }
+                    this.cartOpen = true;
+                },
+                removeFromCart(productId) {
+                    this.cart = this.cart.filter(item => item.id !== productId);
+                },
+                updateQuantity(productId, quantity) {
+                    const item = this.cart.find(entry => entry.id === productId);
+                    if (!item) return;
+                    item.quantity = parseInt(quantity || 1, 10);
+                    if (item.quantity <= 0) this.removeFromCart(productId);
+                },
+                get cartTotal() {
+                    return this.cart.reduce((total, item) => total + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+                }
+            }
+        }
+    </script>
+    <style>
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</body>
+</html>

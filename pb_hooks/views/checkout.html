@@ -68,7 +68,7 @@
                     <div class="space-y-3">
                         <div class="flex items-center justify-between text-sm">
                             <span class="text-gray-500 dark:text-gray-400">상품 합계</span>
-                            <span class="font-medium text-gray-900 dark:text-white" x-text="'₩' + subtotal.toLocaleString()"></span>
+                            <span class="font-medium text-gray-900 dark:text-white" x-text="formatWon(displaySubtotal())"></span>
                         </div>
                         <template x-if="isLoggedIn">
                             <div class="rounded-sm border border-gray-200 bg-gray-50 p-4 dark:border-bmw-darkBorder dark:bg-black/20">
@@ -76,7 +76,8 @@
                                     <label for="checkoutCoupon" class="text-sm font-medium text-gray-700 dark:text-gray-300">리뷰 보상 쿠폰</label>
                                     <select id="checkoutCoupon"
                                             x-model="selectedCouponId"
-                                            :disabled="couponsLoading || coupons.length === 0"
+                                            @change="clearValidatedOrder()"
+                                            :disabled="processing || couponsLoading || coupons.length === 0"
                                             class="w-full rounded-sm border border-gray-200 bg-white p-2 text-sm text-gray-900 focus:border-bmw-blue focus:outline-none dark:border-bmw-darkBorder dark:bg-black dark:text-white sm:max-w-xs">
                                         <option value="">쿠폰 선택 안 함</option>
                                         <template x-for="coupon in coupons" :key="coupon.id">
@@ -86,16 +87,20 @@
                                 </div>
                                 <p x-show="couponsLoading" class="mt-2 text-xs text-gray-500 dark:text-gray-400">쿠폰을 불러오는 중입니다.</p>
                                 <p x-show="!couponsLoading && coupons.length === 0" class="mt-2 text-xs text-gray-500 dark:text-gray-400">사용 가능한 쿠폰이 없습니다.</p>
-                                <p x-show="selectedCouponId && selectedCouponNotice()" class="mt-2 text-xs" :class="selectedCouponInvalid() ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'" x-text="selectedCouponNotice()"></p>
+                                <p x-show="!validatedOrder && selectedCouponId && selectedCouponNotice()" class="mt-2 text-xs" :class="selectedCouponInvalid() ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'" x-text="selectedCouponNotice()"></p>
+                                <p x-show="validatedOrder && validatedOrder.coupon" class="mt-2 text-xs font-medium text-green-700 dark:text-green-300" x-text="'적용 쿠폰: ' + validatedOrder.coupon.code"></p>
                             </div>
                         </template>
-                        <div class="flex items-center justify-between text-sm" x-show="couponDiscount() > 0">
+                        <div class="flex items-center justify-between text-sm" x-show="displayDiscount() > 0">
                             <span class="text-gray-500 dark:text-gray-400">쿠폰 할인</span>
-                            <span class="font-medium text-red-500" x-text="'-₩' + couponDiscount().toLocaleString()"></span>
+                            <span class="font-medium text-red-500" x-text="'-' + formatWon(displayDiscount())"></span>
                         </div>
                         <div class="border-t border-gray-100 pt-3 dark:border-bmw-darkBorder">
-                            <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">최종 결제 금액</label>
-                            <div class="text-3xl font-bold text-bmw-blue" x-text="'₩' + estimatedTotal().toLocaleString()"></div>
+                            <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1" x-text="validatedOrder ? '서버 검증 결제 금액' : '예상 결제 금액'"></label>
+                            <div class="text-3xl font-bold text-bmw-blue" x-text="formatWon(displayTotal())"></div>
+                            <p x-show="prepNotice" class="mt-2 rounded-sm border px-3 py-2 text-xs leading-5"
+                               :class="prepNoticeType === 'error' ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-300' : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/60 dark:bg-green-950/20 dark:text-green-300'"
+                               x-text="prepNotice"></p>
                         </div>
                     </div>
                     <!-- Guest Information Form or Buyer Email/Phone for PG -->
@@ -166,9 +171,9 @@
             </div>
             
             <div class="mt-8">
-                <button @click="requestPayment" :disabled="processing" class="w-full bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-black dark:hover:bg-gray-200 px-8 py-4 uppercase tracking-widest text-sm font-bold transition duration-300 disabled:opacity-50">
+                <button @click="requestPayment" :disabled="processing || selectedCouponInvalid()" class="w-full bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-black dark:hover:bg-gray-200 px-8 py-4 uppercase tracking-widest text-sm font-bold transition duration-300 disabled:opacity-50">
                     <span x-show="!processing" x-text="'PAY WITH ' + selectedMethod.toUpperCase()"></span>
-                    <span x-show="processing">PROCESSING...</span>
+                    <span x-show="processing" x-text="processingLabel()"></span>
                 </button>
             </div>
         </div>
@@ -198,6 +203,10 @@ function checkoutPage() {
         coupons: [],
         couponsLoading: false,
         selectedCouponId: '',
+        validatedOrder: null,
+        prepNotice: '',
+        prepNoticeType: 'success',
+        prepStage: '',
         
         showToast(msg) {
             this.toastMsg = msg;
@@ -414,6 +423,29 @@ function checkoutPage() {
         get subtotal() {
             return this.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
         },
+        formatWon(value) {
+            return '₩' + Number(value || 0).toLocaleString();
+        },
+        clearValidatedOrder() {
+            this.validatedOrder = null;
+            this.prepNotice = '';
+            this.prepNoticeType = 'success';
+            this.prepStage = '';
+        },
+        displaySubtotal() {
+            return this.validatedOrder ? this.validatedOrder.subtotalAmount : this.subtotal;
+        },
+        displayDiscount() {
+            return this.validatedOrder ? this.validatedOrder.discountAmount : this.couponDiscount();
+        },
+        displayTotal() {
+            return this.validatedOrder ? this.validatedOrder.amount : this.estimatedTotal();
+        },
+        processingLabel() {
+            if (this.prepStage === 'validating') return 'VALIDATING TOTAL...';
+            if (this.prepStage === 'validated') return 'STARTING PORTONE...';
+            return 'PROCESSING...';
+        },
         selectedCoupon() {
             return this.coupons.find(coupon => coupon.id === this.selectedCouponId) || null;
         },
@@ -456,6 +488,97 @@ function checkoutPage() {
                 return '쿠폰 적용 후 결제 금액은 1원 이상이어야 합니다.';
             }
             return '서버에서 최종 할인액을 다시 검증합니다.';
+        },
+        applyPrepResponse(data) {
+            const prepared = {
+                orderId: String(data.orderId || ''),
+                amount: Number(data.amount || 0),
+                subtotalAmount: Number(data.subtotalAmount || 0),
+                discountAmount: Number(data.discountAmount || 0),
+                coupon: data.coupon || null,
+                cleanupNonce: data.cleanupNonce || ''
+            };
+            if (prepared.coupon && prepared.coupon.id) {
+                const index = this.coupons.findIndex(coupon => coupon.id === prepared.coupon.id);
+                if (index >= 0) {
+                    this.coupons.splice(index, 1, Object.assign({}, this.coupons[index], prepared.coupon));
+                } else {
+                    this.coupons = [prepared.coupon].concat(this.coupons);
+                }
+                this.selectedCouponId = prepared.coupon.id;
+            } else if (this.selectedCouponId) {
+                this.selectedCouponId = '';
+            }
+            this.validatedOrder = prepared;
+            this.prepStage = 'validated';
+            this.prepNoticeType = 'success';
+            const discountText = prepared.discountAmount > 0 ? ' · 할인 ' + this.formatWon(prepared.discountAmount) : '';
+            const couponText = prepared.coupon && prepared.coupon.code ? ' · ' + prepared.coupon.code : '';
+            this.prepNotice = '서버 검증 완료' + couponText + discountText + ' · 최종 ' + this.formatWon(prepared.amount);
+            return prepared;
+        },
+        waitForValidatedTotalsPaint() {
+            return new Promise(resolve => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        setTimeout(resolve, 450);
+                    });
+                });
+            });
+        },
+        async handlePrepFailure(data) {
+            const message = (data && data.error) ? data.error : '주문 금액 검증에 실패했습니다.';
+            if (data && data.couponRejected) {
+                const rejectedId = data.couponId || this.selectedCouponId;
+                if (rejectedId) {
+                    this.coupons = this.coupons.filter(coupon => coupon.id !== rejectedId);
+                }
+                this.selectedCouponId = '';
+                this.validatedOrder = null;
+                this.prepStage = '';
+                this.prepNoticeType = 'error';
+                this.prepNotice = message + ' 쿠폰 선택을 해제하고 사용 가능한 쿠폰을 다시 확인했습니다.';
+                if (data.refreshCoupons) {
+                    await this.loadCoupons();
+                }
+                this.showToast(this.prepNotice);
+                return;
+            }
+            this.validatedOrder = null;
+            this.prepStage = '';
+            this.prepNoticeType = 'error';
+            this.prepNotice = message;
+            this.showToast(message);
+        },
+        async cancelPreparedOrder(preparedOrder) {
+            if (!preparedOrder || !preparedOrder.orderId) return;
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                const token = this.getAuthToken();
+                if (token) {
+                    headers['Authorization'] = 'Bearer ' + token;
+                }
+                await fetch('/api/orders/' + preparedOrder.orderId + '/cancel-pending', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        cleanupNonce: preparedOrder.cleanupNonce || ''
+                    })
+                });
+            } catch (e) {
+                console.error("Failed to delete pending order:", e);
+            }
+        },
+        async recoverPaymentFailure(preparedOrder, message) {
+            await this.cancelPreparedOrder(preparedOrder);
+            this.validatedOrder = null;
+            this.prepStage = '';
+            this.prepNoticeType = 'error';
+            this.prepNotice = message;
+            await this.loadCoupons();
+            this.showToast(message);
+            this.processing = false;
+            window.dispatchEvent(new CustomEvent('payment-failed'));
         },
         async loadCoupons() {
             if (!this.pb) return;
@@ -537,8 +660,19 @@ function checkoutPage() {
                     return;
                 }
             }
+            if (this.selectedCouponInvalid()) {
+                const message = this.selectedCouponNotice() || '선택한 쿠폰을 적용할 수 없습니다.';
+                this.prepNoticeType = 'error';
+                this.prepNotice = message;
+                this.showToast(message);
+                return;
+            }
 
             this.processing = true;
+            this.validatedOrder = null;
+            this.prepStage = 'validating';
+            this.prepNoticeType = 'success';
+            this.prepNotice = '주문 금액을 서버에서 검증 중입니다.';
             
             try {
                 // Prepare headers with auth token if available
@@ -570,25 +704,29 @@ function checkoutPage() {
                     })
                 });
                 
-                const data = await res.json();
+                const data = await res.json().catch(() => ({}));
                 
                 if (!res.ok) {
-                    throw new Error(data.error || "Failed to prepare order");
+                    await this.handlePrepFailure(data);
+                    this.processing = false;
+                    return;
                 }
+                const preparedOrder = this.applyPrepResponse(data);
+                await this.waitForValidatedTotalsPaint();
                 
                 // 2. Build PortOne SDK options
                 const paymentOptions = {
                     storeId: "{{.portoneStoreId}}",
                     channelKey: channelKey,
-                    paymentId: data.orderId,
+                    paymentId: preparedOrder.orderId,
                     orderName: "D'roll Shop Order",
-                    totalAmount: data.amount,
+                    totalAmount: preparedOrder.amount,
                     currency: "CURRENCY_KRW",
                     forceRedirect: true,
                     customer: {
                         fullName: this.recipientName || "고객"
                     },
-                    redirectUrl: window.location.origin + "/payment/complete?orderId=" + encodeURIComponent(data.orderId) + "&cleanupNonce=" + encodeURIComponent(data.cleanupNonce || ""),
+                    redirectUrl: window.location.origin + "/payment/complete?orderId=" + encodeURIComponent(preparedOrder.orderId) + "&cleanupNonce=" + encodeURIComponent(preparedOrder.cleanupNonce || ""),
                 };
 
                 // Set payMethod for all selected payment methods
@@ -605,34 +743,10 @@ function checkoutPage() {
                 }
                 // End of payMethod assignment
 
-                PortOne.requestPayment(paymentOptions).then(async function(response) {
+                PortOne.requestPayment(paymentOptions).then(async (response) => {
                     if (response.code !== undefined) {
-                        alert("Payment failed: " + response.message);
-                        
-                        // Delete the pending order since payment failed/cancelled
-                        try {
-                            const headers = { 'Content-Type': 'application/json' };
-                            const authStr = localStorage.getItem('pocketbase_auth');
-                            if (authStr) {
-                                try {
-                                    const authData = JSON.parse(authStr);
-                                    if (authData.token) {
-                                        headers['Authorization'] = 'Bearer ' + authData.token;
-                                    }
-                                } catch(e) {}
-                            }
-                            await fetch('/api/orders/' + data.orderId + '/cancel-pending', {
-                                method: 'POST',
-                                headers: headers,
-                                body: JSON.stringify({
-                                    cleanupNonce: data.cleanupNonce || ''
-                                })
-                            });
-                        } catch (e) {
-                            console.error("Failed to delete pending order:", e);
-                        }
-
-                        window.dispatchEvent(new CustomEvent('payment-failed'));
+                        const failureMessage = "결제가 취소되었거나 실패했습니다: " + (response.message || "사용자 취소");
+                        await this.recoverPaymentFailure(preparedOrder, failureMessage);
                         return;
                     }
                     
@@ -641,9 +755,17 @@ function checkoutPage() {
                     window.dispatchEvent(new Event('cart-updated'));
                     
                     window.location.href = "/payment/complete?paymentId=" + response.paymentId;
+                }).catch(async (err) => {
+                    const failureMessage = "PortOne 결제창을 시작하지 못했습니다: " + (err && err.message ? err.message : err);
+                    await this.recoverPaymentFailure(preparedOrder, failureMessage);
                 });
-            } catch(err) {
-                alert("Checkout error: " + err.message);
+            } catch (err) {
+                const message = "결제 준비 중 오류가 발생했습니다: " + err.message;
+                this.validatedOrder = null;
+                this.prepStage = '';
+                this.prepNoticeType = 'error';
+                this.prepNotice = message;
+                this.showToast(message);
                 this.processing = false;
             }
         }

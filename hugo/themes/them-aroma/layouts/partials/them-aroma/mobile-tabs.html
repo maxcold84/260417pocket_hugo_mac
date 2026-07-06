@@ -1,0 +1,18 @@
+<div class="safe-bottom fixed bottom-0 left-0 right-0 z-50 border-t border-aroma-muted bg-aroma-cream/95 backdrop-blur-md md:hidden">
+    <div class="flex h-16 w-full text-aroma-deep">
+        <a href="{{ "/" | relLangURL }}" class="flex flex-1 flex-col items-center justify-center gap-1 text-aroma-green">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m3 12 9-8 9 8M5 10v10h14V10"></path></svg>
+            <span class="text-[10px] font-bold uppercase tracking-wide">{{ i18n "home" }}</span>
+        </a>
+        {{ range .Site.Menus.main }}
+        <a href="{{ .URL | relLangURL }}" class="flex flex-1 flex-col items-center justify-center gap-1 text-aroma-deep/55">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5h7v7H4zM13 5h7v7h-7zM4 14h7v5H4zM13 14h7v5h-7z"></path></svg>
+            <span class="text-[10px] font-medium uppercase tracking-wide">{{ i18n .Name | default .Name }}</span>
+        </a>
+        {{ end }}
+        <button type="button" @click="cartOpen = true" class="flex flex-1 flex-col items-center justify-center gap-1 text-aroma-deep/55">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V8a4 4 0 0 0-8 0v3M5.5 9.5h13l1 11h-15l1-11z"></path></svg>
+            <span class="text-[10px] font-medium uppercase tracking-wide">{{ i18n "cart" }}</span>
+        </button>
+    </div>
+</div>

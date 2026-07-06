@@ -1,0 +1,72 @@
+{{ $product := . }}
+{{ $stock := 1 }}
+{{ if isset $product "stock" }}{{ $stock = int $product.stock }}{{ end }}
+{{ $price := int ($product.price | default 0) }}
+{{ $discountPrice := int ($product.discount_price | default 0) }}
+{{ $ratingAverage := float ($product.rating_average | default 0) }}
+{{ $ratingCount := int ($product.rating_count | default 0) }}
+{{ $imageSrc := partial "them-aroma/product-image.html" $product }}
+{{ $id := $product.id | default $product.slug | default $product.name }}
+{{ $slug := $product.slug | default $id }}
+{{ $productURL := printf "/products/%s/" $slug | relLangURL }}
+<article class="aroma-card group w-[43vw] min-w-[156px] max-w-[306px] flex-none md:w-[24vw] lg:w-[23.5vw]">
+    <div class="relative aspect-[3/4] overflow-hidden bg-white">
+        <a href="{{ $productURL }}" class="absolute inset-0 z-10" aria-label="{{ $product.name }}"></a>
+        {{ if $imageSrc }}
+            <img src="{{ $imageSrc }}" alt="{{ $product.name }}" class="h-full w-full object-cover transition duration-700 group-hover:scale-105">
+        {{ else }}
+            <div class="flex h-full w-full items-center justify-center bg-white text-[11px] font-semibold uppercase tracking-[0.16em] text-aroma-deep/35">{{ i18n "no_image" }}</div>
+        {{ end }}
+        <button type="button"
+                @click="$dispatch('add-to-cart', {
+                    id: {{ $id | jsonify }},
+                    name: {{ $product.name | jsonify }},
+                    price: {{ if gt $discountPrice 0 }}{{ $discountPrice }}{{ else }}{{ $price }}{{ end }},
+                    image: {{ if $imageSrc }}{{ $imageSrc | jsonify }}{{ else }}null{{ end }},
+                    quantity: 1
+                })"
+                class="absolute bottom-3 left-3 right-3 z-20 hidden bg-aroma-deep/90 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-white opacity-0 backdrop-blur transition duration-300 hover:bg-aroma-green group-hover:opacity-100 md:block"
+                {{ if le $stock 0 }}disabled{{ end }}>
+            {{ if gt $stock 0 }}{{ i18n "add_to_cart" }}{{ else }}{{ i18n "sold_out" }}{{ end }}
+        </button>
+    </div>
+    <div class="pt-4 text-aroma-deep">
+        <a href="{{ $productURL }}" class="block transition hover:text-aroma-green">
+            <h3 class="min-h-[2.5rem] text-[13px] font-medium leading-5 md:text-sm">{{ $product.name }}</h3>
+        </a>
+        <div class="mt-2 flex min-h-[18px] items-center gap-1.5 text-xs text-aroma-deep/55">
+            {{ if or (gt $ratingCount 0) (gt $ratingAverage 0.0) }}
+                <span class="inline-flex items-center gap-1 text-aroma-green" aria-label="{{ i18n "rating_average_label" }} {{ printf "%.1f" (float $ratingAverage) }}">
+                    <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path></svg>
+                    <span>{{ printf "%.1f" (float $ratingAverage) }}</span>
+                </span>
+                {{ if gt $ratingCount 0 }}<span>({{ $ratingCount }})</span>{{ end }}
+            {{ else }}
+                <span>{{ i18n "rating_empty_short" }}</span>
+            {{ end }}
+        </div>
+        <div class="mt-2 flex items-center justify-between gap-3">
+            <p class="text-sm font-semibold text-aroma-deep md:text-base">
+                {{ if gt $discountPrice 0 }}
+                    <span class="mr-1 text-xs font-normal text-aroma-deep/40 line-through">₩{{ lang.FormatNumberCustom 0 $price }}</span>
+                    <span class="text-aroma-green">₩{{ lang.FormatNumberCustom 0 $discountPrice }}</span>
+                {{ else }}
+                    ₩{{ lang.FormatNumberCustom 0 $price }}
+                {{ end }}
+            </p>
+            <button type="button"
+                    @click="$dispatch('add-to-cart', {
+                        id: {{ $id | jsonify }},
+                        name: {{ $product.name | jsonify }},
+                        price: {{ if gt $discountPrice 0 }}{{ $discountPrice }}{{ else }}{{ $price }}{{ end }},
+                        image: {{ if $imageSrc }}{{ $imageSrc | jsonify }}{{ else }}null{{ end }},
+                        quantity: 1
+                    })"
+                    class="inline-flex h-9 w-9 flex-none items-center justify-center rounded-full bg-aroma-deep text-white transition active:scale-95 md:hidden"
+                    {{ if le $stock 0 }}disabled{{ end }}
+                    aria-label="{{ if gt $stock 0 }}{{ i18n "add_to_cart" }}{{ else }}{{ i18n "sold_out" }}{{ end }}">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 5v14M5 12h14"></path></svg>
+            </button>
+        </div>
+    </div>
+</article>

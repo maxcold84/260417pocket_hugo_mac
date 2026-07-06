@@ -1,0 +1,59 @@
+baseURL = "http://localhost:1313/"
+title = "Them Aroma Example"
+theme = "them-aroma"
+
+defaultContentLanguage = "ko-kr"
+enableLanguages = ["ko-kr", "en"]
+
+[languages]
+  [languages.ko-kr]
+    languageCode = "ko-kr"
+    languageName = "한국어"
+    weight = 1
+    [languages.ko-kr.params]
+      heroTitle = "차분한 상품 경험"
+      heroSubtitle = "Them Aroma는 작은 커머스 Hugo 사이트에 맞춘 이식 가능한 테마입니다."
+      exploreCollection = "컬렉션 탐색"
+
+  [languages.en]
+    languageCode = "en-us"
+    languageName = "English"
+    weight = 2
+    [languages.en.params]
+      heroTitle = "Quiet Commerce"
+      heroSubtitle = "Them Aroma is a portable Hugo theme for compact commerce sites."
+      exploreCollection = "Explore Collection"
+
+[params]
+description = "Portable Them Aroma Hugo theme example."
+
+[params.aroma]
+productSource = "markdown"
+announcementKey = "aroma_announcement"
+heroImage = "/images/aroma-hero.png"
+heroCtaURL = "/products/"
+
+[[params.aroma.rails]]
+titleKey = "aroma_best_sellers"
+source = "all"
+limit = 8
+
+[[params.aroma.rails]]
+titleKey = "aroma_discounted"
+source = "discounted"
+limit = 8
+
+[[params.aroma.promoTiles]]
+titleKey = "aroma_promo_first_order"
+bodyKey = "aroma_promo_first_order_body"
+url = "/products/"
+
+[[params.aroma.promoTiles]]
+titleKey = "aroma_promo_membership"
+bodyKey = "aroma_promo_membership_body"
+url = "/products/"
+
+[[menu.main]]
+name = "catalog"
+url = "/products/"
+weight = 1

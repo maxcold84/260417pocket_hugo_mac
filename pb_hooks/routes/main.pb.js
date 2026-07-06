@@ -38,7 +38,13 @@ routerAdd("POST", "/api/orders/prep", (e) => {
         const requestedCouponId = String(data.couponId || "").trim();
         const couponValidation = couponUtil.validateCouponForUse($app, requestedCouponId, userId, subtotal);
         if (!couponValidation.ok) {
-            return e.json(couponValidation.statusCode || 400, { error: couponValidation.error });
+            const errorPayload = { error: couponValidation.error };
+            if (requestedCouponId) {
+                errorPayload.couponRejected = true;
+                errorPayload.couponId = requestedCouponId;
+                errorPayload.refreshCoupons = true;
+            }
+            return e.json(couponValidation.statusCode || 400, errorPayload);
         }
         const discountAmount = couponValidation.discountAmount || 0;
         const finalAmount = couponValidation.finalAmount || subtotal;
@@ -102,7 +108,14 @@ routerAdd("POST", "/api/orders/prep", (e) => {
                 $app.delete(newOrder);
             } catch (cleanupErr) {}
             const statusCode = buildStage === "reservation" ? 409 : 500;
-            return e.json(statusCode, { error: buildErr.toString() });
+            const errorPayload = { error: buildErr.toString() };
+            if (buildStage === "reservation" && requestedCouponId) {
+                errorPayload.error = "쿠폰이 방금 사용되었거나 만료되었습니다. 다른 쿠폰을 선택해 주세요.";
+                errorPayload.couponRejected = true;
+                errorPayload.couponId = requestedCouponId;
+                errorPayload.refreshCoupons = true;
+            }
+            return e.json(statusCode, errorPayload);
         }
 
         return e.json(200, {
@@ -347,6 +360,89 @@ routerAdd("POST", "/api/orders/{id}/withdraw-cancel", (e) => {
         $app.save(order);
 
         return e.json(200, { message: "취소 요청이 철회되었습니다." });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+});
+
+
+routerAdd("GET", "/api/orders/review-state", (e) => {
+    try {
+        const commentUtil = require(`${__hooks}/utils/comments.js`);
+        const couponUtil = require(`${__hooks}/utils/coupons.js`);
+
+        if (!e.auth || e.auth.collection().name !== "users") {
+            return e.json(401, { error: "로그인이 필요합니다." });
+        }
+
+        const userId = e.auth.id;
+        const productIds = {};
+        const orderPageSize = 100;
+        const itemPageSize = 100;
+
+        for (let orderOffset = 0; ; orderOffset += orderPageSize) {
+            const orders = $app.findRecordsByFilter(
+                "orders",
+                "user = {:userId}",
+                "",
+                orderPageSize,
+                orderOffset,
+                { userId: userId }
+            ) || [];
+
+            for (const order of orders) {
+                if (order.getString("status") !== "purchase_confirmed") {
+                    continue;
+                }
+
+                for (let itemOffset = 0; ; itemOffset += itemPageSize) {
+                    const items = $app.findRecordsByFilter(
+                        "order_items",
+                        "order = {:orderId}",
+                        "",
+                        itemPageSize,
+                        itemOffset,
+                        { orderId: order.id }
+                    ) || [];
+
+                    for (const item of items) {
+                        const productId = item.getString("product");
+                        if (productId) {
+                            productIds[productId] = true;
+                        }
+                    }
+
+                    if (items.length < itemPageSize) break;
+                }
+            }
+
+            if (orders.length < orderPageSize) break;
+        }
+
+        const byProduct = {};
+        const items = [];
+        const sortedProductIds = Object.keys(productIds).sort();
+
+        for (const productId of sortedProductIds) {
+            const existingComment = commentUtil.findUserComment($app, productId, userId);
+            const reward = couponUtil.reviewRewardCouponState($app, userId, productId);
+            const state = {
+                productId: productId,
+                canReview: !existingComment,
+                hasReview: !!existingComment,
+                commentId: existingComment ? existingComment.id : "",
+                commentStatus: existingComment ? existingComment.getString("status") : "",
+                couponState: reward.status,
+                coupon: reward.coupon
+            };
+            byProduct[productId] = state;
+            items.push(state);
+        }
+
+        return e.json(200, {
+            items: items,
+            byProduct: byProduct
+        });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }

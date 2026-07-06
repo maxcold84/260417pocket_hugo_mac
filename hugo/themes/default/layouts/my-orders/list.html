@@ -100,7 +100,7 @@
                 <!-- Order Items -->
                 <div class="px-6 py-4">
                     <template x-for="item in order.expand?.order_items_via_order || []" :key="item.id">
-                        <div class="flex items-center gap-4 py-3 border-b border-gray-50 dark:border-bmw-darkBorder/50 last:border-0">
+                        <div class="flex items-start gap-4 py-3 border-b border-gray-50 dark:border-bmw-darkBorder/50 last:border-0 sm:items-center">
                             <div class="w-14 h-14 bg-gray-100 dark:bg-black flex-shrink-0 flex items-center justify-center border border-gray-200 dark:border-bmw-darkBorder overflow-hidden rounded-sm">
                                 <template x-if="item.expand?.product?.images?.length">
                                     <img :src="'/api/files/' + item.expand.product.collectionId + '/' + item.expand.product.id + '/' + item.expand.product.images[0]" 
@@ -117,9 +117,28 @@
                                     <span class="mx-1">×</span>
                                     <span x-text="item.quantity + '개'"></span>
                                 </p>
+                                <template x-if="!isGuestMode && order.status === 'purchase_confirmed'">
+                                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px] leading-5">
+                                        <span class="rounded-full border px-2 py-0.5 font-medium"
+                                              :class="reviewStateClass(item)"
+                                              x-text="reviewStateLabel(item)"></span>
+                                        <template x-if="reviewCouponCode(item)">
+                                            <span class="font-mono text-[10px] text-gray-500 dark:text-gray-400" x-text="reviewCouponCode(item)"></span>
+                                        </template>
+                                        <template x-if="reviewCouponDetail(item)">
+                                            <span class="text-gray-500 dark:text-gray-400" x-text="reviewCouponDetail(item)"></span>
+                                        </template>
+                                    </div>
+                                </template>
                             </div>
-                            <div class="text-right flex-shrink-0">
+                            <div class="flex flex-shrink-0 flex-col items-end gap-2 text-right">
                                 <p class="text-sm font-medium text-gray-900 dark:text-white" x-text="'₩' + ((item.unit_price || 0) * (item.quantity || 1)).toLocaleString()"></p>
+                                <template x-if="!isGuestMode && order.status === 'purchase_confirmed' && canReviewItem(item)">
+                                    <a :href="productReviewHref(item)"
+                                       class="inline-flex min-h-8 items-center justify-center rounded-sm border border-green-300 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-green-700 transition hover:border-green-500 hover:text-green-800 dark:border-green-800 dark:bg-black/30 dark:text-green-300">
+                                        {{ i18n "write_review" }}
+                                    </a>
+                                </template>
                             </div>
                         </div>
                     </template>
@@ -154,8 +173,8 @@
                     <template x-if="!isGuestMode && order.status === 'completed'">
                         <div class="mt-4 flex flex-col gap-3 rounded-sm border border-blue-200 bg-blue-50/70 p-4 dark:border-bmw-blue/30 dark:bg-bmw-blue/10 sm:flex-row sm:items-center sm:justify-between">
                             <div class="min-w-0">
-                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ i18n "purchase_confirm_message" }}</p>
-                                <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ i18n "purchase_confirm_review_hint" }}</p>
+                                <p class="break-keep text-sm font-medium text-gray-900 dark:text-white">{{ i18n "purchase_confirm_message" }}</p>
+                                <p class="mt-1 break-keep text-xs leading-5 text-gray-500 dark:text-gray-400">{{ i18n "purchase_confirm_review_hint" }}</p>
                             </div>
                             <button x-show="confirmId !== order.id || confirmAction !== 'purchase'"
                                     type="button"
@@ -182,18 +201,10 @@
 
                     <template x-if="!isGuestMode && order.status === 'purchase_confirmed'">
                         <div class="mt-4 rounded-sm border border-green-200 bg-green-50/70 p-4 dark:border-green-900/50 dark:bg-green-950/20">
-                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="flex flex-col gap-1">
                                 <div>
-                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ i18n "purchase_confirmed_message" }}</p>
-                                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ i18n "review_coupon_hint" }}</p>
-                                </div>
-                                <div class="flex flex-wrap gap-2">
-                                    <template x-for="item in order.expand?.order_items_via_order || []" :key="'review-' + item.id">
-                                        <a :href="productReviewHref(item)"
-                                           class="inline-flex min-h-9 items-center justify-center rounded-sm border border-green-300 bg-white px-3 py-2 text-xs font-bold uppercase tracking-wider text-green-700 transition hover:border-green-500 hover:text-green-800 dark:border-green-800 dark:bg-black/30 dark:text-green-300">
-                                            {{ i18n "write_review" }}
-                                        </a>
-                                    </template>
+                                    <p class="break-keep text-sm font-medium text-gray-900 dark:text-white">{{ i18n "purchase_confirmed_message" }}</p>
+                                    <p class="mt-1 break-keep text-xs leading-5 text-gray-500 dark:text-gray-400" x-text="orderReviewSummary(order)"></p>
                                 </div>
                             </div>
                         </div>
@@ -245,6 +256,8 @@
                 confirmAction: '',
                 cancelling: false,
                 confirmingPurchase: false,
+                reviewStateByProduct: {},
+                reviewStateLoading: false,
                 
                 // Guest order lookup state
                 lookupIdentifier: '',
@@ -274,6 +287,7 @@
                         });
 
                         this.orders = result.items;
+                        await this.loadReviewStates();
                         console.log('[my-orders] Loaded orders:', this.orders.length, this.orders.map(o => ({ id: o.id, status: o.status })));
                     } catch (err) {
                         console.error('Failed to fetch orders:', err);
@@ -378,6 +392,108 @@
                     setTimeout(() => { this.toastMsg = ''; }, 3000);
                 },
 
+                async loadReviewStates() {
+                    if (!this.pb || !this.pb.authStore.isValid || this.isGuestMode) return;
+
+                    this.reviewStateLoading = true;
+                    try {
+                        const data = await this.pb.send('/api/orders/review-state', { method: 'GET' });
+                        this.reviewStateByProduct = data.byProduct || {};
+                    } catch (err) {
+                        console.error('Failed to fetch review reward state:', err);
+                        this.reviewStateByProduct = {};
+                        this.showToast('리뷰/쿠폰 상태를 불러오지 못했습니다.');
+                    } finally {
+                        this.reviewStateLoading = false;
+                    }
+                },
+
+                productIdForItem(item) {
+                    const product = (item && item.expand && item.expand.product) ? item.expand.product : {};
+                    return product.id || item.product || '';
+                },
+
+                reviewState(item) {
+                    const productId = this.productIdForItem(item);
+                    return this.reviewStateByProduct[productId] || {
+                        productId: productId,
+                        canReview: false,
+                        hasReview: false,
+                        couponState: this.reviewStateLoading ? 'loading' : 'unknown',
+                        coupon: null
+                    };
+                },
+
+                canReviewItem(item) {
+                    return !!this.reviewState(item).canReview;
+                },
+
+                reviewableItems(order) {
+                    return (order.expand?.order_items_via_order || []).filter((item) => this.canReviewItem(item));
+                },
+
+                reviewCoupon(item) {
+                    return this.reviewState(item).coupon || null;
+                },
+
+                reviewCouponCode(item) {
+                    const coupon = this.reviewCoupon(item);
+                    return coupon && coupon.code ? '쿠폰 ' + coupon.code : '';
+                },
+
+                formatDateShort(dateStr) {
+                    if (!dateStr) return '';
+                    return new Date(dateStr).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+                },
+
+                reviewCouponDetail(item) {
+                    const state = this.reviewState(item);
+                    const coupon = state.coupon || {};
+                    if (state.canReview) return '작성 후 자동 지급';
+                    if (state.couponState === 'available' && coupon.expiresAt) return '만료 ' + this.formatDateShort(coupon.expiresAt);
+                    if (state.couponState === 'reserved') return '결제 적용 대기중';
+                    if (state.couponState === 'used' && coupon.usedAt) return '사용 ' + this.formatDateShort(coupon.usedAt);
+                    if (state.couponState === 'expired' && coupon.expiresAt) return '만료 ' + this.formatDateShort(coupon.expiresAt);
+                    if (state.hasReview && state.couponState === 'not_issued') return '지급된 쿠폰 없음';
+                    return '';
+                },
+
+                reviewStateLabel(item) {
+                    const state = this.reviewState(item);
+                    if (state.canReview) return '리뷰 작성 가능';
+                    if (state.couponState === 'available') return '리뷰 보상 쿠폰 보유';
+                    if (state.couponState === 'reserved') return '리뷰 보상 쿠폰 예약중';
+                    if (state.couponState === 'used') return '리뷰 보상 쿠폰 사용 완료';
+                    if (state.couponState === 'expired') return '리뷰 보상 쿠폰 만료';
+                    if (state.couponState === 'void') return '리뷰 보상 쿠폰 취소됨';
+                    if (state.hasReview) return '리뷰 작성 완료';
+                    if (state.couponState === 'loading') return '리뷰 상태 확인중';
+                    return '리뷰 상태 미확인';
+                },
+
+                reviewStateClass(item) {
+                    const state = this.reviewState(item);
+                    if (state.canReview) return 'border-blue-200 bg-blue-50 text-blue-700 dark:border-bmw-blue/30 dark:bg-bmw-blue/10 dark:text-blue-200';
+                    if (state.couponState === 'available') return 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/50 dark:bg-green-950/20 dark:text-green-300';
+                    if (state.couponState === 'reserved') return 'border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-900/50 dark:bg-yellow-950/20 dark:text-yellow-300';
+                    if (state.couponState === 'used') return 'border-gray-200 bg-gray-100 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300';
+                    if (state.couponState === 'expired') return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300';
+                    return 'border-gray-200 bg-white text-gray-500 dark:border-bmw-darkBorder dark:bg-black/30 dark:text-gray-400';
+                },
+
+                orderReviewSummary(order) {
+                    const items = order.expand?.order_items_via_order || [];
+                    const reviewableCount = this.reviewableItems(order).length;
+                    const reviewedCount = items.filter((item) => this.reviewState(item).hasReview).length;
+                    if (reviewableCount > 0) {
+                        return reviewableCount + '개 상품은 아직 리뷰를 작성할 수 있습니다. 상품별 쿠폰 상태를 확인해 주세요.';
+                    }
+                    if (reviewedCount > 0) {
+                        return '상품별 리뷰 보상 쿠폰 상태가 표시되었습니다.';
+                    }
+                    return '{{ i18n "review_coupon_hint" }}';
+                },
+
                 productReviewHref(item) {
                     const product = (item && item.expand && item.expand.product) ? item.expand.product : {};
                     const key = product.slug || product.id || item.product || '';
@@ -393,6 +509,7 @@
                             order.status = data.order?.status || 'purchase_confirmed';
                             order.purchase_confirmed_at = data.order?.purchase_confirmed_at || new Date().toISOString();
                         }
+                        await this.loadReviewStates();
                         this.confirmId = '';
                         this.confirmAction = '';
                         this.showToast(data.message || '{{ i18n "purchase_confirmed_toast" }}');

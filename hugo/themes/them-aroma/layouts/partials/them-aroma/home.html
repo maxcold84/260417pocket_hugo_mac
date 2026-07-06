@@ -1,0 +1,174 @@
+{{ $aroma := site.Params.aroma | default dict }}
+{{ $heroURL := $aroma.heroCtaURL | default "/products/" }}
+{{ $heroTitle := site.Params.heroTitle | default site.Title }}
+{{ $heroSubtitle := site.Params.heroSubtitle | default (site.Params.description | default "") }}
+{{ $exploreLabel := site.Params.exploreCollection | default (i18n "explore_collection") }}
+{{ $products := partial "them-aroma/product-data.html" . }}
+{{ $heroImg := "" }}
+{{ with $aroma.heroImage }}{{ $heroImg = . }}{{ end }}
+{{ if not $heroImg }}
+    {{ range $products }}
+        {{ if not $heroImg }}
+            {{ $candidate := partial "them-aroma/product-image.html" . }}
+            {{ if $candidate }}{{ $heroImg = $candidate }}{{ end }}
+        {{ end }}
+    {{ end }}
+{{ end }}
+{{ $rails := $aroma.rails | default (slice) }}
+{{ if eq (len $rails) 0 }}
+  {{ $rails = slice
+    (dict "titleKey" "aroma_best_sellers" "source" "all" "limit" 8)
+    (dict "titleKey" "aroma_discounted" "source" "discounted" "limit" 8)
+  }}
+{{ end }}
+
+<div class="aroma-shell">
+    <section class="relative min-h-[calc(100dvh-6rem)] overflow-hidden bg-aroma-deep text-white md:min-h-[calc(100dvh-7rem)]">
+        {{ if $heroImg }}
+            <img src="{{ $heroImg }}" alt="" class="absolute inset-0 h-full w-full object-cover opacity-75">
+        {{ end }}
+        <div class="absolute inset-0 bg-gradient-to-t from-aroma-deep/80 via-aroma-deep/20 to-transparent"></div>
+        <div class="relative mx-auto flex min-h-[calc(100dvh-6rem)] max-w-7xl flex-col justify-end px-4 pb-28 pt-24 md:min-h-[calc(100dvh-7rem)] md:px-8 md:pb-14">
+            <div class="max-w-3xl">
+                <p class="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-white/80">{{ i18n "aroma_hero_badge" }}</p>
+                <h1 class="text-[clamp(3rem,7vw,7.5rem)] font-light leading-[0.95] tracking-[-0.04em]">
+                    {{ $heroTitle }}
+                </h1>
+                <p class="mt-6 max-w-xl text-base leading-7 text-white/82 md:text-lg">{{ $heroSubtitle }}</p>
+                <a href="{{ $heroURL | relLangURL }}" class="mt-8 inline-flex items-center gap-3 bg-white px-7 py-4 text-xs font-bold uppercase tracking-[0.18em] text-aroma-deep transition hover:bg-aroma-cream">
+                    {{ $exploreLabel }}
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 12h14m-6-6 6 6-6 6"></path></svg>
+                </a>
+            </div>
+            <div class="aroma-hero-panel mt-10 grid max-w-xl grid-cols-3 divide-x divide-aroma-muted overflow-hidden bg-aroma-paper text-center text-aroma-deep md:ml-auto md:mt-0 md:w-[440px]">
+                <div class="p-4">
+                    <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-aroma-green">{{ i18n "aroma_panel_one_label" }}</p>
+                    <p class="mt-2 text-xs leading-5">{{ i18n "aroma_panel_one_body" }}</p>
+                </div>
+                <div class="p-4">
+                    <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-aroma-green">{{ i18n "aroma_panel_two_label" }}</p>
+                    <p class="mt-2 text-xs leading-5">{{ i18n "aroma_panel_two_body" }}</p>
+                </div>
+                <div class="p-4">
+                    <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-aroma-green">{{ i18n "aroma_panel_three_label" }}</p>
+                    <p class="mt-2 text-xs leading-5">{{ i18n "aroma_panel_three_body" }}</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{ range $rail := $rails }}
+        {{ $source := $rail.source | default "all" }}
+        {{ $category := $rail.category | default "" }}
+        {{ $limit := int ($rail.limit | default 8) }}
+        {{ $items := slice }}
+        {{ range $products }}
+            {{ $product := . }}
+            {{ $include := false }}
+            {{ if eq $source "discounted" }}
+                {{ if gt (int ($product.discount_price | default 0)) 0 }}{{ $include = true }}{{ end }}
+            {{ else if eq $source "category" }}
+                {{ $productCategory := "" }}
+                {{ with $product.category }}{{ $productCategory = . }}{{ end }}
+                {{ with $product.expand }}{{ with .category }}{{ $productCategory = .slug }}{{ end }}{{ end }}
+                {{ if and $category (eq $productCategory $category) }}{{ $include = true }}{{ end }}
+            {{ else }}
+                {{ $include = true }}
+            {{ end }}
+            {{ if $include }}{{ $items = $items | append $product }}{{ end }}
+        {{ end }}
+        {{ if gt (len $items) 0 }}
+            <section class="py-14 md:py-24">
+                <div class="mb-8 flex items-end justify-between px-4 md:mb-10 md:px-10">
+                    <h2 class="text-2xl font-medium tracking-[-0.03em] text-aroma-ink md:text-[37px]">{{ i18n ($rail.titleKey | default "featured_products") }}</h2>
+                    <a href="{{ "/products/" | relLangURL }}" class="text-[11px] font-bold uppercase tracking-[0.18em] text-aroma-deep transition hover:text-aroma-green">{{ i18n "view_all" }}</a>
+                </div>
+                <div class="aroma-rail aroma-hide-scrollbar flex gap-2 overflow-x-auto px-4 md:gap-3 md:px-10">
+                    {{ range first $limit $items }}
+                        {{ partial "them-aroma/product-card.html" . }}
+                    {{ end }}
+                </div>
+                <div class="mx-auto mt-10 h-1 max-w-[76vw] bg-aroma-muted md:max-w-[76%]">
+                    <div class="h-full w-1/5 bg-aroma-deep"></div>
+                </div>
+            </section>
+        {{ end }}
+    {{ end }}
+
+    {{ $featureImage := $heroImg }}
+    <section class="grid gap-0 py-10 md:grid-cols-2 md:py-24">
+        <div class="min-h-[360px] overflow-hidden bg-white md:min-h-[520px]">
+            {{ if $featureImage }}
+                <img src="{{ $featureImage }}" alt="" class="h-full w-full object-cover">
+            {{ end }}
+        </div>
+        <div class="flex min-h-[360px] flex-col items-center justify-center px-8 py-14 text-center md:min-h-[520px]">
+            <p class="text-xs font-bold uppercase tracking-[0.2em] text-aroma-green">{{ i18n "aroma_editorial_label" }}</p>
+            <h2 class="mt-5 max-w-md text-3xl font-light leading-tight tracking-[-0.04em] text-aroma-deep md:text-5xl">{{ i18n "aroma_editorial_title" }}</h2>
+            <p class="mt-5 max-w-sm text-sm leading-7 text-aroma-deep/65">{{ i18n "aroma_editorial_body" }}</p>
+            <a href="{{ "/products/" | relLangURL }}" class="mt-8 border-b border-aroma-deep pb-1 text-xs font-bold uppercase tracking-[0.18em] text-aroma-deep transition hover:text-aroma-green">{{ i18n "explore_collection" }}</a>
+        </div>
+    </section>
+
+    <section class="grid gap-3 px-4 py-10 md:grid-cols-2 md:px-10 md:py-16">
+        {{ $tiles := $aroma.promoTiles | default (slice) }}
+        {{ if eq (len $tiles) 0 }}
+            {{ $tiles = slice
+                (dict "titleKey" "aroma_promo_first_order" "bodyKey" "aroma_promo_first_order_body" "url" "/products/")
+                (dict "titleKey" "aroma_promo_membership" "bodyKey" "aroma_promo_membership_body" "url" "/products/")
+            }}
+        {{ end }}
+        {{ range $tile := first 2 $tiles }}
+            {{ $tileImage := $tile.image | default $heroImg }}
+            <a href="{{ ($tile.url | default "/products/") | relLangURL }}" class="group relative min-h-[260px] overflow-hidden bg-aroma-deep p-8 text-white md:min-h-[340px]">
+                {{ if $tileImage }}
+                    <img src="{{ $tileImage }}" alt="" class="absolute inset-0 h-full w-full object-cover opacity-70 transition duration-700 group-hover:scale-105">
+                {{ end }}
+                <span class="absolute inset-0 bg-gradient-to-t from-aroma-deep/75 to-aroma-deep/10"></span>
+                <span class="relative flex h-full flex-col justify-end">
+                    <strong class="text-3xl font-medium tracking-[-0.04em] md:text-5xl">{{ i18n ($tile.titleKey | default "featured_products") }}</strong>
+                    <span class="mt-3 max-w-sm text-sm leading-6 text-white/82">{{ i18n ($tile.bodyKey | default "catalog_description") }}</span>
+                </span>
+            </a>
+        {{ end }}
+    </section>
+
+    {{ if gt (len $products) 0 }}
+        <section class="px-4 py-14 md:px-10 md:py-24">
+            <div class="mb-8 flex items-end justify-between">
+                <h2 class="text-2xl font-medium tracking-[-0.03em] text-aroma-ink md:text-[37px]">{{ i18n "aroma_magazine" }}</h2>
+                <a href="{{ "/products/" | relLangURL }}" class="text-[11px] font-bold uppercase tracking-[0.18em] text-aroma-deep transition hover:text-aroma-green">{{ i18n "view_all" }}</a>
+            </div>
+            <div class="grid gap-3 md:grid-cols-3">
+                {{ range first 3 $products }}
+                    {{ $image := partial "them-aroma/product-image.html" . }}
+                    <article class="bg-aroma-paper">
+                        <a href="{{ printf "/products/%s/" (.slug | default .id) | relLangURL }}" class="block overflow-hidden bg-white">
+                            {{ if $image }}
+                                <img src="{{ $image }}" alt="{{ .name }}" class="aspect-[4/3] w-full object-cover transition duration-700 hover:scale-105">
+                            {{ else }}
+                                <div class="aspect-[4/3] bg-white"></div>
+                            {{ end }}
+                        </a>
+                        <div class="p-5">
+                            <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-aroma-green">{{ i18n "aroma_magazine_label" }}</p>
+                            <h3 class="text-base font-medium leading-6 text-aroma-deep">{{ .name }}</h3>
+                        </div>
+                    </article>
+                {{ end }}
+            </div>
+        </section>
+    {{ end }}
+
+    <section class="relative min-h-[360px] overflow-hidden bg-aroma-deep px-4 py-20 text-center text-white md:min-h-[420px] md:py-28">
+        {{ if $heroImg }}
+            <img src="{{ $heroImg }}" alt="" class="absolute inset-0 h-full w-full object-cover opacity-35">
+        {{ end }}
+        <div class="absolute inset-0 bg-aroma-deep/40"></div>
+        <div class="relative mx-auto max-w-2xl">
+            <p class="text-xs font-bold uppercase tracking-[0.2em] text-white/70">{{ i18n "aroma_brand_label" }}</p>
+            <h2 class="mt-5 text-3xl font-light leading-tight tracking-[-0.04em] md:text-5xl">{{ i18n "aroma_brand_title" }}</h2>
+            <p class="mt-5 text-sm leading-7 text-white/80">{{ i18n "aroma_brand_body" }}</p>
+        </div>
+    </section>
+</div>

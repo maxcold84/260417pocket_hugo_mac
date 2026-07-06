@@ -152,6 +152,7 @@ Every new `routerAdd()` should update this table.
 | `POST /api/cms/inquiries/{id}/delete` | superuser | yes | no | deletes inquiry from CMS |
 | `POST /api/cms/rebuild` | superuser | filesystem + build | Hugo command | admin only |
 | `GET /api/cms/settings` | superuser | no | no | admin only |
+| `POST /api/cms/settings/theme` | superuser | filesystem + build | Hugo command | validates theme id against `hugo/themes/` and updates top-level `theme` |
 | `POST /api/cms/settings/update` | superuser | filesystem + build | Hugo command | admin only |
 | `GET /api/cms/coupon-settings` | superuser | no | no | returns review reward coupon defaults |
 | `POST /api/cms/coupon-settings` | superuser | yes | no | validates and saves review reward coupon defaults |

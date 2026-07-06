@@ -69,7 +69,7 @@ kakao = false
 
 - `pb_hooks/`: PocketBase의 동적 라우팅, 서버 로직, 그리고 웹훅 검증 로직을 포함하는 Javascript 파일들 (Node.js 아님, Goja 엔진 구동).
 - `pb_migrations/`: DB 스키마(Collection) 및 초기 데이터를 세팅하는 스크립트 모음.
-- `hugo/`: 정적 화면을 생성하기 위한 Hugo 테마, 레이아웃(`layouts/`), 그리고 설정 파일(`hugo.toml`). 상품 정보(`content/products/`)는 CMS에서 자동으로 생성합니다.
+- `hugo/`: 정적 화면을 생성하기 위한 Hugo 설정(`hugo.toml`), CMS 레이아웃(`layouts/cms/`), 기본 상점 테마(`themes/default/`). 상품 정보(`content/products/`)는 CMS에서 자동으로 생성합니다.
 - `pb_public/`: Hugo에 의해 컴파일된 최종 웹사이트 결과물이 위치하는 정적 폴더. (git ignore 처리됨)
 
 ## 🔐 보안 하드닝

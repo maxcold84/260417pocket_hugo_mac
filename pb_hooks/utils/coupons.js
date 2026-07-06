@@ -230,6 +230,23 @@ function findReviewRewardCoupon(app, userId, productId) {
     return records.length > 0 ? records[0] : null;
 }
 
+function reviewRewardCouponState(app, userId, productId) {
+    const coupon = findReviewRewardCoupon(app, userId, productId);
+    if (!coupon) {
+        return { status: "not_issued", coupon: null };
+    }
+
+    if (coupon.getString("status") === "available" && isExpired(coupon)) {
+        coupon.set("status", "expired");
+        app.save(coupon);
+    }
+
+    return {
+        status: coupon.getString("status") || "unknown",
+        coupon: exportCoupon(coupon)
+    };
+}
+
 function issueReviewReward(app, userId, productId, commentId) {
     const existing = findReviewRewardCoupon(app, userId, productId);
     if (existing) {
@@ -290,7 +307,12 @@ function validateCouponForUse(app, couponId, userId, subtotal) {
         return { ok: false, statusCode: 401, error: "쿠폰은 로그인 회원만 사용할 수 있습니다." };
     }
 
-    const coupon = app.findRecordById("user_coupons", couponId);
+    let coupon = null;
+    try {
+        coupon = app.findRecordById("user_coupons", couponId);
+    } catch (err) {
+        return { ok: false, statusCode: 400, error: "사용 가능한 쿠폰이 아닙니다." };
+    }
     if (coupon.getString("user") !== userId) {
         return { ok: false, statusCode: 403, error: "본인 쿠폰만 사용할 수 있습니다." };
     }
@@ -359,11 +381,13 @@ module.exports = {
     calculateDiscount: calculateDiscount,
     exportCoupon: exportCoupon,
     exportSetting: exportSetting,
+    findReviewRewardCoupon: findReviewRewardCoupon,
     getReviewRewardSetting: getReviewRewardSetting,
     issueReviewReward: issueReviewReward,
     listAvailableCoupons: listAvailableCoupons,
     markCouponUsedForOrder: markCouponUsedForOrder,
     releaseCouponReservationForOrder: releaseCouponReservationForOrder,
+    reviewRewardCouponState: reviewRewardCouponState,
     reserveCouponForOrder: reserveCouponForOrder,
     updateReviewRewardSetting: updateReviewRewardSetting,
     validateCouponForUse: validateCouponForUse

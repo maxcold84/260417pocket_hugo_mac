@@ -97,7 +97,9 @@
 21. **Member Order History Purchase Confirmation Pattern**:
     - `/my-orders/` is a static Hugo page with an Alpine.js dynamic order island. It must show the purchase-confirm CTA only for logged-in member orders in `completed` status, never for guest orders.
     - **Rule:** Use `pb.send('/api/orders/{id}/confirm-purchase', { method: 'POST' })` for confirmation so the SDK attaches auth. Keep confirmation and loading state on component-level properties such as `confirmAction` and `confirmingPurchase`.
-    - **Rule:** After confirmation, update the local order status to `purchase_confirmed` and reveal product review links without requiring a page reload.
+    - **Rule:** After confirmation, update the local order status to `purchase_confirmed` and refresh `/api/orders/review-state` without requiring a page reload.
+    - **Rule:** Product review CTAs must be filtered by the server-returned `canReview` state. A member can review each product only once, even if the product appears in multiple confirmed orders.
+    - **Rule:** Show the review reward coupon state per purchased product item (`available`, `reserved`, `used`, `expired`, `void`, or `not_issued`) so the member can tell whether the reward is still pending, already earned, or already used.
 
 22. **Checkout Coupon Pattern**:
     - Logged-in checkout pages may load available coupons with `pb.send('/api/coupons/available')`. Guest checkout must not show coupon controls.

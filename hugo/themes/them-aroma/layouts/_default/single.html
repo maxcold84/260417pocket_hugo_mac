@@ -1,0 +1,11 @@
+{{ define "main" }}
+<main class="aroma-shell flex-1 bg-aroma-cream px-4 py-14 text-aroma-deep md:px-8 md:py-20">
+    <article class="mx-auto max-w-3xl bg-aroma-paper p-6 md:p-10">
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-aroma-green">{{ site.Title }}</p>
+        <h1 class="mt-4 text-4xl font-light leading-tight md:text-6xl">{{ .Title }}</h1>
+        <div class="mt-8 max-w-none text-base leading-8 text-aroma-deep/75">
+            {{ .Content }}
+        </div>
+    </article>
+</main>
+{{ end }}

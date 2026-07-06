@@ -56,17 +56,54 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
 
 routerAdd("GET", "/api/cms/settings", (e) => {
     try {
-        let tomlStr = "";
-        try {
-            const bytes = $os.readFile("hugo/hugo.toml");
-            const binaryStr = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
-            tomlStr = decodeURIComponent(escape(binaryStr));
-        } catch (err) {
-            console.error("Failed to read hugo.toml", err);
-        }
-        return e.json(200, { toml: tomlStr });
+        const cmsUtil = require(`${__hooks}/utils/cms.js`);
+        return e.json(200, cmsUtil.resolveThemeSettings());
     } catch (err) {
         return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());
+
+routerAdd("POST", "/api/cms/settings/theme", (e) => {
+    try {
+        const cmsUtil = require(`${__hooks}/utils/cms.js`);
+        const body = e.requestInfo().body || {};
+        const settings = cmsUtil.applyThemeSelection(body.theme);
+
+        let hugoOutput = "";
+        let hugoWarning = "";
+        try {
+            const hugoResult = cmsUtil.runHugo(e);
+            if (hugoResult && hugoResult.output) {
+                hugoOutput = hugoResult.output;
+                if (hugoOutput.indexOf("WARN") !== -1 || hugoOutput.indexOf("ERROR") !== -1) {
+                    hugoWarning = " [빌드 경고: " + hugoOutput.split("\n").filter(function(l) {
+                        return l.indexOf("WARN") !== -1 || l.indexOf("ERROR") !== -1;
+                    }).join(" | ") + "]";
+                }
+            }
+        } catch (hugoErr) {
+            const errMsg = String(hugoErr);
+            console.error("Hugo build failed after theme update:", errMsg);
+            return e.json(500, {
+                error: "테마는 저장되었으나 Hugo 빌드 실패",
+                detail: errMsg,
+                toml: settings.toml,
+                activeTheme: settings.activeTheme,
+                themes: settings.themes
+            });
+        }
+
+        return e.json(200, {
+            message: "테마가 적용되었고 사이트가 재빌드되었습니다." + hugoWarning,
+            detail: hugoOutput,
+            toml: settings.toml,
+            activeTheme: settings.activeTheme,
+            themes: settings.themes
+        });
+    } catch (err) {
+        const errMsg = String(err);
+        const statusCode = errMsg.indexOf("유효하지 않은 테마") !== -1 || errMsg.indexOf("존재하지 않는 테마") !== -1 ? 400 : 500;
+        return e.json(statusCode, { error: errMsg });
     }
 }, $apis.requireSuperuserAuth());
 

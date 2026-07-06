@@ -1,0 +1,76 @@
+{{ $announcementKey := site.Params.aroma.announcementKey | default "aroma_announcement" }}
+<div class="aroma-shell sticky top-0 z-50 border-b border-aroma-muted/70 bg-aroma-cream/95 backdrop-blur-md">
+    <div class="h-8 bg-aroma-green px-4 text-center text-[11px] font-medium leading-8 text-white">
+        {{ i18n $announcementKey }}
+    </div>
+    <header class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:h-20 md:px-8">
+        <button type="button" class="md:hidden inline-flex h-10 w-10 items-center justify-center text-aroma-deep" @click="mobileMenuOpen = true" aria-label="{{ i18n "open_menu" | default "Open menu" }}">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7h16M4 12h16M4 17h16"></path></svg>
+        </button>
+
+        <nav class="hidden flex-1 items-center gap-8 text-xs font-semibold uppercase tracking-[0.12em] text-aroma-deep md:flex">
+            {{ range .Site.Menus.main }}
+            <a href="{{ .URL | relLangURL }}" class="transition hover:text-aroma-green">{{ i18n .Name | default .Name }}</a>
+            {{ end }}
+        </nav>
+
+        <a href="{{ "/" | relLangURL }}" class="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-lg font-black uppercase tracking-[0.14em] text-aroma-green sm:text-xl sm:tracking-[0.2em] md:text-2xl md:tracking-[0.25em]">
+            {{ site.Title | upper }}
+        </a>
+
+        <div class="flex flex-1 items-center justify-end gap-1 text-aroma-deep md:gap-3">
+            <a href="{{ "/products/" | relLangURL }}" class="hidden h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/70 md:inline-flex" aria-label="{{ i18n "catalog" }}">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" stroke-width="1.5"></circle><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l5 5"></path></svg>
+            </a>
+            <template x-if="!loggedIn">
+                <a x-bind:href="loginHref" class="hidden h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/70 md:inline-flex" aria-label="{{ i18n "login" }}">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3" stroke-width="1.5"></circle><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 20c1-5 13-5 14 0"></path></svg>
+                </a>
+            </template>
+            <template x-if="loggedIn">
+                <a x-bind:href="profileHref" class="hidden h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/70 md:inline-flex" aria-label="{{ i18n "profile" }}">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3" stroke-width="1.5"></circle><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 20c1-5 13-5 14 0"></path></svg>
+                </a>
+            </template>
+            <button type="button" @click.prevent="cartOpen = true" class="relative inline-flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/70" aria-label="{{ i18n "cart" }}">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V8a4 4 0 0 0-8 0v3M5.5 9.5h13l1 11h-15l1-11z"></path></svg>
+                <span x-show="cart.length > 0" x-text="cart.length" class="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-aroma-green px-1 text-[10px] font-bold text-white" style="display:none;"></span>
+            </button>
+            <button type="button" @click="toggleDark()" class="hidden h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/70 md:inline-flex" aria-label="Theme">
+                <svg x-show="!darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 15c-2 3-6 4-10 2S4 10 6 7c1-2 3-3 5-3-2 4-1 8 3 10 2 1 3 1 5 1z"></path></svg>
+                <svg x-show="darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;" aria-hidden="true"><circle cx="12" cy="12" r="4" stroke-width="1.5"></circle><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"></path></svg>
+            </button>
+        </div>
+    </header>
+</div>
+
+<div x-cloak x-show="mobileMenuOpen" class="fixed inset-0 z-[90] md:hidden">
+    <button type="button" class="absolute inset-0 bg-aroma-deep/50" @click="mobileMenuOpen = false" aria-label="{{ i18n "close_menu" | default "Close menu" }}"></button>
+    <aside x-show="mobileMenuOpen"
+           x-transition:enter="transition ease-out duration-300"
+           x-transition:enter-start="-translate-x-full"
+           x-transition:enter-end="translate-x-0"
+           x-transition:leave="transition ease-in duration-200"
+           x-transition:leave-start="translate-x-0"
+           x-transition:leave-end="-translate-x-full"
+           class="relative h-full w-[82vw] max-w-sm bg-aroma-cream p-6 text-aroma-deep shadow-2xl">
+        <div class="mb-10 flex items-center justify-between">
+            <a href="{{ "/" | relLangURL }}" class="text-lg font-black uppercase tracking-[0.22em] text-aroma-green">{{ site.Title | upper }}</a>
+            <button type="button" class="h-10 w-10" @click="mobileMenuOpen = false" aria-label="{{ i18n "close_menu" | default "Close menu" }}">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 6l12 12M18 6 6 18"></path></svg>
+            </button>
+        </div>
+        <nav class="flex flex-col gap-5 text-sm font-semibold uppercase tracking-[0.16em]">
+            <a href="{{ "/" | relLangURL }}" @click="mobileMenuOpen = false">{{ i18n "home" }}</a>
+            {{ range .Site.Menus.main }}
+            <a href="{{ .URL | relLangURL }}" @click="mobileMenuOpen = false">{{ i18n .Name | default .Name }}</a>
+            {{ end }}
+            <a x-bind:href="loggedIn ? profileHref : loginHref" @click="mobileMenuOpen = false" x-text="loggedIn ? '{{ i18n "profile" }}' : '{{ i18n "login" }}'"></a>
+        </nav>
+        <div class="mt-10 flex gap-3 text-xs font-bold uppercase tracking-[0.14em]">
+            {{ range .AllTranslations }}
+                <a href="{{ .RelPermalink }}" class="{{ if eq .Language.Lang $.Language.Lang }}text-aroma-green{{ else }}text-aroma-deep/50{{ end }}">{{ .Language.Lang }}</a>
+            {{ end }}
+        </div>
+    </aside>
+</div>

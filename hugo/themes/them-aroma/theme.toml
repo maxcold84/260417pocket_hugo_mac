@@ -1,0 +1,12 @@
+name = "Them Aroma"
+license = "MIT"
+licenselink = ""
+description = "A light, botanical commerce theme inspired by Aromatica-style layout grammar."
+homepage = ""
+tags = ["commerce", "wellness", "hugo", "pocketbase"]
+features = ["home-rails", "announcement-bar", "editorial-banners"]
+min_version = "0.120.0"
+
+[author]
+  name = "D'roll"
+  homepage = ""

@@ -1,5 +1,6 @@
 baseURL = "http://localhost:8090/"
 title = "D'roll Shop"
+theme = ["default"]
 
 # Publish Hugo output directly to the PocketBase public directory
 publishDir = "../pb_public"
