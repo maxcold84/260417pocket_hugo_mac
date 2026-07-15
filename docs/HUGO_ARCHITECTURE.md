@@ -40,6 +40,10 @@ hugo/                   ← Hugo source (content, themes, config)
     theme.toml          ← Default storefront theme metadata shown in CMS settings
     layouts/            ← Homepage, catalog, login, profile, order history, shell templates
     assets/icons/       ← Category icon resources used by storefront templates
+  themes/sample-accent/
+    theme.toml          ← Minimal CMS-selectable sample theme metadata
+    layouts/index.html  ← Homepage-only override used to verify default fallback behavior
+    assets/css/         ← Sample theme CSS loaded only by the sample homepage
   hugo.toml             ← Hugo config with publishDir = "../pb_public" and theme = ["default"]
 
 ## Build Workflows & Gotchas
@@ -80,6 +84,7 @@ hugo/                   ← Hugo source (content, themes, config)
 8. **CMS `hugo.toml` Settings Management**:
     - The CMS settings tab reads `/api/cms/settings`, which returns the raw TOML plus `activeTheme` and a `themes` list discovered from `hugo/themes/<theme-id>/theme.toml`.
     - Storefront templates and icons live in `hugo/themes/default/`. The CMS templates remain in project-level `hugo/layouts/cms/` so admin access does not depend on a selected storefront theme.
+    - `hugo/themes/sample-accent/` is a minimal verification fixture for this flow. It overrides only the homepage and loads one CSS asset, so selecting it should produce `theme = ["sample-accent", "default"]` and keep catalog, product detail, login, profile, order, shell, icons, and other missing templates falling back to `default`.
     - Selecting a theme POSTs `{ "theme": "<theme-id>" }` to `/api/cms/settings/theme`. The route validates the theme id against `hugo/themes/`, writes only the top-level `theme` line, and runs `hugo --ignoreCache`.
     - Non-default selections are saved as `theme = ["<selected>", "default"]`, so a partial future theme can override only specific templates/assets while falling back to the default storefront theme.
     - Saving advanced TOML changes POSTs the TOML text to `/api/cms/settings/update`, which writes back to `hugo/hugo.toml` and automatically triggers a `hugo --ignoreCache` rebuild to instantly reflect site-wide changes (e.g., dynamic navigation menus).

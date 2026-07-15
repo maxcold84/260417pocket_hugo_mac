@@ -1,0 +1,7 @@
+name = "샘플 액센트"
+license = "Internal"
+description = "CMS 테마 선택과 default fallback 동작을 검증하기 위한 최소 샘플 테마입니다."
+tags = ["commerce", "sample", "fallback"]
+features = ["home-override", "default-fallback"]
+min_version = "0.160.1"
+

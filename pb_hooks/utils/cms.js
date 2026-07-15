@@ -586,6 +586,26 @@ function decodeOutput(outputBytes) {
     }
 }
 
+function ensureTrailingSlash(url) {
+    const safe = String(url || "");
+    if (!safe) {
+        return "";
+    }
+    return safe.slice(-1) === "/" ? safe : safe + "/";
+}
+
+function normalizeSchemeFromRequest(e) {
+    let scheme = "http";
+    try {
+        const proto = String(e.request.header.get("X-Forwarded-Proto") || "");
+        if (proto.indexOf("https") !== -1 || e.request.tls) {
+            scheme = "https";
+        }
+    } catch (err) {
+    }
+    return scheme;
+}
+
 function buildHugoPaths(envUtil) {
     const paths = [];
     addCommandCandidate(paths, envUtil.get("HUGO_BIN"));
@@ -601,49 +621,66 @@ function runHugo(e) {
     let baseURL = "";
     let internalURL = "";
     let envUtil = null;
-
-    // 1. Resolve internal URL
+    let listenPort = "";
     try {
         envUtil = require(`${__hooks}/utils/env.js`);
-        internalURL = envUtil.get("POCKETBASE_INTERNAL_URL") || "http://127.0.0.1:8090/";
+        const rawPort = envUtil.get("PORT")
+            || envUtil.get("POCKETBASE_PORT")
+            || envUtil.get("PB_PORT")
+            || envUtil.get("HTTP_PORT");
+        if (rawPort) {
+            listenPort = String(rawPort).trim();
+        }
     } catch (err) {
-        internalURL = "http://127.0.0.1:8090/";
+        internalURL = "";
     }
 
-    // Ensure trailing slash for internalURL
-    if (internalURL && !internalURL.endsWith("/")) {
-        internalURL += "/";
+    try {
+        internalURL = envUtil.get("POCKETBASE_INTERNAL_URL") || envUtil.get("HUGO_POCKETBASE_INTERNAL_URL") || "";
+    } catch (err) {
+        internalURL = "";
     }
+    const requestScheme = e && e.request ? normalizeSchemeFromRequest(e) : "http";
+    if (!internalURL && e && e.request) {
+        const host = String(e.request.host || "");
+        const isLocalHost = host.indexOf("localhost") !== -1 || host.indexOf("127.0.0.1") !== -1;
+        if (isLocalHost) {
+            internalURL = requestScheme + "://" + host;
+        }
+    }
+    if (!internalURL && listenPort) {
+        internalURL = "http://127.0.0.1:" + listenPort;
+    }
+    if (!internalURL) {
+        internalURL = "http://127.0.0.1/";
+    }
+    internalURL = ensureTrailingSlash(internalURL);
 
-    // 2. Resolve external baseURL
     if (e && e.request) {
         try {
-            let scheme = "http";
-            const proto = e.request.header.get("X-Forwarded-Proto") || "";
-            if (proto.indexOf("https") !== -1 || e.request.tls) {
-                scheme = "https";
-            }
-            const host = e.request.host || "localhost:8090";
-            baseURL = scheme + "://" + host + "/";
+            const host = e.request.host || (listenPort ? "localhost:" + listenPort : "localhost");
+            baseURL = requestScheme + "://" + host + "/";
         } catch (err) {
             console.warn("[runHugo] Failed to parse request host:", err);
         }
     }
 
-    // If still empty, fall back to environment variable or site default
     if (!baseURL) {
         try {
             if (!envUtil) envUtil = require(`${__hooks}/utils/env.js`);
-            baseURL = envUtil.get("HUGO_BASEURL") || "http://localhost:8090/";
+            baseURL = envUtil.get("HUGO_BASEURL")
+                || (listenPort ? "http://localhost:" + listenPort + "/" : "http://localhost/");
         } catch (err) {
-            baseURL = "http://localhost:8090/";
+            if (listenPort) {
+                baseURL = "http://localhost:" + listenPort + "/";
+            } else {
+                baseURL = "http://localhost/";
+            }
         }
     }
 
     // Ensure trailing slash for baseURL
-    if (baseURL && !baseURL.endsWith("/")) {
-        baseURL += "/";
-    }
+    baseURL = ensureTrailingSlash(baseURL);
 
     console.log("[runHugo] Building site with baseURL: " + baseURL + ", internalURL: " + internalURL);
 

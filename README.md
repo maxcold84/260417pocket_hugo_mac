@@ -48,28 +48,30 @@ kakao = false
    ```
 
 2. **서버 실행 (PocketBase)**
-   이 Windows/Codex 로컬 환경에서는 저장소 루트에서 아래처럼 실행하면 로컬 `pocketbase` shim이 `pb_data`, `pb_hooks`, `pb_migrations`, `pb_public` 경로를 자동으로 연결합니다.
+   이 Windows/Codex 로컬 환경에서는 저장소 루트에서 아래 helper를 실행하면 사용 가능한 로컬 포트를 자동으로 고른 뒤 실제 접속 URL을 출력합니다.
    ```bash
-   pocketbase serve
+   tools\windows\start-pocketbase.cmd
    ```
+
+   `8090`이 비어 있으면 그대로 사용하고, 이미 사용 중이거나 OS에서 제외된 포트라면 다음 사용 가능한 포트로 자동 이동합니다.
 
    Linux 서버나 systemd 서비스처럼 shim이 없는 환경에서는 작업 디렉터리와 정적 파일 경로가 흔들리지 않도록 저장소 기준 경로를 명시해서 구동합니다.
    ```bash
-   ./pocketbase serve --dir=pb_data --hooksDir=pb_hooks --migrationsDir=pb_migrations --publicDir=pb_public
+   ./pocketbase serve --http=127.0.0.1:<selected-port> --dir=pb_data --hooksDir=pb_hooks --migrationsDir=pb_migrations --publicDir=pb_public
    ```
 
    개발 중 상세 로그가 필요하면 `--dev`를 추가합니다. PocketBase 바이너리를 저장소 루트에 두고 루트에서 실행하는 경우에도 기존처럼 `./pocketbase serve`가 동작할 수 있지만, 서비스 배포에서는 위처럼 경로를 명시하는 편이 안전합니다.
 
 3. **초기 관리자 접속 및 동기화**
-   - 브라우저에서 `http://127.0.0.1:8090/_/` (기본 포켓베이스 관리자 페이지) 접속 후, 포트원 결제 연동 등을 위한 세팅을 확인합니다.
-   - 쇼핑몰 프론트엔드는 `http://127.0.0.1:8090/` 에서 확인 가능합니다.
-   - 쇼핑몰 커스텀 CMS(상품 관리)는 `http://127.0.0.1:8090/cms/` 경로를 사용합니다. 처음 접속 후 반드시 **`SYNC & REBUILD SITE`** 버튼을 클릭하여 정적 페이지를 초기화해주세요.
+   - helper 또는 `--http` 실행 결과에 나온 `http://127.0.0.1:<selected-port>/_/` 에서 포켓베이스 관리자 페이지에 접속합니다.
+   - 쇼핑몰 프론트엔드는 `http://127.0.0.1:<selected-port>/` 에서 확인합니다.
+   - 쇼핑몰 커스텀 CMS(상품 관리)는 `http://127.0.0.1:<selected-port>/cms/` 경로를 사용합니다. 처음 접속 후 반드시 **`SYNC & REBUILD SITE`** 버튼을 클릭하여 정적 페이지를 초기화해주세요.
 
 ## 📁 주요 폴더 구조 설명
 
 - `pb_hooks/`: PocketBase의 동적 라우팅, 서버 로직, 그리고 웹훅 검증 로직을 포함하는 Javascript 파일들 (Node.js 아님, Goja 엔진 구동).
 - `pb_migrations/`: DB 스키마(Collection) 및 초기 데이터를 세팅하는 스크립트 모음.
-- `hugo/`: 정적 화면을 생성하기 위한 Hugo 설정(`hugo.toml`), CMS 레이아웃(`layouts/cms/`), 기본 상점 테마(`themes/default/`). 상품 정보(`content/products/`)는 CMS에서 자동으로 생성합니다.
+- `hugo/`: 정적 화면을 생성하기 위한 Hugo 설정(`hugo.toml`), CMS 레이아웃(`layouts/cms/`), 기본 상점 테마(`themes/default/`), CMS 테마 선택 및 fallback 검증용 샘플 테마(`themes/sample-accent/`). 상품 정보(`content/products/`)는 CMS에서 자동으로 생성합니다.
 - `pb_public/`: Hugo에 의해 컴파일된 최종 웹사이트 결과물이 위치하는 정적 폴더. (git ignore 처리됨)
 
 ## 🔐 보안 하드닝

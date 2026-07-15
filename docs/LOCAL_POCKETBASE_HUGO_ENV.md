@@ -42,7 +42,15 @@ Using `pocketbase/pb_data` can silently create a fresh empty database in the wro
 In this Windows/Codex desktop environment, the restored local PATH shim makes the old short command safe again from the repository root:
 
 ```bash
-pocketbase serve
+tools\windows\start-pocketbase.cmd
+```
+
+The helper probes `127.0.0.1` for a usable local port, prefers `8090` when available, and prints the actual storefront/CMS/Admin URLs it selected. If `8090` is blocked by another process or by a Windows excluded-port range, it will automatically move to the next usable port.
+
+If you want to force a specific port, pass it explicitly:
+
+```bash
+tools\windows\start-pocketbase.cmd -Port 8400
 ```
 
 PowerShell resolves `pocketbase` to:
@@ -75,7 +83,7 @@ ROOT="D:\\cod\\codex\\server_01\\git_win"
 "$PB_BIN" serve \
   --dev \
   --indexFallback=false \
-  --http=127.0.0.1:8090 \
+  --http=127.0.0.1:<selected-port> \
   --dir="$ROOT\\pb_data" \
   --hooksDir="$ROOT\\pb_hooks" \
   --migrationsDir="$ROOT\\pb_migrations" \
@@ -89,24 +97,24 @@ mkdir -p /c/tmp/server_01_qa
 nohup "$PB_BIN" serve \
   --dev \
   --indexFallback=false \
-  --http=127.0.0.1:8090 \
+  --http=127.0.0.1:<selected-port> \
   --dir="$ROOT\\pb_data" \
   --hooksDir="$ROOT\\pb_hooks" \
   --migrationsDir="$ROOT\\pb_migrations" \
   --publicDir="$ROOT\\pb_public" \
-  > /c/tmp/server_01_qa/pb-serve-8090.log \
-  2> /c/tmp/server_01_qa/pb-serve-8090.err.log &
+  > /c/tmp/server_01_qa/pb-serve-<selected-port>.log \
+  2> /c/tmp/server_01_qa/pb-serve-<selected-port>.err.log &
 ```
 
-For PowerShell background QA runs, either call the shim from the repository root or pass the explicit executable path with the same project directory flags. Keep logs outside the repo.
+For PowerShell background QA runs, either call the helper with `-Background` from the repository root or pass the explicit executable path with the same project directory flags. Keep logs outside the repo.
 
 ## Pre-Build Checks
 
-Before running Hugo, verify the API is reading the correct database:
+Before running Hugo, verify the API is reading the correct database on the port the helper printed:
 
 ```bash
 curl -s -w '\n%{http_code}\n' \
-  'http://127.0.0.1:8090/api/collections/products/records?sort=sort_order&expand=category&limit=1000' \
+  'http://127.0.0.1:<selected-port>/api/collections/products/records?sort=sort_order&expand=category&limit=1000' \
   | head -20
 ```
 
@@ -137,7 +145,7 @@ hugo --ignoreCache
 If a template must fetch PocketBase through a non-default URL, set it explicitly for that build:
 
 ```bash
-HUGO_POCKETBASE_INTERNAL_URL="http://127.0.0.1:8090/" hugo --ignoreCache
+HUGO_POCKETBASE_INTERNAL_URL="http://127.0.0.1:<selected-port>/" hugo --ignoreCache
 ```
 
 After building, verify the generated static output contains real data-backed markup, not just JavaScript helpers:
@@ -153,10 +161,10 @@ The `cd ..` returns from `hugo/` to the repository root. Adjust the product path
 
 If Hugo was built while PocketBase used the wrong DB:
 
-1. Stop the bad PocketBase process on port `8090`:
+1. Stop the bad PocketBase process on the selected local port:
 
    ```bash
-   pid=$(netstat -ano | grep '127.0.0.1:8090' | grep LISTENING | awk '{print $5}' | head -1)
+   pid=$(netstat -ano | grep '127.0.0.1:<selected-port>' | grep LISTENING | awk '{print $5}' | head -1)
    if [ -n "$pid" ]; then taskkill //PID "$pid" //F; fi
    ```
 

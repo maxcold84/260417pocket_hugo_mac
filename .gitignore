@@ -25,7 +25,9 @@ qa-*.png
 pb-serve-*.log
 
 # Local Codex Windows desktop tooling
-tools/windows/
+tools/windows/*
 tools/rg.cmd
 tools/rg-shim.ps1
+!tools/windows/start-pocketbase.cmd
+!tools/windows/start-pocketbase.ps1
 

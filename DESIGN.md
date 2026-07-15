@@ -34,7 +34,7 @@
 - Empty, loading, and error states should be explicit but compact.
 - Product rating displays use inline SVG stars in Tailwind `text-orange-400/500` with compact numeric labels. Interactive rating inputs are 1-5 button groups with visible focus rings and stable inline dimensions.
 - Product inquiry rows use thin bordered panels, compact status pills, and a left-accented BMW-blue answer block. Secret inquiries use gray/black lock badges and masked body copy; never expose private text in decorative previews.
-- Product detail recommendation carousels use compact small-radius product cards in a horizontal scroll-snap rail, showing 2/3/4/5 cards per slide across mobile/tablet/desktop/wide layouts. Use BMW-blue active dots, focus rings, and SVG arrow/cart controls.
+- The homepage featured-product rail preserves the default rounded product-card design, including its image hover, desktop cart action, mobile cart button, spacing, and elevation. Only the outer container changes between the 2/3/4-card scroll-snap slider and the original grid. Use a slim BMW-blue progress track, BMW-blue active dots, focus rings, and SVG arrow controls when the slider is enabled.
 
 ## Interaction
 - Use inline confirmation UI instead of browser `confirm()` or `alert()`.

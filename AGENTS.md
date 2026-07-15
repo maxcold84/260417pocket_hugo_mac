@@ -29,3 +29,13 @@ To keep instructions concise, detailed rules and gotchas are separated into docu
 ## 4. Environment-Specific Notes
 - Codex Windows desktop-only tooling notes live in `docs/CODEX_WINDOWS.md`. Read it only when running in that environment or when `rg` fails with a WindowsApps `Access is denied` error.
 - Local PocketBase + Hugo startup/build guard lives in `docs/LOCAL_POCKETBASE_HUGO_ENV.md`. Read it before starting PocketBase, running `hugo --ignoreCache`, or diagnosing missing static data in `pb_public/`.
+
+<!-- OPENWIKI:START -->
+
+## OpenWiki
+
+This repository uses OpenWiki for recurring code documentation. Start with `openwiki/quickstart.md`, then follow its links to architecture, workflows, domain concepts, operations, integrations, testing guidance, and source maps.
+
+The scheduled OpenWiki GitHub Actions workflow refreshes the repository wiki. Do not hand-edit generated OpenWiki pages unless explicitly asked; prefer updating source code/docs and letting OpenWiki regenerate.
+
+<!-- OPENWIKI:END -->
