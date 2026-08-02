@@ -1,0 +1,66 @@
+.sample-accent-home {
+  --sample-accent-blue: #1C69D4;
+  --sample-accent-dark: #111111;
+  --sample-accent-surface: #1A1A1A;
+  --sample-accent-border: #e5e7eb;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.sample-accent-shell {
+  max-width: 100%;
+  background:
+    radial-gradient(circle at 16% 20%, rgba(28, 105, 212, 0.2), transparent 30rem),
+    linear-gradient(135deg, #111111 0%, #1A1A1A 52%, #f9fafb 52%, #ffffff 100%);
+}
+
+.sample-accent-grid {
+  width: 100%;
+  min-width: 0;
+}
+
+.sample-accent-copy {
+  overflow-wrap: anywhere;
+}
+
+.sample-accent-title {
+  text-wrap: balance;
+}
+
+.sample-accent-body {
+  text-wrap: pretty;
+}
+
+.sample-accent-panel {
+  max-width: 100%;
+  border-color: rgba(229, 231, 235, 0.85);
+  box-shadow: 0 24px 70px rgba(17, 17, 17, 0.18);
+}
+
+.sample-accent-rail {
+  background: linear-gradient(90deg, var(--sample-accent-blue), rgba(28, 105, 212, 0.12));
+}
+
+@media (max-width: 640px) {
+  .sample-accent-grid {
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .sample-accent-shell {
+    background:
+      radial-gradient(circle at 0% 16%, rgba(28, 105, 212, 0.22), transparent 24rem),
+      linear-gradient(160deg, var(--sample-accent-dark) 0%, var(--sample-accent-surface) 78%, #ffffff 78%, #ffffff 100%);
+  }
+
+  .sample-accent-title {
+    font-size: 2rem;
+    line-height: 1.2;
+  }
+
+  .sample-accent-panel {
+    width: calc(100vw - 2rem);
+  }
+}

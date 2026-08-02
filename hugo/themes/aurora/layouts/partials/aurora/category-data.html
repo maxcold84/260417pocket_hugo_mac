@@ -1,0 +1,54 @@
+{{- /*
+  Returns a normalized category slice for the Aurora home layout.
+
+  Params: pbBase (string), limit (int)
+
+  Prefers the PocketBase `categories` collection (which carries subtitles and
+  Material-style icon names) and falls back to `params.categories` in
+  hugo.toml, which is what the default theme reads.
+*/ -}}
+{{- $pbBase := .pbBase -}}
+{{- $limit := int (.limit | default 12) -}}
+{{- $categories := slice -}}
+
+{{- $url := printf "%sapi/collections/categories/records?sort=sort_order&perPage=%d&t=%d" $pbBase $limit now.Unix -}}
+{{- with try (resources.GetRemote $url) -}}
+  {{- if not .Err -}}
+    {{- with .Value -}}
+      {{- $payload := . | transform.Unmarshal -}}
+      {{- with $payload.items -}}
+        {{- range . -}}
+          {{- $c := . -}}
+          {{- $active := true -}}
+          {{- if isset $c "active" -}}{{- $active = not (not (index $c "active")) -}}{{- end -}}
+          {{- $slug := printf "%v" (index $c "slug" | default "") -}}
+          {{- if and $active $slug -}}
+            {{- $categories = $categories | append (dict
+              "name" (printf "%v" (index $c "name" | default $slug))
+              "slug" $slug
+              "subtitle" (printf "%v" (index $c "subtitle" | default ""))
+              "icon" (printf "%v" (index $c "icon" | default ""))
+            ) -}}
+          {{- end -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if not $categories -}}
+  {{- range site.Params.categories -}}
+    {{- $name := .name -}}
+    {{- if ne site.Language.Lang "ko-kr" -}}
+      {{- $name = .nameEn | default .name -}}
+    {{- end -}}
+    {{- $categories = $categories | append (dict
+      "name" (printf "%v" $name)
+      "slug" (printf "%v" .slug)
+      "subtitle" (printf "%v" (.subtitle | default ""))
+      "icon" (printf "%v" (.icon | default ""))
+    ) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- return (first $limit $categories) -}}

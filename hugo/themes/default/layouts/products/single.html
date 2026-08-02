@@ -1,0 +1,1179 @@
+{{ define "title" }}{{ .Title | default site.Title }}{{ end }}
+
+{{ define "main" }}
+{{ $ratingAverage := .Params.rating_average | default 0 }}
+{{ $ratingCount := .Params.rating_count | default 0 }}
+{{ $recommendationLimit := int (site.Params.productRecommendationsLimit | default 5) }}
+{{ $recommendationIntervalMs := int (site.Params.productRecommendationIntervalMs | default 5000) }}
+{{ $pbBase := getenv "HUGO_POCKETBASE_INTERNAL_URL" | default site.BaseURL }}
+{{ if not (hasSuffix $pbBase "/") }}
+    {{ $pbBase = printf "%s/" $pbBase }}
+{{ end }}
+{{ $prodUrl := printf "%sapi/collections/products/records?sort=sort_order&expand=category&limit=1000&t=%d" $pbBase now.Unix }}
+{{ $data := dict "items" slice }}
+{{ $useMarkdownFallback := false }}
+{{ with try (resources.GetRemote $prodUrl) }}
+    {{ with .Err }}
+        {{ $useMarkdownFallback = true }}
+    {{ else }}
+        {{ $data = .Value | transform.Unmarshal }}
+    {{ end }}
+{{ end }}
+{{ $productItems := $data.items }}
+{{ if $useMarkdownFallback }}
+    {{ $productItems = slice }}
+    {{ range (where site.RegularPages "Section" "products").ByWeight }}
+        {{ $productItems = $productItems | append (dict
+            "id" (.Params.id | default .File.BaseFileName)
+            "name" .Title
+            "slug" .File.BaseFileName
+            "price" (.Params.price | default 0)
+            "discount_price" (.Params.discount_price | default 0)
+            "stock" (.Params.stock | default 1)
+            "rating_average" (.Params.rating_average | default 0)
+            "rating_count" (.Params.rating_count | default 0)
+            "images" (.Params.images | default (slice))
+            "category" (.Params.category | default "")
+        ) }}
+    {{ end }}
+{{ end }}
+{{ $currentSlug := .File.BaseFileName }}
+{{ $currentId := .Params.id | default "" }}
+{{ $currentCategory := .Params.category | default "" }}
+{{ $recommendations := slice }}
+{{ range $productItems }}
+    {{ $product := . }}
+    {{ $productCategory := "" }}
+    {{ with $product.category }}{{ $productCategory = . }}{{ end }}
+    {{ with $product.expand }}{{ with .category }}{{ with .slug }}{{ $productCategory = . }}{{ end }}{{ end }}{{ end }}
+    {{ $isCurrent := or (eq $product.slug $currentSlug) (and $currentId (eq $product.id $currentId)) }}
+    {{ $isSameCategory := and $currentCategory (eq $productCategory $currentCategory) }}
+    {{ if and (not $isCurrent) $isSameCategory (lt (len $recommendations) $recommendationLimit) }}
+        {{ $recommendations = $recommendations | append $product }}
+    {{ end }}
+{{ end }}
+{{ if lt (len $recommendations) $recommendationLimit }}
+    {{ range $productItems }}
+        {{ $product := . }}
+        {{ $productCategory := "" }}
+        {{ with $product.category }}{{ $productCategory = . }}{{ end }}
+        {{ with $product.expand }}{{ with .category }}{{ with .slug }}{{ $productCategory = . }}{{ end }}{{ end }}{{ end }}
+        {{ $isCurrent := or (eq $product.slug $currentSlug) (and $currentId (eq $product.id $currentId)) }}
+        {{ $isSameCategory := and $currentCategory (eq $productCategory $currentCategory) }}
+        {{ if and (not $isCurrent) (not $isSameCategory) (lt (len $recommendations) $recommendationLimit) }}
+            {{ $recommendations = $recommendations | append $product }}
+        {{ end }}
+    {{ end }}
+{{ end }}
+<main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full text-gray-800 dark:text-gray-200">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+        <!-- Image Gallery (Alpine.js) -->
+        <div class="flex flex-col gap-4" x-data="{ 
+            images: {{ if .Params.images }}{{ .Params.images | jsonify }}{{ else if .Params.image }}[{{ .Params.image | jsonify }}]{{ else }}[]{{ end }},
+            activeImage: 0 
+        }">
+            <!-- Main Image -->
+            <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder aspect-[4/3] flex items-center justify-center overflow-hidden">
+                <template x-if="images.length > 0">
+                    <img :src="images[activeImage]" alt="{{ .Title }}" class="w-full h-full object-cover transition-opacity duration-300">
+                </template>
+                <template x-if="images.length === 0">
+                    <span class="text-gray-400 dark:text-gray-600 text-sm tracking-widest uppercase">{{ i18n "product_image" }}</span>
+                </template>
+            </div>
+            
+            <!-- Thumbnails -->
+            <template x-if="images.length > 1">
+                <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    <template x-for="(img, index) in images" :key="index">
+                        <button @click="activeImage = index" 
+                                class="w-20 h-20 flex-shrink-0 border-2 overflow-hidden focus:outline-none transition-colors duration-200"
+                                :class="activeImage === index ? 'border-bmw-blue' : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'">
+                            <img :src="img" class="w-full h-full object-cover">
+                        </button>
+                    </template>
+                </div>
+            </template>
+        </div>
+        <div class="flex flex-col justify-center">
+            <h1 class="text-4xl font-light mb-4">{{ .Title }}</h1>
+            <div class="mb-4 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                {{ if gt $ratingCount 0 }}
+                    <span class="inline-flex items-center gap-1 text-orange-400" aria-label="{{ i18n "rating_average_label" }} {{ printf "%.1f" (float $ratingAverage) }}">
+                        <svg class="h-4 w-4 fill-current" viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                        </svg>
+                        <span class="font-medium text-gray-900 dark:text-white">{{ printf "%.1f" (float $ratingAverage) }}</span>
+                    </span>
+                    <span>{{ $ratingCount }}{{ i18n "rating_count_suffix" }}</span>
+                {{ else }}
+                    <span class="text-gray-400 dark:text-gray-500">{{ i18n "rating_empty" }}</span>
+                {{ end }}
+            </div>
+            <div class="text-2xl font-medium text-gray-900 dark:text-white mb-6">
+                {{ if and .Params.discount_price (gt .Params.discount_price 0) }}
+                    <span class="line-through text-gray-400 text-lg font-normal mr-2">₩{{ lang.FormatNumberCustom 0 .Params.price }}</span>
+                    <span class="text-red-500 font-bold">₩{{ lang.FormatNumberCustom 0 .Params.discount_price }}</span>
+                {{ else }}
+                    ₩{{ lang.FormatNumberCustom 0 .Params.price }}
+                {{ end }}
+            </div>
+            <div class="prose prose-invert text-gray-500 dark:text-gray-400 mb-8 max-w-none">
+                {{ .Content }}
+            </div>
+            <!-- Add to Cart Button — uses shared Alpine.js localStorage cart via baseof.html -->
+            <button 
+                @click="$dispatch('add-to-cart', {
+                    id: {{ .Params.id | jsonify }}, 
+                    name: {{ .Title | jsonify }}, 
+                    price: {{ if and .Params.discount_price (gt .Params.discount_price 0) }}{{ .Params.discount_price }}{{ else }}{{ .Params.price }}{{ end }},
+                    image: {{ if .Params.images }}{{ index .Params.images 0 | jsonify }}{{ else if .Params.image }}{{ .Params.image | jsonify }}{{ else }}null{{ end }},
+                    quantity: 1
+                })"
+                class="bg-bmw-blue hover:bg-blue-700 text-white px-8 py-4 uppercase tracking-widest text-sm font-bold transition duration-300 w-full md:w-auto rounded"
+            >
+                {{ i18n "add_to_cart" }}
+            </button>
+        </div>
+    </div>
+
+    {{ if gt (len $recommendations) 0 }}
+    <section id="recommended-products"
+             class="mt-16 scroll-mt-12 border-t border-gray-200 pb-20 pt-6 dark:border-bmw-darkBorder md:scroll-mt-28 md:pb-0 md:pt-8"
+             x-data="productRecommendationCarousel({{ len $recommendations }}, {{ $recommendationIntervalMs }})"
+             x-init="init($refs.track)"
+             @mouseenter="pauseAutoplay()"
+             @mouseleave="resumeAutoplay()"
+             @focusin="pauseAutoplay()"
+             @focusout="if (!$el.contains($event.relatedTarget)) resumeAutoplay()"
+             data-current-product-id="{{ $currentId }}">
+        <style>
+            #recommended-products [data-recommendation-track]::-webkit-scrollbar { display: none; }
+        </style>
+        <div class="relative mb-4 flex flex-col gap-4 md:mb-6 md:flex-row md:items-end md:justify-between">
+            <div class="pr-24 md:pr-0">
+                <p class="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-bmw-blue">{{ i18n "recommended_products_label" }}</p>
+                <h2 class="text-2xl font-light text-gray-900 dark:text-white [word-break:keep-all] md:text-3xl">{{ i18n "recommended_products_title" }}</h2>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500 dark:text-gray-400 [word-break:keep-all]">{{ i18n "recommended_products_body" }}</p>
+            </div>
+            {{ if gt (len $recommendations) 1 }}
+            <div x-show="pageCount > 1" x-cloak class="absolute right-0 top-0 flex items-center gap-2 md:static">
+                <button type="button"
+                        @click="prev()"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-sm border border-gray-200 bg-white text-gray-600 transition hover:border-bmw-blue hover:text-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue dark:border-bmw-darkBorder dark:bg-bmw-surface dark:text-gray-300 md:h-10 md:w-10"
+                        aria-label="{{ i18n "recommendation_previous" }}">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </button>
+                <button type="button"
+                        @click="next()"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-sm border border-gray-200 bg-white text-gray-600 transition hover:border-bmw-blue hover:text-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue dark:border-bmw-darkBorder dark:bg-bmw-surface dark:text-gray-300 md:h-10 md:w-10"
+                        aria-label="{{ i18n "recommendation_next" }}">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+            </div>
+            {{ end }}
+        </div>
+
+        <div class="overflow-hidden">
+            <div x-ref="track"
+                 data-recommendation-track
+                 @scroll.debounce.100ms="syncActiveFromScroll()"
+                 class="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-1 [scrollbar-width:none] [-ms-overflow-style:none] md:gap-4"
+                 :class="reduceMotion ? 'scroll-auto' : 'scroll-smooth'">
+                {{ range $index, $product := $recommendations }}
+                    {{ $stock := 1 }}
+                    {{ if isset $product "stock" }}{{ $stock = int $product.stock }}{{ end }}
+                    {{ $price := $product.price | default 0 }}
+                    {{ $discountPrice := $product.discount_price | default 0 }}
+                    {{ $ratingAverage := float ($product.rating_average | default 0) }}
+                    {{ $ratingCount := int ($product.rating_count | default 0) }}
+                    {{ $imageSrc := "" }}
+                    {{ with $product.images }}
+                        {{ if gt (len .) 0 }}
+                            {{ $firstImage := index . 0 }}
+                            {{ if or (hasPrefix $firstImage "/") (hasPrefix $firstImage "http") }}
+                                {{ $imageSrc = $firstImage }}
+                            {{ else }}
+                                {{ $imageSrc = printf "/api/files/products/%s/%s" $product.id $firstImage }}
+                            {{ end }}
+                        {{ end }}
+                    {{ end }}
+                    {{ $productURL := printf "/products/%s/" $product.slug | relLangURL }}
+                    <article class="snap-start shrink-0 overflow-hidden rounded-sm border border-gray-200 bg-white dark:border-bmw-darkBorder dark:bg-bmw-surface"
+                             style="flex: 0 0 calc((100% - 0.75rem) / 2)"
+                             :style="cardStyle()"
+                             data-recommendation-id="{{ $product.id }}"
+                             data-recommendation-slug="{{ $product.slug }}">
+                        <a href="{{ $productURL }}" class="relative flex aspect-square items-center justify-center overflow-hidden bg-gray-50 dark:bg-black">
+                            {{ if $imageSrc }}
+                                <img src="{{ $imageSrc }}" alt="{{ $product.name }}" loading="lazy" decoding="async" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');" class="h-full w-full object-cover transition-transform duration-700 hover:scale-105">
+                                <span class="hidden text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">{{ i18n "no_image" }}</span>
+                            {{ else }}
+                                <span class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">{{ i18n "no_image" }}</span>
+                            {{ end }}
+                            {{ if le $stock 0 }}
+                                <span class="absolute left-4 top-4 rounded-sm bg-red-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">{{ i18n "sold_out" }}</span>
+                            {{ else if eq $stock 1 }}
+                                <span class="absolute left-4 top-4 rounded-sm bg-orange-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">{{ i18n "last_item" }}</span>
+                            {{ end }}
+                        </a>
+                        <div class="flex min-h-[172px] flex-col p-3 md:min-h-[190px] md:p-4">
+                            <div class="flex min-h-[18px] items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 md:text-xs">
+                                {{ if or (gt $ratingCount 0) (gt $ratingAverage 0.0) }}
+                                    <span class="inline-flex items-center gap-0.5 text-orange-400" aria-label="{{ i18n "rating_average_label" }} {{ printf "%.1f" (float $ratingAverage) }}">
+                                        <svg class="h-3 w-3 fill-current md:h-3.5 md:w-3.5" viewBox="0 0 20 20" aria-hidden="true">
+                                            <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                                        </svg>
+                                        <span class="font-medium text-gray-700 dark:text-gray-200">{{ printf "%.1f" (float $ratingAverage) }}</span>
+                                    </span>
+                                    {{ if gt $ratingCount 0 }}<span>({{ $ratingCount }})</span>{{ end }}
+                                {{ else }}
+                                    <span class="text-gray-400 dark:text-gray-500">{{ i18n "rating_empty_short" }}</span>
+                                {{ end }}
+                            </div>
+                            <a href="{{ $productURL }}" class="mt-3 block transition hover:text-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue">
+                                <h3 class="min-h-[2.5rem] text-sm font-medium leading-snug text-gray-900 line-clamp-2 dark:text-white md:text-base">{{ $product.name }}</h3>
+                            </a>
+                            <div class="mt-3 text-sm font-bold tracking-tight text-gray-900 dark:text-white md:text-base">
+                                {{ if gt $discountPrice 0 }}
+                                    <span class="mr-1 text-xs font-normal text-gray-400 line-through">₩{{ lang.FormatNumberCustom 0 $price }}</span>
+                                    <span class="text-red-500">₩{{ lang.FormatNumberCustom 0 $discountPrice }}</span>
+                                {{ else }}
+                                    ₩{{ lang.FormatNumberCustom 0 $price }}
+                                {{ end }}
+                            </div>
+                            <div class="mt-auto flex items-center justify-between gap-2 pt-4">
+                                <a href="{{ $productURL }}"
+                                   class="text-[11px] font-bold uppercase tracking-wider text-gray-500 transition hover:text-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue dark:text-gray-400 md:text-xs">
+                                    {{ i18n "recommendation_view_product" }}
+                                </a>
+                                <button type="button"
+                                        aria-label="{{ i18n "add_to_cart" }}: {{ $product.name }}"
+                                        @click="$dispatch('add-to-cart', {
+                                            id: {{ $product.id | jsonify }},
+                                            name: {{ $product.name | jsonify }},
+                                            price: {{ if gt $discountPrice 0 }}{{ $discountPrice }}{{ else }}{{ $price }}{{ end }},
+                                            image: {{ if $imageSrc }}{{ $imageSrc | jsonify }}{{ else }}null{{ end }},
+                                            quantity: 1
+                                        })"
+                                        class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-bmw-blue text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-bmw-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-bmw-surface"
+                                        {{ if le $stock 0 }}disabled{{ end }}>
+                                    {{ if gt $stock 0 }}
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m7-7H5"></path>
+                                        </svg>
+                                    {{ else }}
+                                        <svg class="h-4 w-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.36 18.36A9 9 0 0 0 5.64 5.64m12.72 12.72A9 9 0 0 1 5.64 5.64m12.72 12.72L5.64 5.64"></path>
+                                        </svg>
+                                    {{ end }}
+                                </button>
+                            </div>
+                        </div>
+                    </article>
+                {{ end }}
+            </div>
+        </div>
+
+        {{ if gt (len $recommendations) 1 }}
+        <div x-show="pageCount > 1" x-cloak class="mt-4 flex justify-center gap-2" aria-label="{{ i18n "recommended_products_title" }}">
+            {{ range $index, $product := $recommendations }}
+                <button type="button"
+                        x-show="{{ $index }} < pageCount"
+                        @click="goTo({{ $index }})"
+                        class="h-2.5 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-bmw-blue"
+                        :class="activeIndex === {{ $index }} ? 'w-8 bg-bmw-blue' : 'w-2.5 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-500'"
+                        :aria-current="activeIndex === {{ $index }} ? 'true' : 'false'"
+                        aria-label="{{ i18n "recommendation_slide_label" }} {{ add $index 1 }}"></button>
+            {{ end }}
+        </div>
+        {{ end }}
+    </section>
+    {{ end }}
+
+    <section id="product-comments"
+             class="mt-16 border-t border-gray-200 dark:border-bmw-darkBorder pt-6"
+             x-data="productComments({{ .File.BaseFileName | jsonify }}, { average: {{ $ratingAverage }}, count: {{ $ratingCount }} })"
+             x-init="init()">
+        <style>[x-cloak] { display: none !important; }</style>
+        <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-8">
+            <div>
+                <p class="text-xs font-bold tracking-[0.18em] uppercase text-bmw-blue mb-2">{{ i18n "product_comments_label" }}</p>
+                <h2 class="text-2xl md:text-3xl font-light text-gray-900 dark:text-white">{{ i18n "product_comments" }}</h2>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="min-w-[160px] border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-bmw-surface px-4 py-3 rounded-sm">
+                    <p class="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{{ i18n "rating_average_label" }}</p>
+                    <div class="mt-1 flex items-center gap-2">
+                        <span class="inline-flex items-center gap-0.5 text-orange-400" :aria-label="ratingAria(summary.average)">
+                            <template x-for="star in ratingOptions" :key="star">
+                                <svg class="h-4 w-4 transition-colors" :class="summary.average >= star - 0.25 ? 'fill-current text-orange-400' : 'fill-none text-gray-300 dark:text-gray-600'" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                    <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                                </svg>
+                            </template>
+                        </span>
+                        <span class="font-medium text-gray-900 dark:text-white" x-text="formatRating(summary.average)"></span>
+                        <span class="text-xs text-gray-400" x-text="'(' + summary.count + ')'"></span>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    <span x-text="total"></span>
+                    <span>{{ i18n "product_comments_count_suffix" }}</span>
+                </p>
+            </div>
+        </div>
+
+        <div x-show="notice" x-cloak x-transition
+             class="mb-6 border px-4 py-3 text-sm"
+             :class="noticeType === 'error' ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300' : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-bmw-blue/30 dark:bg-bmw-blue/10 dark:text-blue-200'"
+             x-text="notice"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8">
+            <div class="min-w-0">
+                <div x-show="loading" class="border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-bmw-surface p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                    {{ i18n "comments_loading" }}
+                </div>
+
+                <div x-show="!loading && comments.length === 0" x-cloak class="border border-dashed border-gray-300 dark:border-bmw-darkBorder bg-white dark:bg-bmw-surface p-8 text-center">
+                    <p class="text-gray-900 dark:text-white font-medium mb-2">{{ i18n "comments_empty_title" }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ i18n "comments_empty_body" }}</p>
+                </div>
+
+                <div x-show="!loading && comments.length > 0" x-cloak class="space-y-4">
+                    <template x-for="comment in comments" :key="comment.id">
+                        <article class="border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-bmw-surface p-5 rounded-sm">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="font-medium text-gray-900 dark:text-white" x-text="comment.authorName"></span>
+                                        <span class="text-xs text-gray-400 dark:text-gray-500" x-text="formatDate(comment.created)"></span>
+                                    </div>
+                                    <div class="mt-2 flex items-center gap-2">
+                                        <template x-if="Number(comment.rating) > 0">
+                                            <div class="flex items-center gap-2">
+                                                <span class="inline-flex items-center gap-0.5 text-orange-400" :aria-label="ratingAria(comment.rating)">
+                                                    <template x-for="star in ratingOptions" :key="star">
+                                                        <svg class="h-3.5 w-3.5 transition-colors" :class="Number(comment.rating) >= star ? 'fill-current text-orange-400' : 'fill-none text-gray-300 dark:text-gray-600'" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                                            <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                                                        </svg>
+                                                    </template>
+                                                </span>
+                                                <span class="text-xs font-medium text-gray-500 dark:text-gray-400" x-text="formatRating(comment.rating)"></span>
+                                            </div>
+                                        </template>
+                                        <template x-if="Number(comment.rating) <= 0">
+                                            <span class="text-xs text-gray-400 dark:text-gray-500">{{ i18n "rating_empty_short" }}</span>
+                                        </template>
+                                    </div>
+                                    <template x-if="editingId !== comment.id">
+                                        <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300 whitespace-pre-line break-words" x-text="comment.content"></p>
+                                    </template>
+                                </div>
+                                <div x-show="comment.canEdit || comment.canDelete" class="flex shrink-0 items-center gap-2">
+                                    <button x-show="comment.canEdit && editingId !== comment.id"
+                                            type="button"
+                                            @click="startEdit(comment)"
+                                            class="text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-bmw-blue dark:text-gray-400 dark:hover:text-bmw-blue transition">
+                                        {{ i18n "comment_edit" }}
+                                    </button>
+                                    <button x-show="comment.canDelete && deleteConfirmId !== comment.id"
+                                            type="button"
+                                            @click="deleteConfirmId = comment.id"
+                                            class="text-xs font-medium uppercase tracking-wider text-red-500 hover:text-red-700 transition">
+                                        {{ i18n "comment_delete" }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div x-show="editingId === comment.id" x-cloak x-transition class="mt-4 space-y-3">
+                                <div>
+                                    <p class="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{{ i18n "rating_label" }}</p>
+                                    <div class="flex items-center gap-1" role="radiogroup" aria-label="{{ i18n "rating_label" }}">
+                                        <template x-for="star in ratingOptions" :key="star">
+                                            <button type="button"
+                                                    @click="editRating = star"
+                                                    class="rounded-sm p-1 text-gray-300 transition hover:text-orange-400 focus:outline-none focus:ring-2 focus:ring-bmw-blue dark:text-gray-600"
+                                                    :class="editRating >= star ? 'text-orange-400' : ''"
+                                                    :aria-pressed="editRating >= star">
+                                                <svg class="h-5 w-5 fill-current" viewBox="0 0 20 20" aria-hidden="true">
+                                                    <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                                                </svg>
+                                            </button>
+                                        </template>
+                                        <span class="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400" x-text="editRating + '/5'"></span>
+                                    </div>
+                                </div>
+                                <textarea x-model="editContent"
+                                          maxlength="1000"
+                                          rows="4"
+                                          class="w-full resize-y border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-black p-3 text-sm text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none rounded-sm"></textarea>
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <span class="text-xs text-gray-400" x-text="editContent.length + '/1000'"></span>
+                                    <div class="flex items-center gap-2">
+                                        <button type="button"
+                                                @click="cancelEdit()"
+                                                class="border border-gray-300 dark:border-gray-600 px-4 py-2 text-xs font-medium uppercase tracking-wider text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+                                            {{ i18n "cancel" }}
+                                        </button>
+                                        <button type="button"
+                                                @click="saveEdit(comment)"
+                                                :disabled="savingId === comment.id"
+                                                class="bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider transition">
+                                            <span x-show="savingId !== comment.id">{{ i18n "save_changes" }}</span>
+                                            <span x-show="savingId === comment.id">{{ i18n "processing" }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div x-show="deleteConfirmId === comment.id" x-cloak x-transition class="mt-4 flex flex-wrap items-center justify-end gap-2 border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/20 px-4 py-3">
+                                <span class="text-xs text-red-700 dark:text-red-300">{{ i18n "comment_delete_confirm" }}</span>
+                                <button type="button"
+                                        @click="deleteComment(comment)"
+                                        :disabled="deletingId === comment.id"
+                                        class="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition">
+                                    {{ i18n "delete" }}
+                                </button>
+                                <button type="button"
+                                        @click="deleteConfirmId = ''"
+                                        class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-gray-600 dark:text-gray-300 transition">
+                                    {{ i18n "cancel" }}
+                                </button>
+                            </div>
+                        </article>
+                    </template>
+                </div>
+            </div>
+
+            <aside class="border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-bmw-surface p-5 rounded-sm h-fit">
+                <h3 class="text-sm font-bold uppercase tracking-widest text-gray-900 dark:text-white mb-4">{{ i18n "comment_write_title" }}</h3>
+
+                <template x-if="!loggedIn">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                        <p class="mb-4">{{ i18n "comment_login_required" }}</p>
+                        <a href="{{ "/login" | relLangURL }}" class="inline-flex items-center justify-center bg-bmw-blue hover:bg-blue-700 text-white px-5 py-3 text-xs font-bold uppercase tracking-wider transition">
+                            {{ i18n "login" }}
+                        </a>
+                    </div>
+                </template>
+
+                <template x-if="loggedIn && !canWrite">
+                    <p class="text-sm leading-6 text-gray-500 dark:text-gray-400">{{ i18n "comment_purchase_required" }}</p>
+                </template>
+
+                <form x-show="loggedIn && canWrite" x-cloak @submit.prevent="submitComment()" class="space-y-3">
+                    <div>
+                        <p class="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{{ i18n "rating_label" }}</p>
+                        <div class="flex items-center gap-1" role="radiogroup" aria-label="{{ i18n "rating_label" }}">
+                            <template x-for="star in ratingOptions" :key="star">
+                                <button type="button"
+                                        @click="rating = star"
+                                        class="rounded-sm p-1 text-gray-300 transition hover:text-orange-400 focus:outline-none focus:ring-2 focus:ring-bmw-blue dark:text-gray-600"
+                                        :class="rating >= star ? 'text-orange-400' : ''"
+                                        :aria-pressed="rating >= star">
+                                    <svg class="h-6 w-6 fill-current" viewBox="0 0 20 20" aria-hidden="true">
+                                        <path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path>
+                                    </svg>
+                                </button>
+                            </template>
+                            <span class="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400" x-text="rating + '/5'"></span>
+                        </div>
+                    </div>
+                    <textarea x-model="content"
+                              maxlength="1000"
+                              rows="5"
+                              class="w-full resize-y border border-gray-200 dark:border-bmw-darkBorder bg-white dark:bg-black p-3 text-sm text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none rounded-sm"
+                              placeholder="{{ i18n "comment_placeholder" }}"></textarea>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-xs text-gray-400" x-text="content.length + '/1000'"></span>
+                        <button type="submit"
+                                :disabled="submitting"
+                                class="bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-5 py-3 text-xs font-bold uppercase tracking-widest transition">
+                            <span x-show="!submitting">{{ i18n "comment_submit" }}</span>
+                            <span x-show="submitting">{{ i18n "processing" }}</span>
+                        </button>
+                    </div>
+                </form>
+            </aside>
+        </div>
+    </section>
+    <section id="product-inquiries"
+             class="mt-16 border-t border-gray-200 dark:border-bmw-darkBorder pt-6"
+             x-data="productInquiries({{ .File.BaseFileName | jsonify }})"
+             x-init="init()">
+        <style>[x-cloak] { display: none !important; }</style>
+        <div class="flex w-full items-center justify-between gap-4 rounded-sm border border-gray-200 bg-white px-5 py-4 dark:border-bmw-darkBorder dark:bg-bmw-surface">
+            <div>
+                <p class="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-bmw-blue">{{ i18n "product_inquiries_label" }}</p>
+                <h2 class="text-xl font-light text-gray-900 dark:text-white md:text-2xl">{{ i18n "product_inquiries" }}</h2>
+            </div>
+            <div class="flex shrink-0 items-center gap-3">
+                <p class="hidden text-sm text-gray-500 dark:text-gray-400 sm:block">
+                    <span x-text="total"></span>
+                    <span>{{ i18n "product_inquiries_count_suffix" }}</span>
+                </p>
+                <button type="button"
+                        @click="toggleOpen()"
+                        :aria-expanded="isOpen.toString()"
+                        aria-controls="product-inquiries-panel"
+                        class="inline-flex min-w-16 items-center justify-center gap-2 border border-gray-200 px-3 py-2 text-xs font-bold uppercase tracking-wider text-gray-600 transition hover:border-bmw-blue hover:text-bmw-blue focus:outline-none focus:ring-2 focus:ring-bmw-blue dark:border-bmw-darkBorder dark:text-gray-300">
+                    <span x-show="!isOpen">{{ i18n "inquiry_expand" }}</span>
+                    <span x-show="isOpen" x-cloak>{{ i18n "inquiry_collapse" }}</span>
+                    <svg class="h-4 w-4 text-gray-400 transition-transform duration-200"
+                         :class="isOpen ? 'rotate-180' : ''"
+                         fill="none"
+                         stroke="currentColor"
+                         viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="product-inquiries-panel" x-show="isOpen" x-cloak x-transition class="pt-8">
+            <p class="mb-6 text-sm text-gray-500 dark:text-gray-400 sm:hidden">
+                <span x-text="total"></span>
+                <span>{{ i18n "product_inquiries_count_suffix" }}</span>
+            </p>
+
+            <div x-show="notice" x-cloak x-transition
+                 class="mb-6 border px-4 py-3 text-sm"
+                 :class="noticeType === 'error' ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300' : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-bmw-blue/30 dark:bg-bmw-blue/10 dark:text-blue-200'"
+                 x-text="notice"></div>
+
+        <div class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div class="min-w-0">
+                <div x-show="loading" class="border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 dark:border-bmw-darkBorder dark:bg-bmw-surface dark:text-gray-400">
+                    {{ i18n "inquiries_loading" }}
+                </div>
+
+                <div x-show="!loading && inquiries.length === 0" x-cloak class="border border-dashed border-gray-300 bg-white p-8 text-center dark:border-bmw-darkBorder dark:bg-bmw-surface">
+                    <p class="mb-2 font-medium text-gray-900 dark:text-white">{{ i18n "inquiries_empty_title" }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ i18n "inquiries_empty_body" }}</p>
+                </div>
+
+                <div x-show="!loading && inquiries.length > 0" x-cloak class="space-y-4">
+                    <template x-for="inquiry in inquiries" :key="inquiry.id">
+                        <article class="rounded-sm border border-gray-200 bg-white p-5 dark:border-bmw-darkBorder dark:bg-bmw-surface">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="min-w-0">
+                                    <div class="mb-2 flex flex-wrap items-center gap-2">
+                                        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold" :class="inquiryStatusClass(inquiry)" x-text="inquiryStatusLabel(inquiry)"></span>
+                                        <span x-show="inquiry.isSecret" class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700 dark:bg-black dark:text-gray-300">
+                                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 11h14v10H5z"></path></svg>
+                                            <span>{{ i18n "inquiry_secret_badge" }}</span>
+                                        </span>
+                                        <span class="text-xs text-gray-400 dark:text-gray-500" x-text="formatDate(inquiry.created)"></span>
+                                    </div>
+                                    <template x-if="editingId !== inquiry.id">
+                                        <div>
+                                            <h3 class="text-base font-medium text-gray-900 dark:text-white [overflow-wrap:anywhere] [word-break:keep-all]" x-text="inquiry.title"></h3>
+                                            <template x-if="inquiry.isMasked">
+                                                <p class="mt-3 rounded-sm border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500 dark:border-bmw-darkBorder dark:bg-black dark:text-gray-400">{{ i18n "inquiry_secret_masked_body" }}</p>
+                                            </template>
+                                            <template x-if="!inquiry.isMasked">
+                                                <p class="mt-3 whitespace-pre-line text-sm leading-6 text-gray-600 dark:text-gray-300 [overflow-wrap:anywhere] [word-break:keep-all]" x-text="inquiry.content"></p>
+                                            </template>
+                                            <template x-if="inquiry.hasAnswer && !inquiry.isMasked">
+                                                <div class="mt-4 border-l-2 border-bmw-blue bg-blue-50 px-4 py-3 dark:bg-bmw-blue/10">
+                                                    <p class="mb-2 text-xs font-bold uppercase tracking-widest text-bmw-blue">{{ i18n "inquiry_answer_label" }}</p>
+                                                    <p class="whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-200 [overflow-wrap:anywhere] [word-break:keep-all]" x-text="inquiry.answer"></p>
+                                                    <p class="mt-2 text-xs text-gray-400" x-text="formatDate(inquiry.answeredAt)"></p>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div x-show="inquiry.canEdit || inquiry.canDelete" class="flex shrink-0 items-center gap-2">
+                                    <button x-show="inquiry.canEdit && editingId !== inquiry.id"
+                                            type="button"
+                                            @click="startEdit(inquiry)"
+                                            class="text-xs font-medium uppercase tracking-wider text-gray-500 transition hover:text-bmw-blue dark:text-gray-400 dark:hover:text-bmw-blue">
+                                        {{ i18n "inquiry_edit" }}
+                                    </button>
+                                    <button x-show="inquiry.canDelete && deleteConfirmId !== inquiry.id"
+                                            type="button"
+                                            @click="deleteConfirmId = inquiry.id"
+                                            class="text-xs font-medium uppercase tracking-wider text-red-500 transition hover:text-red-700">
+                                        {{ i18n "inquiry_delete" }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div x-show="editingId === inquiry.id" x-cloak x-transition class="mt-4 space-y-3">
+                                <input type="text"
+                                       x-model="editTitle"
+                                       maxlength="120"
+                                       class="w-full rounded-sm border border-gray-200 bg-white p-3 text-sm text-gray-900 focus:border-bmw-blue focus:outline-none dark:border-bmw-darkBorder dark:bg-black dark:text-white"
+                                       placeholder="{{ i18n "inquiry_title_placeholder" }}">
+                                <textarea x-model="editContent"
+                                          maxlength="2000"
+                                          rows="5"
+                                          class="w-full resize-y rounded-sm border border-gray-200 bg-white p-3 text-sm text-gray-900 focus:border-bmw-blue focus:outline-none dark:border-bmw-darkBorder dark:bg-black dark:text-white"
+                                          placeholder="{{ i18n "inquiry_content_placeholder" }}"></textarea>
+                                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <input type="checkbox" x-model="editIsSecret" class="rounded border-gray-300 text-bmw-blue focus:ring-bmw-blue">
+                                    <span>{{ i18n "inquiry_secret_toggle" }}</span>
+                                </label>
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <span class="text-xs text-gray-400" x-text="editContent.length + '/2000'"></span>
+                                    <div class="flex items-center gap-2">
+                                        <button type="button"
+                                                @click="cancelEdit()"
+                                                class="border border-gray-300 px-4 py-2 text-xs font-medium uppercase tracking-wider text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-white/5">
+                                            {{ i18n "cancel" }}
+                                        </button>
+                                        <button type="button"
+                                                @click="saveEdit(inquiry)"
+                                                :disabled="savingId === inquiry.id"
+                                                class="bg-bmw-blue px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-blue-700 disabled:opacity-50">
+                                            <span x-show="savingId !== inquiry.id">{{ i18n "save_changes" }}</span>
+                                            <span x-show="savingId === inquiry.id">{{ i18n "processing" }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div x-show="deleteConfirmId === inquiry.id" x-cloak x-transition class="mt-4 flex flex-wrap items-center justify-end gap-2 border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/60 dark:bg-red-950/20">
+                                <span class="text-xs text-red-700 dark:text-red-300">{{ i18n "inquiry_delete_confirm" }}</span>
+                                <button type="button"
+                                        @click="deleteInquiry(inquiry)"
+                                        :disabled="deletingId === inquiry.id"
+                                        class="bg-red-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-red-700 disabled:opacity-50">
+                                    {{ i18n "delete" }}
+                                </button>
+                                <button type="button"
+                                        @click="deleteConfirmId = ''"
+                                        class="border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-gray-600 transition dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                    {{ i18n "cancel" }}
+                                </button>
+                            </div>
+                        </article>
+                    </template>
+                </div>
+            </div>
+
+            <aside class="h-fit rounded-sm border border-gray-200 bg-white p-5 dark:border-bmw-darkBorder dark:bg-bmw-surface">
+                <h3 class="mb-4 text-sm font-bold uppercase tracking-widest text-gray-900 dark:text-white">{{ i18n "inquiry_write_title" }}</h3>
+
+                <template x-if="!loggedIn">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                        <p class="mb-4">{{ i18n "inquiry_login_required" }}</p>
+                        <a href="{{ "/login" | relLangURL }}" class="inline-flex items-center justify-center bg-bmw-blue px-5 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-blue-700">
+                            {{ i18n "login" }}
+                        </a>
+                    </div>
+                </template>
+
+                <form x-show="loggedIn && canWrite" x-cloak @submit.prevent="submitInquiry()" class="space-y-3">
+                    <input type="text"
+                           x-model="title"
+                           maxlength="120"
+                           class="w-full rounded-sm border border-gray-200 bg-white p-3 text-sm text-gray-900 focus:border-bmw-blue focus:outline-none dark:border-bmw-darkBorder dark:bg-black dark:text-white"
+                           placeholder="{{ i18n "inquiry_title_placeholder" }}">
+                    <textarea x-model="content"
+                              maxlength="2000"
+                              rows="5"
+                              class="w-full resize-y rounded-sm border border-gray-200 bg-white p-3 text-sm text-gray-900 focus:border-bmw-blue focus:outline-none dark:border-bmw-darkBorder dark:bg-black dark:text-white"
+                              placeholder="{{ i18n "inquiry_content_placeholder" }}"></textarea>
+                    <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <input type="checkbox" x-model="isSecret" class="rounded border-gray-300 text-bmw-blue focus:ring-bmw-blue">
+                        <span>{{ i18n "inquiry_secret_toggle" }}</span>
+                    </label>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-xs text-gray-400" x-text="content.length + '/2000'"></span>
+                        <button type="submit"
+                                :disabled="submitting"
+                                class="bg-bmw-blue px-5 py-3 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-blue-700 disabled:opacity-50">
+                            <span x-show="!submitting">{{ i18n "inquiry_submit" }}</span>
+                            <span x-show="submitting">{{ i18n "processing" }}</span>
+                        </button>
+                    </div>
+                </form>
+            </aside>
+        </div>
+        </div>
+    </section>
+
+</main>
+<script src="https://cdn.jsdelivr.net/npm/pocketbase/dist/pocketbase.umd.js"></script>
+<script>
+    function productRecommendationCarousel(total, intervalMs) {
+        return {
+            activeIndex: 0,
+            total: Number(total) || 0,
+            intervalMs: Number(intervalMs) || 5000,
+            timer: null,
+            track: null,
+            reduceMotion: false,
+            isPaused: false,
+            visibleCount: 1,
+            pageCount: 1,
+            cardGapTotal: '0rem',
+            resizeHandler: null,
+
+            init(track) {
+                this.track = track;
+                const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+                const syncMotionPreference = () => {
+                    this.reduceMotion = media.matches;
+                    if (this.reduceMotion) {
+                        this.stopAutoplay();
+                    } else if (!this.isPaused) {
+                        this.startAutoplay();
+                    }
+                };
+
+                this.reduceMotion = media.matches;
+                if (media.addEventListener) {
+                    media.addEventListener('change', syncMotionPreference);
+                } else if (media.addListener) {
+                    media.addListener(syncMotionPreference);
+                }
+
+                this.resizeHandler = () => {
+                    const currentPage = this.activeIndex;
+                    this.updateLayout();
+                    this.goTo(Math.min(currentPage, this.pageCount - 1), false);
+                    this.scrollToActive('auto');
+                };
+                window.addEventListener('resize', this.resizeHandler);
+                window.addEventListener('pagehide', () => {
+                    this.stopAutoplay();
+                    if (this.resizeHandler) window.removeEventListener('resize', this.resizeHandler);
+                }, { once: true });
+
+                this.updateLayout();
+                requestAnimationFrame(() => this.scrollToActive('auto'));
+                this.startAutoplay();
+            },
+
+            updateLayout() {
+                const width = window.innerWidth || document.documentElement.clientWidth || 0;
+                const target = width >= 1280 ? 5 : width >= 1024 ? 4 : width >= 768 ? 3 : 2;
+                this.visibleCount = Math.max(1, target);
+                const gap = width >= 768 ? 1 : 0.75;
+                this.cardGapTotal = `${gap * Math.max(0, this.visibleCount - 1)}rem`;
+                this.pageCount = Math.max(1, Math.ceil(this.total / this.visibleCount));
+                if (this.activeIndex >= this.pageCount) {
+                    this.activeIndex = this.pageCount - 1;
+                }
+            },
+
+            cardStyle() {
+                const count = Math.max(1, this.visibleCount);
+                return `flex: 0 0 calc((100% - ${this.cardGapTotal}) / ${count})`;
+            },
+
+            next() {
+                if (this.pageCount <= 1) return;
+                this.goTo((this.activeIndex + 1) % this.pageCount);
+            },
+
+            prev() {
+                if (this.pageCount <= 1) return;
+                this.goTo((this.activeIndex - 1 + this.pageCount) % this.pageCount);
+            },
+
+            goTo(index, shouldScroll = true) {
+                const target = Number(index);
+                if (Number.isNaN(target) || target < 0 || target >= this.pageCount) return;
+                this.activeIndex = target;
+                if (shouldScroll) this.scrollToActive();
+            },
+
+            scrollToActive(behavior) {
+                if (!this.track) return;
+                this.track.scrollTo({
+                    left: this.activeIndex * this.track.clientWidth,
+                    behavior: behavior || (this.reduceMotion ? 'auto' : 'smooth')
+                });
+            },
+
+            syncActiveFromScroll() {
+                if (!this.track || !this.track.clientWidth) return;
+                const target = Math.round(this.track.scrollLeft / this.track.clientWidth);
+                this.activeIndex = Math.max(0, Math.min(target, this.pageCount - 1));
+            },
+
+            startAutoplay() {
+                if (this.reduceMotion || this.pageCount <= 1 || this.timer) return;
+                this.timer = setInterval(() => this.next(), this.intervalMs);
+            },
+
+            stopAutoplay() {
+                if (!this.timer) return;
+                clearInterval(this.timer);
+                this.timer = null;
+            },
+
+            pauseAutoplay() {
+                this.isPaused = true;
+                this.stopAutoplay();
+            },
+
+            resumeAutoplay() {
+                this.isPaused = false;
+                this.startAutoplay();
+            }
+        };
+    }
+
+    function productInquiries(productId) {
+        return {
+            pb: null,
+            productId: productId,
+            inquiries: [],
+            total: 0,
+            isOpen: false,
+            loading: true,
+            loggedIn: false,
+            canWrite: false,
+            title: '',
+            content: '',
+            isSecret: false,
+            editTitle: '',
+            editContent: '',
+            editIsSecret: false,
+            editingId: '',
+            savingId: '',
+            deleteConfirmId: '',
+            deletingId: '',
+            submitting: false,
+            notice: '',
+            noticeType: 'info',
+            _noticeTimer: null,
+
+            init() {
+                this.pb = new PocketBase(window.location.origin);
+                this.loggedIn = this.pb.authStore.isValid;
+                this.loadInquiries();
+            },
+
+            toggleOpen() {
+                this.isOpen = !this.isOpen;
+            },
+
+            async loadInquiries() {
+                this.loading = true;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/inquiries?offset=0&limit=20', {
+                        method: 'GET'
+                    });
+                    this.inquiries = data.items || [];
+                    this.total = data.total || this.inquiries.length;
+                    this.loggedIn = !!(data.viewer && data.viewer.loggedIn);
+                    this.canWrite = !!(data.viewer && data.viewer.canWrite);
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "inquiries_load_error" }}', 'error');
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            async submitInquiry() {
+                const title = (this.title || '').trim();
+                const content = (this.content || '').trim();
+                if (!title) {
+                    this.showNotice('{{ i18n "inquiry_title_error" }}', 'error');
+                    return;
+                }
+                if (!content) {
+                    this.showNotice('{{ i18n "inquiry_content_error" }}', 'error');
+                    return;
+                }
+                this.submitting = true;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/inquiries', {
+                        method: 'POST',
+                        body: { title: title, content: content, isSecret: !!this.isSecret }
+                    });
+                    if (data.item) {
+                        this.inquiries = [data.item, ...this.inquiries];
+                        this.total += 1;
+                    }
+                    this.title = '';
+                    this.content = '';
+                    this.isSecret = false;
+                    this.showNotice('{{ i18n "inquiry_created" }}', 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "inquiry_create_error" }}', 'error');
+                } finally {
+                    this.submitting = false;
+                }
+            },
+
+            startEdit(inquiry) {
+                this.editingId = inquiry.id;
+                this.editTitle = inquiry.title || '';
+                this.editContent = inquiry.content || '';
+                this.editIsSecret = !!inquiry.isSecret;
+                this.deleteConfirmId = '';
+            },
+
+            cancelEdit() {
+                this.editingId = '';
+                this.editTitle = '';
+                this.editContent = '';
+                this.editIsSecret = false;
+            },
+
+            async saveEdit(inquiry) {
+                const title = (this.editTitle || '').trim();
+                const content = (this.editContent || '').trim();
+                if (!title) {
+                    this.showNotice('{{ i18n "inquiry_title_error" }}', 'error');
+                    return;
+                }
+                if (!content) {
+                    this.showNotice('{{ i18n "inquiry_content_error" }}', 'error');
+                    return;
+                }
+                this.savingId = inquiry.id;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/inquiries/' + encodeURIComponent(inquiry.id), {
+                        method: 'PATCH',
+                        body: { title: title, content: content, isSecret: !!this.editIsSecret }
+                    });
+                    if (data.item) {
+                        this.inquiries = this.inquiries.map((item) => item.id === data.item.id ? data.item : item);
+                    }
+                    this.cancelEdit();
+                    this.showNotice('{{ i18n "inquiry_updated" }}', 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "inquiry_update_error" }}', 'error');
+                } finally {
+                    this.savingId = '';
+                }
+            },
+
+            async deleteInquiry(inquiry) {
+                this.deletingId = inquiry.id;
+                try {
+                    await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/inquiries/' + encodeURIComponent(inquiry.id), {
+                        method: 'DELETE'
+                    });
+                    this.inquiries = this.inquiries.filter((item) => item.id !== inquiry.id);
+                    this.total = Math.max(0, this.total - 1);
+                    this.deleteConfirmId = '';
+                    this.showNotice('{{ i18n "inquiry_deleted" }}', 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "inquiry_delete_error" }}', 'error');
+                } finally {
+                    this.deletingId = '';
+                }
+            },
+
+            inquiryStatusLabel(inquiry) {
+                if (inquiry.status === 'answered') return '{{ i18n "inquiry_status_answered" }}';
+                return '{{ i18n "inquiry_status_pending" }}';
+            },
+
+            inquiryStatusClass(inquiry) {
+                return inquiry.status === 'answered'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-orange-100 text-orange-700';
+            },
+
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+            },
+
+            showNotice(message, type) {
+                this.notice = message;
+                this.noticeType = type || 'info';
+                clearTimeout(this._noticeTimer);
+                this._noticeTimer = setTimeout(() => { this.notice = ''; }, 3500);
+            }
+        };
+    }
+
+    function productComments(productId, initialSummary) {
+        return {
+            pb: null,
+            productId: productId,
+            comments: [],
+            total: 0,
+            summary: initialSummary || { average: 0, count: 0 },
+            ratingOptions: [1, 2, 3, 4, 5],
+            loading: true,
+            loggedIn: false,
+            canWrite: false,
+            rating: 5,
+            content: '',
+            editRating: 5,
+            editContent: '',
+            editingId: '',
+            savingId: '',
+            deleteConfirmId: '',
+            deletingId: '',
+            submitting: false,
+            notice: '',
+            noticeType: 'info',
+            _noticeTimer: null,
+
+            init() {
+                this.pb = new PocketBase(window.location.origin);
+                this.loggedIn = this.pb.authStore.isValid;
+                this.loadComments();
+            },
+
+            async loadComments() {
+                this.loading = true;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/comments?offset=0&limit=20', {
+                        method: 'GET'
+                    });
+                    this.comments = data.items || [];
+                    this.total = data.total || this.comments.length;
+                    this.summary = this.normalizeSummary(data.summary);
+                    this.loggedIn = !!(data.viewer && data.viewer.loggedIn);
+                    this.canWrite = !!(data.viewer && data.viewer.canWrite);
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "comments_load_error" }}', 'error');
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            async submitComment() {
+                const body = (this.content || '').trim();
+                if (!body) {
+                    this.showNotice('{{ i18n "comment_empty_error" }}', 'error');
+                    return;
+                }
+                const ratingValue = Number(this.rating);
+                if (!this.isValidRating(ratingValue)) {
+                    this.showNotice('{{ i18n "rating_required_error" }}', 'error');
+                    return;
+                }
+                this.submitting = true;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/comments', {
+                        method: 'POST',
+                        body: { content: body, rating: ratingValue }
+                    });
+                    if (data.item) {
+                        this.comments = [data.item, ...this.comments];
+                        this.total += 1;
+                    }
+                    this.summary = this.normalizeSummary(data.summary);
+                    this.content = '';
+                    this.rating = 5;
+                    this.canWrite = false;
+                    const createdMessage = data.couponIssued ? (data.couponMessage || '{{ i18n "review_coupon_issued" }}') : '{{ i18n "comment_created" }}';
+                    this.showNotice(createdMessage, 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "comment_create_error" }}', 'error');
+                } finally {
+                    this.submitting = false;
+                }
+            },
+
+            startEdit(comment) {
+                this.editingId = comment.id;
+                this.editContent = comment.content || '';
+                this.editRating = Number(comment.rating) || 5;
+                this.deleteConfirmId = '';
+            },
+
+            cancelEdit() {
+                this.editingId = '';
+                this.editContent = '';
+                this.editRating = 5;
+            },
+
+            async saveEdit(comment) {
+                const body = (this.editContent || '').trim();
+                if (!body) {
+                    this.showNotice('{{ i18n "comment_empty_error" }}', 'error');
+                    return;
+                }
+                const ratingValue = Number(this.editRating);
+                if (!this.isValidRating(ratingValue)) {
+                    this.showNotice('{{ i18n "rating_required_error" }}', 'error');
+                    return;
+                }
+                this.savingId = comment.id;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/comments/' + encodeURIComponent(comment.id), {
+                        method: 'PATCH',
+                        body: { content: body, rating: ratingValue }
+                    });
+                    if (data.item) {
+                        this.comments = this.comments.map((item) => item.id === data.item.id ? data.item : item);
+                    }
+                    this.summary = this.normalizeSummary(data.summary);
+                    this.cancelEdit();
+                    this.showNotice('{{ i18n "comment_updated" }}', 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "comment_update_error" }}', 'error');
+                } finally {
+                    this.savingId = '';
+                }
+            },
+
+            async deleteComment(comment) {
+                this.deletingId = comment.id;
+                try {
+                    const data = await this.pb.send('/api/products/' + encodeURIComponent(this.productId) + '/comments/' + encodeURIComponent(comment.id), {
+                        method: 'DELETE'
+                    });
+                    this.comments = this.comments.filter((item) => item.id !== comment.id);
+                    this.total = Math.max(0, this.total - 1);
+                    this.summary = this.normalizeSummary(data.summary);
+                    if (comment.canDelete) {
+                        this.canWrite = true;
+                    }
+                    this.deleteConfirmId = '';
+                    this.showNotice('{{ i18n "comment_deleted" }}', 'info');
+                } catch (err) {
+                    this.showNotice((err.data && err.data.error) || err.message || '{{ i18n "comment_delete_error" }}', 'error');
+                } finally {
+                    this.deletingId = '';
+                }
+            },
+
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+            },
+
+            normalizeSummary(summary) {
+                return {
+                    average: Number(summary && summary.average) || 0,
+                    count: Number(summary && summary.count) || 0
+                };
+            },
+
+            formatRating(value) {
+                return (Number(value) || 0).toFixed(1);
+            },
+
+            ratingAria(value) {
+                return '{{ i18n "rating_average_label" }} ' + this.formatRating(value) + '/5';
+            },
+
+            isValidRating(value) {
+                return Number.isInteger(value) && value >= 1 && value <= 5;
+            },
+
+            showNotice(message, type) {
+                this.notice = message;
+                this.noticeType = type || 'info';
+                clearTimeout(this._noticeTimer);
+                this._noticeTimer = setTimeout(() => { this.notice = ''; }, 3500);
+            }
+        };
+    }
+</script>
+{{ end }}
+

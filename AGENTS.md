@@ -12,6 +12,7 @@ To keep instructions concise, detailed rules and gotchas are separated into docu
 
 - **PocketBase Custom Routes & JSVM**: Read `docs/POCKETBASE_JSVM.md` (Crucial for `pb_hooks` routing, file I/O, and Goja constraints)
 - **Database Schema & Security**: Read `docs/DATABASE.md` (Collections, list/view rules, AuthStore changes)
+- **Security Hardening & Release Review**: Read `docs/SECURITY_HARDENING.md` (Production blockers, payment/auth/guest-order hardening)
 - **PortOne Payment Integration**: Read `docs/PORTONE.md` (Payment flow, Webhook, Phone number handling)
 - **Frontend & Alpine.js**: Read `docs/FRONTEND.md` (Cart localStorage, IME composition, Template constraints)
 - **Hugo CMS Rebuild & Architecture**: Read `docs/HUGO_ARCHITECTURE.md` (Product-to-Markdown sync, Image caching, File structure)
@@ -24,3 +25,17 @@ To keep instructions concise, detailed rules and gotchas are separated into docu
 4. **Use `const` over `let` — never use `var`.**
 5. **Git Conventions**: Use conventional commits (`feat:`, `fix:`, `docs:`, `refactor:`). Commit Hugo source and `pb_hooks/`. Gitignore `pb_data/` and `pb_public/`.
 6. **Dynamic Data Pattern**: For user-specific historical data (orders, profile), prefer **client-side dynamic fetching** (Alpine.js + PB SDK) over server-side rendered routes to ensure data freshness and UI consistency.
+
+## 4. Environment-Specific Notes
+- Codex Windows desktop-only tooling notes live in `docs/CODEX_WINDOWS.md`. Read it only when running in that environment or when `rg` fails with a WindowsApps `Access is denied` error.
+- Local PocketBase + Hugo startup/build guard lives in `docs/LOCAL_POCKETBASE_HUGO_ENV.md`. Read it before starting PocketBase, running `hugo --ignoreCache`, or diagnosing missing static data in `pb_public/`.
+
+<!-- OPENWIKI:START -->
+
+## OpenWiki
+
+This repository uses OpenWiki for recurring code documentation. Start with `openwiki/quickstart.md`, then follow its links to architecture, workflows, domain concepts, operations, integrations, testing guidance, and source maps.
+
+The scheduled OpenWiki GitHub Actions workflow refreshes the repository wiki. Do not hand-edit generated OpenWiki pages unless explicitly asked; prefer updating source code/docs and letting OpenWiki regenerate.
+
+<!-- OPENWIKI:END -->

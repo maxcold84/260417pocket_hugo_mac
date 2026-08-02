@@ -1,0 +1,344 @@
+/* Aurora theme — home surface tokens, surfaces and motion primitives.
+   Scoped under .aurora-home so no other page inherits these rules. */
+
+.aurora-home {
+  --aurora-accent: #1C69D4;
+  --aurora-accent-strong: #0B4FA8;
+  --aurora-violet: #6D5AE6;
+  --aurora-mint: #17C3A2;
+
+  --aurora-page: #F6F7FB;
+  --aurora-panel: #FFFFFF;
+  --aurora-ink: #0B0E14;
+  --aurora-muted: #5A6272;
+  --aurora-line: rgba(11, 14, 20, 0.09);
+
+  --aurora-glass-bg: rgba(255, 255, 255, 0.66);
+  --aurora-glass-line: rgba(255, 255, 255, 0.75);
+
+  --aurora-shadow-sm: 0 1px 2px rgba(11, 14, 20, 0.05), 0 8px 20px -14px rgba(11, 14, 20, 0.35);
+  --aurora-shadow-lg: 0 1px 3px rgba(11, 14, 20, 0.06), 0 26px 60px -28px rgba(11, 14, 20, 0.45);
+
+  --aurora-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --aurora-reveal-duration: 620ms;
+
+  position: relative;
+  max-width: 100%;
+  overflow-x: clip;
+  background: var(--aurora-page);
+  color: var(--aurora-ink);
+}
+
+.dark .aurora-home {
+  --aurora-page: #08090D;
+  --aurora-panel: #12141B;
+  --aurora-ink: #F4F6FB;
+  --aurora-muted: #98A1B3;
+  --aurora-line: rgba(255, 255, 255, 0.10);
+
+  --aurora-glass-bg: rgba(18, 20, 27, 0.62);
+  --aurora-glass-line: rgba(255, 255, 255, 0.12);
+
+  --aurora-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 24px -16px rgba(0, 0, 0, 0.9);
+  --aurora-shadow-lg: 0 1px 3px rgba(0, 0, 0, 0.6), 0 30px 70px -30px rgba(0, 0, 0, 1);
+}
+
+/* ---------- Typography ---------- */
+
+.aurora-display {
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.aurora-body {
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.aurora-eyebrow {
+  letter-spacing: 0.22em;
+}
+
+/* ---------- Aurora mesh field ---------- */
+
+.aurora-mesh {
+  position: relative;
+  isolation: isolate;
+}
+
+.aurora-mesh::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 44% at 16% 20%, rgba(28, 105, 212, 0.34), transparent 68%),
+    radial-gradient(34% 42% at 84% 10%, rgba(109, 90, 230, 0.30), transparent 66%),
+    radial-gradient(42% 48% at 74% 84%, rgba(23, 195, 162, 0.26), transparent 70%),
+    radial-gradient(30% 38% at 26% 90%, rgba(28, 105, 212, 0.20), transparent 68%);
+  animation: aurora-drift 26s var(--aurora-ease) infinite alternate;
+  will-change: transform;
+}
+
+.dark .aurora-mesh::before {
+  background:
+    radial-gradient(38% 44% at 16% 20%, rgba(28, 105, 212, 0.42), transparent 66%),
+    radial-gradient(34% 42% at 84% 10%, rgba(109, 90, 230, 0.36), transparent 64%),
+    radial-gradient(42% 48% at 74% 84%, rgba(23, 195, 162, 0.24), transparent 68%),
+    radial-gradient(30% 38% at 26% 90%, rgba(28, 105, 212, 0.24), transparent 66%);
+}
+
+@keyframes aurora-drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-2.5%, 2%, 0) scale(1.07); }
+  100% { transform: translate3d(2.5%, -2%, 0) scale(1.02); }
+}
+
+.aurora-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- Surfaces ---------- */
+
+.aurora-glass {
+  background: var(--aurora-glass-bg);
+  border: 1px solid var(--aurora-glass-line);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+
+.aurora-panel {
+  background: var(--aurora-panel);
+  border: 1px solid var(--aurora-line);
+  box-shadow: var(--aurora-shadow-sm);
+}
+
+.aurora-card {
+  background: var(--aurora-panel);
+  border: 1px solid var(--aurora-line);
+  box-shadow: var(--aurora-shadow-sm);
+  transition:
+    transform 260ms var(--aurora-ease),
+    box-shadow 260ms var(--aurora-ease),
+    border-color 200ms var(--aurora-ease);
+}
+
+.aurora-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--aurora-shadow-lg);
+  border-color: rgba(28, 105, 212, 0.35);
+}
+
+.aurora-card:focus-within {
+  border-color: rgba(28, 105, 212, 0.55);
+}
+
+/* Gradient hairline used on feature surfaces. */
+.aurora-edge {
+  position: relative;
+}
+
+.aurora-edge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(140deg, rgba(28, 105, 212, 0.55), rgba(109, 90, 230, 0.35) 42%, transparent 72%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.aurora-pill {
+  transition: transform 180ms var(--aurora-ease), background-color 180ms var(--aurora-ease), color 180ms var(--aurora-ease);
+}
+
+/* Accent-tinted chip. Tailwind cannot apply an opacity modifier to a CSS
+   variable colour, so the tint lives here instead of in a utility class. */
+.aurora-tint {
+  background: rgba(28, 105, 212, 0.10);
+  color: var(--aurora-accent);
+}
+
+.dark .aurora-tint {
+  background: rgba(28, 105, 212, 0.20);
+}
+
+.aurora-media-empty {
+  background:
+    radial-gradient(60% 60% at 30% 24%, rgba(28, 105, 212, 0.16), transparent 70%),
+    radial-gradient(55% 55% at 76% 80%, rgba(109, 90, 230, 0.14), transparent 70%),
+    linear-gradient(160deg, rgba(11, 14, 20, 0.03), rgba(11, 14, 20, 0.08));
+}
+
+.dark .aurora-media-empty {
+  background:
+    radial-gradient(60% 60% at 30% 24%, rgba(28, 105, 212, 0.24), transparent 70%),
+    radial-gradient(55% 55% at 76% 80%, rgba(109, 90, 230, 0.20), transparent 70%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+}
+
+.aurora-cta {
+  transition: transform 180ms var(--aurora-ease), box-shadow 180ms var(--aurora-ease), background-color 180ms var(--aurora-ease);
+  box-shadow: 0 10px 26px -12px rgba(28, 105, 212, 0.75);
+}
+
+.aurora-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px -12px rgba(28, 105, 212, 0.85);
+}
+
+.aurora-cta:active {
+  transform: translateY(0);
+}
+
+/* ---------- Scroll rails ---------- */
+
+.aurora-rail {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.aurora-rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------- Marquee ---------- */
+
+.aurora-marquee-wrap {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+
+.aurora-marquee {
+  display: flex;
+  width: max-content;
+  animation: aurora-marquee 42s linear infinite;
+  will-change: transform;
+}
+
+.aurora-marquee-wrap:hover .aurora-marquee,
+.aurora-marquee-wrap:focus-within .aurora-marquee {
+  animation-play-state: paused;
+}
+
+@keyframes aurora-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
+/* ---------- Motion primitives ----------
+   Hidden states only apply once JS marks the root, so a failed script
+   never leaves the page blank. */
+
+.aurora-js [data-aurora-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity var(--aurora-reveal-duration) var(--aurora-ease),
+    transform var(--aurora-reveal-duration) var(--aurora-ease);
+  transition-delay: var(--aurora-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.aurora-js [data-aurora-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Word-mask headings are observed for the trigger only — the container itself
+   must not also fade, or the two animations muddy each other. */
+.aurora-js [data-aurora-reveal].aurora-words {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+.aurora-word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.1em;
+}
+
+.aurora-js .aurora-word-inner {
+  display: inline-block;
+  transform: translate3d(0, 110%, 0);
+  opacity: 0;
+  transition:
+    transform 780ms var(--aurora-ease),
+    opacity 460ms linear;
+  transition-delay: var(--aurora-delay, 0ms);
+}
+
+.aurora-js .is-visible .aurora-word-inner {
+  transform: none;
+  opacity: 1;
+}
+
+.aurora-dot {
+  animation: aurora-pulse 2.4s var(--aurora-ease) infinite;
+}
+
+@keyframes aurora-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.72); }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-mesh::before,
+  .aurora-marquee,
+  .aurora-dot {
+    animation: none !important;
+  }
+
+  .aurora-marquee-wrap {
+    overflow-x: auto;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .aurora-js [data-aurora-reveal],
+  .aurora-js .aurora-word-inner {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .aurora-card,
+  .aurora-cta,
+  .aurora-pill {
+    transition: none;
+  }
+
+  .aurora-card:hover,
+  .aurora-cta:hover {
+    transform: none;
+  }
+}
+
+/* ---------- Narrow viewport guards ---------- */
+
+@media (max-width: 640px) {
+  .aurora-home {
+    --aurora-reveal-duration: 480ms;
+  }
+
+  .aurora-mesh::before {
+    inset: -40%;
+  }
+}

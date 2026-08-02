@@ -1,5 +1,3 @@
-// Auto-set API rules and ensure cancel_requested status option exists
-
 onBootstrap((e) => {
     e.next();
     try {
@@ -14,15 +12,17 @@ onBootstrap((e) => {
         // Set orders collection rules: authenticated user can only view their own
         const orders = e.app.findCollectionByNameOrId("orders");
 
-        // Ensure 'cancel_requested' is in the status field options
         const fields = orders.fields;
         for (let i = 0; i < fields.length; i++) {
             const f = fields[i];
             if (f.name === "status" && f.values) {
-                const hasOption = f.values.indexOf("cancel_requested") >= 0;
-                if (!hasOption) {
+                if (f.values.indexOf("cancel_requested") === -1) {
                     f.values.push("cancel_requested");
                     console.log("[bootstrap] Added 'cancel_requested' to orders.status options");
+                }
+                if (f.values.indexOf("purchase_confirmed") === -1) {
+                    f.values.push("purchase_confirmed");
+                    console.log("[bootstrap] Added 'purchase_confirmed' to orders.status options");
                 }
                 break;
             }
@@ -63,6 +63,16 @@ onBootstrap((e) => {
         orderItems.listRule = '@request.auth.id != "" && order.user = @request.auth.id';
         orderItems.viewRule = '@request.auth.id != "" && order.user = @request.auth.id';
         e.app.save(orderItems);
+
+        try {
+            const userCoupons = e.app.findCollectionByNameOrId("user_coupons");
+            userCoupons.listRule = '@request.auth.id != "" && user = @request.auth.id';
+            userCoupons.viewRule = '@request.auth.id != "" && user = @request.auth.id';
+            userCoupons.createRule = null;
+            userCoupons.updateRule = null;
+            userCoupons.deleteRule = null;
+            e.app.save(userCoupons);
+        } catch (couponErr) {}
 
         console.log("[bootstrap] API rules set for orders & order_items");
     } catch (err) {

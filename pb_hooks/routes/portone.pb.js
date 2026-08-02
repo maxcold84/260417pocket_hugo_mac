@@ -1,88 +1,97 @@
-// pb_hooks/portone.pb.js
-
-// PortOne V2 Payment Webhook & API Verification Handler
+// PortOne V2 Payment Webhook Handler
 routerAdd("POST", "/api/payment/webhook", (e) => {
     try {
-        const portoneVerify = require(`${__hooks}/services/portone-verify.js`);
+        const portone = require(`${__hooks}/services/portone-verify.js`);
         const env = require(`${__hooks}/utils/env.js`);
-        
-        // 1. Get Headers
-        const webhookId = e.request.Header.Get("Webhook-Id");
-        const webhookTimestamp = e.request.Header.Get("Webhook-Timestamp");
-        const webhookSignature = e.request.Header.Get("Webhook-Signature");
+        const couponUtil = require(`${__hooks}/utils/coupons.js`);
 
-        // 2. Get unformatted Body
-        // In PocketBase JSVM, requestInfo().body contains the parsed map.
-        // We reconstruct the compact JSON equivalent to the raw PortOne payload.
-        const bodyObj = e.requestInfo().body;
-        const rawBody = JSON.stringify(bodyObj);
+        const getHeader = (name) => {
+            try {
+                return e.request.Header.Get(name);
+            } catch (err) {}
+            try {
+                return e.request.header.get(name);
+            } catch (err) {}
+            return "";
+        };
 
-        // 3. Signature Verification
-        const secret = env.get("PORTONE_WEBHOOK_SECRET") || "test_secret"; // Replace with your PB environment configuration
-        
-        const isValid = portoneVerify(webhookSignature, webhookId, webhookTimestamp, rawBody, secret);
-        if (!isValid) {
+        const webhookId = getHeader("Webhook-Id");
+        const webhookTimestamp = getHeader("Webhook-Timestamp");
+        const webhookSignature = getHeader("Webhook-Signature");
+        const rawBody = portone.getRawRequestBody(e);
+
+        if (!rawBody) {
+            return e.json(400, { error: "Raw webhook body is unavailable" });
+        }
+
+        const webhookSecret = env.get("PORTONE_WEBHOOK_SECRET");
+        if (!webhookSecret) {
+            return e.json(500, { error: "PORTONE_WEBHOOK_SECRET is not configured" });
+        }
+
+        if (!portone.verifyWebhookSignature(webhookSignature, webhookId, webhookTimestamp, rawBody, webhookSecret)) {
             return e.json(400, { error: "Invalid webhook signature" });
         }
 
-        // 4. Verify via PortOne API
-        const data = bodyObj.data || {};
-        const paymentId = data.paymentId;
-        
+        const body = portone.parseWebhookBody(rawBody);
+        if (!body) {
+            return e.json(400, { error: "Invalid webhook JSON body" });
+        }
+
+        const data = body.data || {};
+        const paymentId = data.paymentId || body.paymentId;
+
         if (!paymentId) {
             return e.json(400, { error: "Payment ID missing" });
         }
 
-        const apiSecret = env.get("PORTONE_API_SECRET") || "test_api_secret";
-        
+        let order = null;
         try {
-            const res = $http.send({
-                url: "https://api.portone.io/payments/" + paymentId,
-                method: "GET",
-                headers: {
-                    "Authorization": "PortOne " + apiSecret
-                }
-            });
-            
-            if (res.statusCode !== 200) {
-                return e.json(400, { error: "Failed to verify via API" });
-            }
-            
-            const pResponse = res.json;
-            const status = pResponse.status;
-            
-            // 5. Update Database Order
-            const orders = $app.findRecordsByFilter("orders", "id = {:id}", "", 1, 0, { "id": paymentId });
-            if (!orders || orders.length === 0) {
-                return e.json(404, { error: "Order not found for paymentId: " + paymentId });
-            }
-            const order = orders[0];
+            order = $app.findRecordById("orders", paymentId);
+        } catch (err) {
+            return e.json(404, { error: "Order not found" });
+        }
 
-            if (pResponse.amount && pResponse.amount.total !== order.getInt("total_amount")) {
-                console.log("Amount mismatch for order " + paymentId);
-                return e.json(400, { error: "Amount mismatch" });
-            }
+        const fetched = portone.fetchPayment(paymentId, env);
+        if (!fetched.ok) {
+            return e.json(fetched.statusCode || 400, { error: fetched.error });
+        }
 
-            if (status === "PAID") {
+        const status = portone.getPaymentStatus(fetched.payment);
+
+        if (status === "PAID") {
+            const verified = portone.verifyPaidPaymentForOrder(order, paymentId, env, fetched.payment);
+            if (!verified.ok) {
+                return e.json(verified.statusCode || 400, { error: verified.error });
+            }
+            if (!verified.alreadyPaid) {
                 order.set("status", "paid");
-                order.set("portone_tx_id", pResponse.id || paymentId);
+                order.set("portone_tx_id", verified.transactionId);
                 $app.save(order);
-            } else if (status === "CANCELLED") {
+            }
+            couponUtil.markCouponUsedForOrder($app, order);
+        } else if (status === "CANCELLED") {
+            const currentStatus = order.getString("status");
+            if (currentStatus === "paid" || currentStatus === "cancel_requested") {
                 order.set("status", "refunded");
                 $app.save(order);
-                console.log("Updated order status to refunded via PortOne Webhook: " + paymentId);
-            } else if (status === "FAILED") {
-                $app.delete(order);
-                console.log("Deleted failed order via PortOne Webhook: " + paymentId);
             }
-            
-            console.log("PortOne Webhook processed successfully for order: " + paymentId + " with status: " + status);
-            
-            return e.json(200, { success: true });
-        } catch(apiErr) {
-            return e.json(500, { error: "PortOne Request Failed" });
+        } else if (status === "FAILED") {
+            if (order.getString("status") === "pending") {
+                couponUtil.releaseCouponReservationForOrder($app, order);
+                $app.delete(order);
+            }
         }
-    } catch(err) {
+
+        console.log("PortOne webhook processed", JSON.stringify({
+            webhookId: webhookId,
+            eventType: body.type || body.eventType || "",
+            paymentId: paymentId,
+            status: status
+        }));
+
+        return e.json(200, { success: true });
+    } catch (err) {
         return e.json(500, { error: "Webhook Error: " + err.toString() });
     }
 });

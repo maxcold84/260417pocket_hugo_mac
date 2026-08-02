@@ -1,0 +1,147 @@
+{{- /*
+  Returns a normalized product slice for the Aurora home layout.
+
+  Params: pbBase (string), limit (int)
+
+  The storefront has shipped two product field shapes, so this partial reads
+  both and exposes one vocabulary to the templates:
+    price        <- price
+    salePrice    <- discount_price | sale_price
+    rating       <- rating_average | rating
+    reviewCount  <- rating_count   | review_count
+
+  The list endpoint is also tried with several sort keys because `sort_order`
+  does not exist on every deployment and PocketBase answers 400 for an unknown
+  sort field. Markdown under content/products is the last fallback.
+*/ -}}
+{{- $pbBase := .pbBase -}}
+{{- $limit := int (.limit | default 12) -}}
+{{- $rawItems := slice -}}
+{{- $loaded := false -}}
+
+{{- range slice "sort_order" "-created" "" -}}
+  {{- $sortKey := . -}}
+  {{- if not $loaded -}}
+    {{- $query := printf "perPage=%d&t=%d" $limit now.Unix -}}
+    {{- if ne $sortKey "" -}}
+      {{- $query = printf "sort=%s&%s" $sortKey $query -}}
+    {{- end -}}
+    {{- $url := printf "%sapi/collections/products/records?%s" $pbBase $query -}}
+    {{- with try (resources.GetRemote $url) -}}
+      {{- if not .Err -}}
+        {{- with .Value -}}
+          {{- $payload := . | transform.Unmarshal -}}
+          {{- with $payload.items -}}
+            {{- $rawItems = . -}}
+            {{- $loaded = true -}}
+          {{- end -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if not $loaded -}}
+  {{- range first $limit (where site.RegularPages "Section" "products").ByWeight -}}
+    {{- $rawItems = $rawItems | append (dict
+      "id" (.Params.id | default .File.BaseFileName)
+      "name" .Title
+      "slug" .File.BaseFileName
+      "subtitle" (.Params.subtitle | default "")
+      "price" (.Params.price | default 0)
+      "discount_price" (.Params.discount_price | default 0)
+      "stock" (.Params.stock | default 1)
+      "rating_average" (.Params.rating_average | default 0)
+      "rating_count" (.Params.rating_count | default 0)
+      "images" (.Params.images | default (slice))
+      "origin" (.Params.origin | default "")
+      "season_tag" (.Params.season_tag | default "")
+      "badge" (.Params.badge | default "")
+      "is_featured" (.Params.is_featured | default false)
+      "status" (.Params.status | default "")
+    ) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $products := slice -}}
+{{- $hiddenStates := slice "hidden" "draft" "inactive" "archived" -}}
+{{- range $rawItems -}}
+  {{- $p := . -}}
+  {{- $status := lower (printf "%v" (index $p "status" | default "")) -}}
+  {{- if not (in $hiddenStates $status) -}}
+
+    {{- $price := 0 -}}
+    {{- with (index $p "price") -}}{{- $price = int . -}}{{- end -}}
+
+    {{- $sale := 0 -}}
+    {{- with (index $p "discount_price") -}}{{- $sale = int . -}}{{- end -}}
+    {{- if eq $sale 0 -}}
+      {{- with (index $p "sale_price") -}}{{- $sale = int . -}}{{- end -}}
+    {{- end -}}
+    {{- if ge $sale $price -}}{{- $sale = 0 -}}{{- end -}}
+
+    {{- $rating := 0.0 -}}
+    {{- with (index $p "rating_average") -}}{{- $rating = float . -}}{{- end -}}
+    {{- if eq $rating 0.0 -}}
+      {{- with (index $p "rating") -}}{{- $rating = float . -}}{{- end -}}
+    {{- end -}}
+
+    {{- $reviewCount := 0 -}}
+    {{- with (index $p "rating_count") -}}{{- $reviewCount = int . -}}{{- end -}}
+    {{- if eq $reviewCount 0 -}}
+      {{- with (index $p "review_count") -}}{{- $reviewCount = int . -}}{{- end -}}
+    {{- end -}}
+
+    {{- $stock := 1 -}}
+    {{- if isset $p "stock" -}}{{- $stock = int (index $p "stock") -}}{{- end -}}
+    {{- if eq $status "soldout" -}}{{- $stock = 0 -}}{{- end -}}
+
+    {{- $id := printf "%v" (index $p "id" | default "") -}}
+    {{- $image := "" -}}
+    {{- $imageHover := "" -}}
+    {{- with (index $p "images") -}}
+      {{- range $index, $file := . -}}
+        {{- $src := printf "%v" $file -}}
+        {{- if $src -}}
+          {{- if not (or (hasPrefix $src "/") (hasPrefix $src "http")) -}}
+            {{- $src = printf "/api/files/products/%s/%s" $id $src -}}
+          {{- end -}}
+          {{- if eq $index 0 -}}
+            {{- $image = $src -}}
+          {{- else if eq $index 1 -}}
+            {{- $imageHover = $src -}}
+          {{- end -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+
+    {{- $discountRate := 0 -}}
+    {{- if and (gt $sale 0) (gt $price 0) -}}
+      {{- $discountRate = int (math.Round (mul (div (float (sub $price $sale)) (float $price)) 100)) -}}
+    {{- end -}}
+
+    {{- $products = $products | append (dict
+      "id" $id
+      "name" (printf "%v" (index $p "name" | default ""))
+      "slug" (printf "%v" (index $p "slug" | default ""))
+      "subtitle" (printf "%v" (index $p "subtitle" | default ""))
+      "origin" (printf "%v" (index $p "origin" | default ""))
+      "seasonTag" (printf "%v" (index $p "season_tag" | default ""))
+      "badge" (lower (printf "%v" (index $p "badge" | default "")))
+      "featured" (not (not (index $p "is_featured")))
+      "price" $price
+      "salePrice" $sale
+      "finalPrice" (cond (gt $sale 0) $sale $price)
+      "discountRate" $discountRate
+      "rating" $rating
+      "reviewCount" $reviewCount
+      "stock" $stock
+      "soldOut" (le $stock 0)
+      "image" $image
+      "imageHover" $imageHover
+    ) -}}
+
+  {{- end -}}
+{{- end -}}
+
+{{- return $products -}}

@@ -1,0 +1,55 @@
+:root {
+  --aroma-cream: #f3f0eb;
+  --aroma-green: #006839;
+  --aroma-deep: #112a24;
+  --aroma-muted: #c7c8c3;
+  --aroma-ink: #292929;
+  --aroma-paper: #fbfaf7;
+}
+
+[x-cloak] {
+  display: none !important;
+}
+
+.aroma-shell {
+  background: var(--aroma-cream);
+  color: var(--aroma-ink);
+  font-family: TTNormsPro, "Helvetica Neue", Helvetica, Arial, Pretendard, "Noto Sans KR", "Malgun Gothic", sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.aroma-hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.aroma-hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.aroma-rail {
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: clamp(1rem, 3vw, 2.5rem);
+}
+
+.aroma-card {
+  scroll-snap-align: start;
+}
+
+.aroma-progress {
+  background: linear-gradient(90deg, var(--aroma-deep) 0 18%, var(--aroma-muted) 18% 100%);
+}
+
+.aroma-hero-panel {
+  box-shadow: 0 24px 80px rgba(17, 42, 36, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aroma-shell *,
+  .aroma-shell *::before,
+  .aroma-shell *::after {
+    animation-duration: 1ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}

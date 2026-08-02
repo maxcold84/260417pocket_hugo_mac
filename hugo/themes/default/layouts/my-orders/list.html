@@ -1,0 +1,584 @@
+{{ define "main" }}
+<main class="max-w-4xl mx-auto px-4 py-12 flex-1 w-full" x-data="myOrdersPage()">
+
+    <h1 class="text-3xl font-light mb-8 border-b border-gray-200 dark:border-bmw-darkBorder pb-4 text-gray-900 dark:text-white uppercase tracking-widest">
+        {{ i18n "orders" }}
+    </h1>
+
+    <!-- Toast Notification -->
+    <div x-show="toastMsg" x-cloak x-transition
+         class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-lg shadow-xl text-sm font-medium max-w-md text-center"
+         x-text="toastMsg"></div>
+
+    <!-- Loading State -->
+    <div x-show="loading" class="flex items-center justify-center py-20">
+        <div class="flex flex-col items-center gap-4">
+            <svg class="animate-spin h-8 w-8 text-bmw-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-gray-500 dark:text-gray-400 text-sm">{{ i18n "processing" }}</p>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div x-show="error && !loading" x-cloak class="bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 px-6 py-4 mb-6 text-sm">
+        <span x-text="error"></span>
+    </div>
+
+    <!-- Guest Active Session Info -->
+    <div x-show="isGuestMode" x-cloak class="bg-blue-50/50 dark:bg-bmw-blue/10 border border-blue-200 dark:border-bmw-blue/30 p-4 rounded-sm mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+            <span class="text-sm text-gray-700 dark:text-gray-300">
+                비회원 주문 내역을 조회 중입니다. (임시 아이디: <strong class="text-gray-900 dark:text-white font-mono" x-text="lookupIdentifier"></strong>)
+            </span>
+        </div>
+        <button @click="clearGuestSession()" class="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white underline transition">
+            조회 종료
+        </button>
+    </div>
+
+    <!-- Not Logged In & Not Lookup Layout: Centered Guest Order Lookup Card -->
+    <div x-show="!loggedIn && !isGuestMode && !loading" x-cloak class="flex justify-center mb-12">
+        <!-- Guest Order Lookup -->
+        <div class="max-w-md w-full bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-8 rounded-sm text-left flex flex-col justify-between min-h-[350px]">
+            <div class="w-full">
+                <h2 class="text-xl font-light text-gray-900 dark:text-white mb-4 uppercase tracking-wide text-center">GUEST LOOKUP</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-6 text-center font-light">비회원 주문은 결제 시 입력한 휴대폰 번호 또는 이메일과 주문 비밀번호로 조회할 수 있습니다.</p>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">임시 아이디 <span class="text-red-500">*</span></label>
+                        <input type="text" x-model="lookupIdentifier" @input="lookupOrderId = $event.target.value" autocomplete="username" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none font-mono" placeholder="휴대폰 번호 또는 이메일" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">주문 비밀번호 <span class="text-red-500">*</span></label>
+                        <input type="password" x-model="lookupPassword" autocomplete="current-password" class="w-full border border-gray-200 dark:border-bmw-darkBorder dark:bg-black rounded-sm p-2 text-xs text-gray-900 dark:text-white focus:border-bmw-blue focus:outline-none" placeholder="결제 전 설정한 비밀번호" />
+                    </div>
+                </div>
+            </div>
+            <button @click="lookupGuestOrder()" :disabled="searching" class="w-full bg-bmw-blue hover:bg-blue-700 text-white py-3 uppercase tracking-wider text-xs font-bold transition duration-300 disabled:opacity-50 mt-6">
+                <span x-show="!searching">조회하기</span>
+                <span x-show="searching">조회 중...</span>
+            </button>
+            <div class="text-center mt-4 border-t border-gray-100 dark:border-bmw-darkBorder pt-4">
+                <a href="/login" class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition duration-300 uppercase tracking-widest font-medium">
+                    회원 로그인으로 이동 &rarr;
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty Orders -->
+    <div x-show="(loggedIn || isGuestMode) && !loading && orders.length === 0 && !error" x-cloak class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-12 rounded-sm text-center">
+        <svg class="w-16 h-16 mx-auto mb-6 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        <p class="text-gray-500 dark:text-gray-400 mb-6">주문 내역이 없습니다.</p>
+        <a href="/" class="inline-block bg-bmw-blue hover:bg-blue-700 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
+            {{ i18n "explore_collection" }}
+        </a>
+    </div>
+
+    <!-- Toast     <!-- Orders List -->
+    <div x-show="(loggedIn || isGuestMode) && !loading && orders.length > 0" x-cloak class="space-y-4 pb-24 md:pb-4">
+        <template x-for="order in orders" :key="order.id">
+            <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder rounded-sm overflow-hidden transition hover:shadow-md">
+                <!-- Order Header -->
+                <div class="px-6 py-4 border-b border-gray-100 dark:border-bmw-darkBorder flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-4 flex-wrap">
+                        <span class="text-xs text-gray-400 dark:text-gray-500" x-text="formatDate(order.created)"></span>
+                        <span class="text-xs font-mono text-gray-500 dark:text-gray-400" x-text="'#' + order.id.slice(0, 8).toUpperCase()"></span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                               :class="statusClass(order.status)"
+                               x-text="statusLabel(order.status)"></span>
+                    </div>
+                </div>
+
+                <!-- Order Items -->
+                <div class="px-6 py-4">
+                    <template x-for="item in order.expand?.order_items_via_order || []" :key="item.id">
+                        <div class="flex items-start gap-4 py-3 border-b border-gray-50 dark:border-bmw-darkBorder/50 last:border-0 sm:items-center">
+                            <div class="w-14 h-14 bg-gray-100 dark:bg-black flex-shrink-0 flex items-center justify-center border border-gray-200 dark:border-bmw-darkBorder overflow-hidden rounded-sm">
+                                <template x-if="item.expand?.product?.images?.length">
+                                    <img :src="'/api/files/' + item.expand.product.collectionId + '/' + item.expand.product.id + '/' + item.expand.product.images[0]" 
+                                         class="w-full h-full object-cover" :alt="item.expand?.product?.name || 'Product'">
+                                </template>
+                                <template x-if="!item.expand?.product?.images?.length">
+                                    <span class="text-[10px] text-gray-400">IMG</span>
+                                </template>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="item.expand?.product?.name || '상품'"></p>
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    <span x-text="'₩' + (item.unit_price || 0).toLocaleString()"></span>
+                                    <span class="mx-1">×</span>
+                                    <span x-text="item.quantity + '개'"></span>
+                                </p>
+                                <template x-if="!isGuestMode && order.status === 'purchase_confirmed'">
+                                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px] leading-5">
+                                        <span class="rounded-full border px-2 py-0.5 font-medium"
+                                              :class="reviewStateClass(item)"
+                                              x-text="reviewStateLabel(item)"></span>
+                                        <template x-if="reviewCouponCode(item)">
+                                            <span class="font-mono text-[10px] text-gray-500 dark:text-gray-400" x-text="reviewCouponCode(item)"></span>
+                                        </template>
+                                        <template x-if="reviewCouponDetail(item)">
+                                            <span class="text-gray-500 dark:text-gray-400" x-text="reviewCouponDetail(item)"></span>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="flex flex-shrink-0 flex-col items-end gap-2 text-right">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white" x-text="'₩' + ((item.unit_price || 0) * (item.quantity || 1)).toLocaleString()"></p>
+                                <template x-if="!isGuestMode && order.status === 'purchase_confirmed' && canReviewItem(item)">
+                                    <a :href="productReviewHref(item)"
+                                       class="inline-flex min-h-8 items-center justify-center rounded-sm border border-green-300 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-green-700 transition hover:border-green-500 hover:text-green-800 dark:border-green-800 dark:bg-black/30 dark:text-green-300">
+                                        {{ i18n "write_review" }}
+                                    </a>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Order Footer: Total + Tracking + Cancel Actions -->
+                <div class="px-6 py-4 bg-gray-50 dark:bg-black/30 border-t border-gray-100 dark:border-bmw-darkBorder">
+                    <!-- Delivery Details inside Order -->
+                    <div class="mb-4 text-xs border-b border-gray-200/50 dark:border-bmw-darkBorder/50 pb-3 space-y-1 text-gray-600 dark:text-gray-400" x-show="order.recipient_name || order.shipping_address">
+                        <div class="font-bold text-gray-700 dark:text-gray-300 mb-1">배송지 정보</div>
+                        <div>수령인: <span class="text-gray-900 dark:text-white" x-text="order.recipient_name || ''"></span> <template x-if="order.recipient_phone"><span x-text="'(' + order.recipient_phone + ')'"></span></template></div>
+                        <div>배송 주소: <span class="text-gray-900 dark:text-white" x-text="(order.shipping_address || '') + ' ' + (order.shipping_address_detail || '')"></span></div>
+                        <template x-if="order.shipping_memo">
+                            <div>배송 요청사항: <span class="italic text-gray-900 dark:text-white" x-text="order.shipping_memo || ''"></span></div>
+                        </template>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <template x-if="order.courier_name || order.tracking_number">
+                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                    <span x-show="order.courier_name" x-text="order.courier_name" class="font-medium"></span>
+                                    <span x-show="order.tracking_number" class="ml-1 font-mono" x-text="order.tracking_number"></span>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider mr-2">{{ i18n "subtotal" }}</span>
+                            <span class="text-lg font-bold text-bmw-blue" x-text="'₩' + (order.total_amount || 0).toLocaleString()"></span>
+                        </div>
+                    </div>
+                    <template x-if="!isGuestMode && order.status === 'completed'">
+                        <div class="mt-4 flex flex-col gap-3 rounded-sm border border-blue-200 bg-blue-50/70 p-4 dark:border-bmw-blue/30 dark:bg-bmw-blue/10 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="min-w-0">
+                                <p class="break-keep text-sm font-medium text-gray-900 dark:text-white">{{ i18n "purchase_confirm_message" }}</p>
+                                <p class="mt-1 break-keep text-xs leading-5 text-gray-500 dark:text-gray-400">{{ i18n "purchase_confirm_review_hint" }}</p>
+                            </div>
+                            <button x-show="confirmId !== order.id || confirmAction !== 'purchase'"
+                                    type="button"
+                                    @click="confirmId = order.id; confirmAction = 'purchase'"
+                                    class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-sm bg-bmw-blue px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-blue-700">
+                                {{ i18n "purchase_confirm" }}
+                            </button>
+                            <div x-show="confirmId === order.id && confirmAction === 'purchase'" x-cloak x-transition class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                <span class="text-xs font-medium text-blue-700 dark:text-blue-200">{{ i18n "purchase_confirm_confirm" }}</span>
+                                <button type="button"
+                                        @click="confirmPurchase(order.id)"
+                                        :disabled="confirmingPurchase"
+                                        class="rounded-sm bg-bmw-blue px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
+                                        x-text="confirmingPurchase ? '{{ i18n "processing" }}' : '{{ i18n "confirm" }}'">
+                                </button>
+                                <button type="button"
+                                        @click="confirmId = ''; confirmAction = ''"
+                                        class="rounded-sm border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                    {{ i18n "cancel" }}
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template x-if="!isGuestMode && order.status === 'purchase_confirmed'">
+                        <div class="mt-4 rounded-sm border border-green-200 bg-green-50/70 p-4 dark:border-green-900/50 dark:bg-green-950/20">
+                            <div class="flex flex-col gap-1">
+                                <div>
+                                    <p class="break-keep text-sm font-medium text-gray-900 dark:text-white">{{ i18n "purchase_confirmed_message" }}</p>
+                                    <p class="mt-1 break-keep text-xs leading-5 text-gray-500 dark:text-gray-400" x-text="orderReviewSummary(order)"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Cancel Actions -->
+                    <div class="mt-3 flex justify-end gap-2">
+                        <button x-show="order.status === 'paid' && confirmId !== order.id"
+                                @click="confirmId = order.id; confirmAction = 'cancel'"
+                                class="px-4 py-2 text-xs font-medium uppercase tracking-wider border border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20 rounded-sm transition">
+                            결제 취소 요청
+                        </button>
+                        <button x-show="order.status === 'cancel_requested' && confirmId !== order.id"
+                                @click="confirmId = order.id; confirmAction = 'withdraw'"
+                                class="px-4 py-2 text-xs font-medium uppercase tracking-wider border border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700/30 rounded-sm transition">
+                            취소 요청 철회
+                        </button>
+                        <span x-show="order.status === 'cancel_requested' && confirmId !== order.id" class="self-center text-xs text-orange-500 dark:text-orange-400 font-medium">관리자 승인 대기중</span>
+                        <!-- Inline Confirm -->
+                        <div x-show="confirmId === order.id && (confirmAction === 'cancel' || confirmAction === 'withdraw')" x-transition class="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-2 rounded-sm">
+                            <span class="text-xs text-red-700 dark:text-red-300 font-medium" x-text="confirmAction === 'cancel' ? '정말 취소 요청하시겠습니까?' : '철회하시겠습니까?'"></span>
+                            <button @click="confirmAction === 'cancel' ? requestCancel(order.id) : withdrawCancel(order.id)"
+                                    :disabled="cancelling"
+                                    class="px-3 py-1 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition"
+                                    x-text="cancelling ? '처리중...' : '확인'">
+                            </button>
+                            <button @click="confirmId = ''; confirmAction = ''"
+                                    class="px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 rounded transition">
+                                닫기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/pocketbase/dist/pocketbase.umd.js"></script>
+    <script>
+        function myOrdersPage() {
+            return {
+                pb: null,
+                orders: [],
+                loading: true,
+                loggedIn: false,
+                error: '',
+                toastMsg: '',
+                confirmId: '',
+                confirmAction: '',
+                cancelling: false,
+                confirmingPurchase: false,
+                reviewStateByProduct: {},
+                reviewStateLoading: false,
+                
+                // Guest order lookup state
+                lookupIdentifier: '',
+                lookupOrderId: '',
+                lookupPassword: '',
+                searching: false,
+                isGuestMode: false,
+
+                async init() {
+                    this.pb = new PocketBase(window.location.origin);
+
+                    if (!this.pb.authStore.isValid) {
+                        this.loading = false;
+                        this.loggedIn = false;
+                        return;
+                    }
+
+                    this.loggedIn = true;
+
+                    try {
+                        // Refresh auth to ensure token is valid
+                        await this.pb.collection('users').authRefresh();
+
+                        // Fetch orders with nested expand: order_items + product
+                        const result = await this.pb.collection('orders').getList(1, 50, {
+                            expand: 'order_items_via_order.product'
+                        });
+
+                        this.orders = result.items;
+                        await this.loadReviewStates();
+                        console.log('[my-orders] Loaded orders:', this.orders.length, this.orders.map(o => ({ id: o.id, status: o.status })));
+                    } catch (err) {
+                        console.error('Failed to fetch orders:', err);
+                        if (err.status === 401) {
+                            this.pb.authStore.clear();
+                            this.loggedIn = false;
+                        } else {
+                            this.error = '주문 내역을 불러오는 데 실패했습니다.';
+                        }
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                // Secure guest lookup call
+                async lookupGuestOrder(silent = false) {
+                    const identifier = (this.lookupIdentifier || this.lookupOrderId || '').trim();
+                    if (!identifier || !this.lookupPassword) {
+                        if (!silent) this.showToast('임시 아이디와 주문 비밀번호를 모두 입력해 주세요.');
+                        return;
+                    }
+
+                    this.searching = true;
+                    if (!silent) this.loading = true;
+                    this.error = '';
+
+                    try {
+                        const res = await fetch('/api/guest/order-lookup', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                identifier: identifier,
+                                password: this.lookupPassword
+                            })
+                        });
+
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || '조회에 실패했습니다.');
+
+                        this.orders = data.items || [];
+                        this.isGuestMode = true;
+                        this.loggedIn = false;
+                    } catch (err) {
+                        console.error('Guest lookup failed:', err);
+                        if (!silent) {
+                            this.showToast(err.message || '조회 실패');
+                            this.error = err.message || '조회 실패';
+                        }
+                        // Clear active session since lookup credentials failed
+                        this.clearGuestSession();
+                    } finally {
+                        this.searching = false;
+                        this.loading = false;
+                    }
+                },
+
+                clearGuestSession() {
+                    this.orders = [];
+                    this.isGuestMode = false;
+                    this.lookupIdentifier = '';
+                    this.lookupOrderId = '';
+                    this.lookupPassword = '';
+                },
+
+                formatDate(dateStr) {
+                    if (!dateStr) return '';
+                    const d = new Date(dateStr);
+                    return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+                         + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                },
+
+                statusClass(status) {
+                    const map = {
+                        'pending':           'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+                        'paid':              'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+                        'cancel_requested':  'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+                        'shipping':          'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+                        'completed':         'bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300',
+                        'purchase_confirmed':'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+                        'cancelled':         'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+                        'refunded':          'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+                    };
+                    return map[status] || 'bg-gray-100 text-gray-800';
+                },
+
+                statusLabel(status) {
+                    const labels = {
+                        'pending':           '결제대기',
+                        'paid':              '결제완료',
+                        'cancel_requested':  '취소 요청됨',
+                        'shipping':          '배송중',
+                        'completed':         '배송완료',
+                        'purchase_confirmed':'구매확정',
+                        'cancelled':         '취소',
+                        'refunded':          '환불',
+                    };
+                    return labels[status] || status;
+                },
+
+                showToast(msg) {
+                    this.toastMsg = msg;
+                    setTimeout(() => { this.toastMsg = ''; }, 3000);
+                },
+
+                async loadReviewStates() {
+                    if (!this.pb || !this.pb.authStore.isValid || this.isGuestMode) return;
+
+                    this.reviewStateLoading = true;
+                    try {
+                        const data = await this.pb.send('/api/orders/review-state', { method: 'GET' });
+                        this.reviewStateByProduct = data.byProduct || {};
+                    } catch (err) {
+                        console.error('Failed to fetch review reward state:', err);
+                        this.reviewStateByProduct = {};
+                        this.showToast('리뷰/쿠폰 상태를 불러오지 못했습니다.');
+                    } finally {
+                        this.reviewStateLoading = false;
+                    }
+                },
+
+                productIdForItem(item) {
+                    const product = (item && item.expand && item.expand.product) ? item.expand.product : {};
+                    return product.id || item.product || '';
+                },
+
+                reviewState(item) {
+                    const productId = this.productIdForItem(item);
+                    return this.reviewStateByProduct[productId] || {
+                        productId: productId,
+                        canReview: false,
+                        hasReview: false,
+                        couponState: this.reviewStateLoading ? 'loading' : 'unknown',
+                        coupon: null
+                    };
+                },
+
+                canReviewItem(item) {
+                    return !!this.reviewState(item).canReview;
+                },
+
+                reviewableItems(order) {
+                    return (order.expand?.order_items_via_order || []).filter((item) => this.canReviewItem(item));
+                },
+
+                reviewCoupon(item) {
+                    return this.reviewState(item).coupon || null;
+                },
+
+                reviewCouponCode(item) {
+                    const coupon = this.reviewCoupon(item);
+                    return coupon && coupon.code ? '쿠폰 ' + coupon.code : '';
+                },
+
+                formatDateShort(dateStr) {
+                    if (!dateStr) return '';
+                    return new Date(dateStr).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+                },
+
+                reviewCouponDetail(item) {
+                    const state = this.reviewState(item);
+                    const coupon = state.coupon || {};
+                    if (state.canReview) return '작성 후 자동 지급';
+                    if (state.couponState === 'available' && coupon.expiresAt) return '만료 ' + this.formatDateShort(coupon.expiresAt);
+                    if (state.couponState === 'reserved') return '결제 적용 대기중';
+                    if (state.couponState === 'used' && coupon.usedAt) return '사용 ' + this.formatDateShort(coupon.usedAt);
+                    if (state.couponState === 'expired' && coupon.expiresAt) return '만료 ' + this.formatDateShort(coupon.expiresAt);
+                    if (state.hasReview && state.couponState === 'not_issued') return '지급된 쿠폰 없음';
+                    return '';
+                },
+
+                reviewStateLabel(item) {
+                    const state = this.reviewState(item);
+                    if (state.canReview) return '리뷰 작성 가능';
+                    if (state.couponState === 'available') return '리뷰 보상 쿠폰 보유';
+                    if (state.couponState === 'reserved') return '리뷰 보상 쿠폰 예약중';
+                    if (state.couponState === 'used') return '리뷰 보상 쿠폰 사용 완료';
+                    if (state.couponState === 'expired') return '리뷰 보상 쿠폰 만료';
+                    if (state.couponState === 'void') return '리뷰 보상 쿠폰 취소됨';
+                    if (state.hasReview) return '리뷰 작성 완료';
+                    if (state.couponState === 'loading') return '리뷰 상태 확인중';
+                    return '리뷰 상태 미확인';
+                },
+
+                reviewStateClass(item) {
+                    const state = this.reviewState(item);
+                    if (state.canReview) return 'border-blue-200 bg-blue-50 text-blue-700 dark:border-bmw-blue/30 dark:bg-bmw-blue/10 dark:text-blue-200';
+                    if (state.couponState === 'available') return 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/50 dark:bg-green-950/20 dark:text-green-300';
+                    if (state.couponState === 'reserved') return 'border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-900/50 dark:bg-yellow-950/20 dark:text-yellow-300';
+                    if (state.couponState === 'used') return 'border-gray-200 bg-gray-100 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300';
+                    if (state.couponState === 'expired') return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300';
+                    return 'border-gray-200 bg-white text-gray-500 dark:border-bmw-darkBorder dark:bg-black/30 dark:text-gray-400';
+                },
+
+                orderReviewSummary(order) {
+                    const items = order.expand?.order_items_via_order || [];
+                    const reviewableCount = this.reviewableItems(order).length;
+                    const reviewedCount = items.filter((item) => this.reviewState(item).hasReview).length;
+                    if (reviewableCount > 0) {
+                        return reviewableCount + '개 상품은 아직 리뷰를 작성할 수 있습니다. 상품별 쿠폰 상태를 확인해 주세요.';
+                    }
+                    if (reviewedCount > 0) {
+                        return '상품별 리뷰 보상 쿠폰 상태가 표시되었습니다.';
+                    }
+                    return '{{ i18n "review_coupon_hint" }}';
+                },
+
+                productReviewHref(item) {
+                    const product = (item && item.expand && item.expand.product) ? item.expand.product : {};
+                    const key = product.slug || product.id || item.product || '';
+                    return '/products/' + encodeURIComponent(key) + '/#product-comments';
+                },
+
+                async confirmPurchase(orderId) {
+                    this.confirmingPurchase = true;
+                    try {
+                        const data = await this.pb.send('/api/orders/' + orderId + '/confirm-purchase', { method: 'POST' });
+                        const order = this.orders.find(o => o.id === orderId);
+                        if (order) {
+                            order.status = data.order?.status || 'purchase_confirmed';
+                            order.purchase_confirmed_at = data.order?.purchase_confirmed_at || new Date().toISOString();
+                        }
+                        await this.loadReviewStates();
+                        this.confirmId = '';
+                        this.confirmAction = '';
+                        this.showToast(data.message || '{{ i18n "purchase_confirmed_toast" }}');
+                    } catch (err) {
+                        this.showToast((err.data && err.data.error) || err.message || '{{ i18n "purchase_confirm_error" }}');
+                    } finally {
+                        this.confirmingPurchase = false;
+                    }
+                },
+
+                async requestCancel(orderId) {
+                    this.cancelling = true;
+                    try {
+                        if (this.isGuestMode) {
+                            const res = await fetch('/api/guest/orders/' + orderId + '/request-cancel', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    identifier: this.lookupIdentifier || this.lookupOrderId,
+                                    password: this.lookupPassword
+                                })
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error || '취소 요청 실패');
+                        } else {
+                            await this.pb.send('/api/orders/' + orderId + '/request-cancel', { method: 'POST' });
+                        }
+                        const order = this.orders.find(o => o.id === orderId);
+                        if (order) order.status = 'cancel_requested';
+                        this.confirmId = '';
+                        this.confirmAction = '';
+                        this.showToast('취소 요청이 접수되었습니다. 관리자 승인 후 환불이 진행됩니다.');
+                    } catch (err) {
+                        this.showToast(err.message || '취소 요청 실패');
+                    } finally {
+                        this.cancelling = false;
+                    }
+                },
+
+                async withdrawCancel(orderId) {
+                    this.cancelling = true;
+                    try {
+                        if (this.isGuestMode) {
+                            const res = await fetch('/api/guest/orders/' + orderId + '/withdraw-cancel', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    identifier: this.lookupIdentifier || this.lookupOrderId,
+                                    password: this.lookupPassword
+                                })
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error || '철회 실패');
+                        } else {
+                            await this.pb.send('/api/orders/' + orderId + '/withdraw-cancel', { method: 'POST' });
+                        }
+                        const order = this.orders.find(o => o.id === orderId);
+                        if (order) order.status = 'paid';
+                        this.confirmId = '';
+                        this.confirmAction = '';
+                        this.showToast('취소 요청이 철회되었습니다.');
+                    } catch (err) {
+                        this.showToast(err.message || '철회 실패');
+                    } finally {
+                        this.cancelling = false;
+                    }
+                }
+            }
+        }
+    </script>
+</main>
+{{ end }}

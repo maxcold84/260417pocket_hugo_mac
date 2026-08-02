@@ -2,7 +2,10 @@
 
 routerAdd("POST", "/api/orders/prep", (e) => {
     try {
-        const data = e.requestInfo().body;
+        const env = require(`${__hooks}/utils/env.js`);
+        const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
+        const couponUtil = require(`${__hooks}/utils/coupons.js`);
+        const data = e.requestInfo().body || {};
         const cart = data.cart;
         if (!cart || !Array.isArray(cart) || cart.length === 0) {
             return e.json(400, { error: "Cart is empty" });
@@ -10,7 +13,8 @@ routerAdd("POST", "/api/orders/prep", (e) => {
 
         const userId = (e.auth && e.auth.collection().name === "users") ? e.auth.id : null;
         let subtotal = 0;
-        let itemsToSave = [];
+        const itemsToSave = [];
+        let cleanupNonce = "";
 
         for (let item of cart) {
             // Verify product against DB
@@ -31,10 +35,25 @@ routerAdd("POST", "/api/orders/prep", (e) => {
             itemsToSave.push({ product: product, quantity: qty, unitPrice: price });
         }
 
+        const requestedCouponId = String(data.couponId || "").trim();
+        const couponValidation = couponUtil.validateCouponForUse($app, requestedCouponId, userId, subtotal);
+        if (!couponValidation.ok) {
+            const errorPayload = { error: couponValidation.error };
+            if (requestedCouponId) {
+                errorPayload.couponRejected = true;
+                errorPayload.couponId = requestedCouponId;
+                errorPayload.refreshCoupons = true;
+            }
+            return e.json(couponValidation.statusCode || 400, errorPayload);
+        }
+        const discountAmount = couponValidation.discountAmount || 0;
+        const finalAmount = couponValidation.finalAmount || subtotal;
+
         // Create pending order
-        let ordersCollection = $app.findCollectionByNameOrId("orders");
-        let newOrder = new Record(ordersCollection);
-        newOrder.set("total_amount", subtotal);
+        const ordersCollection = $app.findCollectionByNameOrId("orders");
+        const newOrder = new Record(ordersCollection);
+        newOrder.set("subtotal_amount", subtotal);
+        newOrder.set("total_amount", finalAmount);
         newOrder.set("status", "pending");
         newOrder.set("recipient_name", data.recipientName || "");
         newOrder.set("recipient_phone", data.recipientPhone || "");
@@ -42,31 +61,71 @@ routerAdd("POST", "/api/orders/prep", (e) => {
         newOrder.set("shipping_address_detail", data.shippingAddressDetail || "");
         newOrder.set("shipping_memo", data.shippingMemo || "");
         if (userId) {
-            newOrder.set("user", userId);
-        } else {
-            const gInfo = data.guestInfo || {};
-            // Set order password fallback (last 4 digits of phone) if empty
-            if (!gInfo.password) {
-                const phoneStr = gInfo.phone || data.recipientPhone || "";
-                const cleanPhone = phoneStr.replace(/[^0-9]/g, "");
-                gInfo.password = cleanPhone.slice(-4) || "0000";
+            const cleanupResult = guestSecurity.createCleanupNonce(env);
+            if (!cleanupResult.ok) {
+                return e.json(500, { error: cleanupResult.error });
             }
-            newOrder.set("guest_info", gInfo);
+            cleanupNonce = cleanupResult.cleanupNonce;
+            newOrder.set("user", userId);
+            newOrder.set("guest_info", {
+                checkout_cleanup_hash: cleanupResult.cleanupHash
+            });
+        } else {
+            const guestResult = guestSecurity.createGuestInfo(data.guestInfo || {}, env);
+            if (!guestResult.ok) {
+                const statusCode = guestResult.error.indexOf("환경 변수") !== -1 ? 500 : 400;
+                return e.json(statusCode, { error: guestResult.error });
+            }
+            cleanupNonce = guestResult.cleanupNonce;
+            newOrder.set("guest_info", guestResult.guestInfo);
+        }
+        if (couponValidation.coupon) {
+            newOrder.set("coupon", couponValidation.coupon.id);
+            newOrder.set("coupon_discount_amount", discountAmount);
+            newOrder.set("coupon_code_snapshot", couponValidation.coupon.getString("code"));
+        } else {
+            newOrder.set("coupon_discount_amount", 0);
+            newOrder.set("coupon_code_snapshot", "");
         }
         $app.save(newOrder);
 
-        // Create order items
-        let orderItemsCollection = $app.findCollectionByNameOrId("order_items");
-        for (let savedItem of itemsToSave) {
-            let newItem = new Record(orderItemsCollection);
-            newItem.set("order", newOrder.id);
-            newItem.set("product", savedItem.product.id);
-            newItem.set("quantity", savedItem.quantity);
-            newItem.set("unit_price", savedItem.unitPrice);
-            $app.save(newItem);
+        let buildStage = "reservation";
+        try {
+            couponUtil.reserveCouponForOrder($app, couponValidation.coupon, newOrder);
+            buildStage = "items";
+            const orderItemsCollection = $app.findCollectionByNameOrId("order_items");
+            for (let savedItem of itemsToSave) {
+                const newItem = new Record(orderItemsCollection);
+                newItem.set("order", newOrder.id);
+                newItem.set("product", savedItem.product.id);
+                newItem.set("quantity", savedItem.quantity);
+                newItem.set("unit_price", savedItem.unitPrice);
+                $app.save(newItem);
+            }
+        } catch (buildErr) {
+            try {
+                couponUtil.releaseCouponReservationForOrder($app, newOrder);
+                $app.delete(newOrder);
+            } catch (cleanupErr) {}
+            const statusCode = buildStage === "reservation" ? 409 : 500;
+            const errorPayload = { error: buildErr.toString() };
+            if (buildStage === "reservation" && requestedCouponId) {
+                errorPayload.error = "쿠폰이 방금 사용되었거나 만료되었습니다. 다른 쿠폰을 선택해 주세요.";
+                errorPayload.couponRejected = true;
+                errorPayload.couponId = requestedCouponId;
+                errorPayload.refreshCoupons = true;
+            }
+            return e.json(statusCode, errorPayload);
         }
 
-        return e.json(200, { orderId: newOrder.id, amount: subtotal });
+        return e.json(200, {
+            orderId: newOrder.id,
+            amount: finalAmount,
+            subtotalAmount: subtotal,
+            discountAmount: discountAmount,
+            coupon: couponValidation.coupon ? couponUtil.exportCoupon(couponValidation.coupon) : null,
+            cleanupNonce: cleanupNonce
+        });
     } catch(err) {
         return e.json(500, { error: err.toString() });
     }
@@ -75,15 +134,35 @@ routerAdd("POST", "/api/orders/prep", (e) => {
 
 routerAdd("POST", "/api/orders/{id}/cancel-pending", (e) => {
     try {
+        const env = require(`${__hooks}/utils/env.js`);
+        const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
+        const couponUtil = require(`${__hooks}/utils/coupons.js`);
+        const data = e.requestInfo().body || {};
         const orderId = e.request.pathValue("id");
         const order = $app.findRecordById("orders", orderId);
         
-        // Only allow deleting 'pending' orders
-        if (order.getString("status") === "pending") {
-            $app.delete(order);
-            return e.json(200, { message: "Pending order deleted successfully" });
+        if (order.getString("status") !== "pending") {
+            return e.json(400, { error: "Only pending orders can be deleted" });
         }
-        return e.json(400, { error: "Only pending orders can be deleted" });
+
+        const orderUser = order.getString("user");
+        const authUserId = (e.auth && e.auth.collection().name === "users") ? e.auth.id : "";
+        const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
+        const cleanupNonce = String(data.cleanupNonce || "").trim();
+
+        if (orderUser) {
+            if (authUserId !== orderUser && !guestSecurity.verifyCleanupNonce(guestInfo, cleanupNonce, env)) {
+                return e.json(403, { error: "Pending order cleanup is not allowed" });
+            }
+        } else {
+            if (!guestSecurity.verifyCleanupNonce(guestInfo, cleanupNonce, env)) {
+                return e.json(403, { error: "Pending order cleanup is not allowed" });
+            }
+        }
+
+        couponUtil.releaseCouponReservationForOrder($app, order);
+        $app.delete(order);
+        return e.json(200, { message: "Pending order deleted successfully" });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }
@@ -98,10 +177,10 @@ routerAdd("GET", "/checkout", (c) => {
         const env = require(`${__hooks}/utils/env.js`);
         
         let partialHtml = $template.loadFiles(`${__hooks}/views/checkout.html`).render({
-            portoneStoreId: env.get("PORTONE_STORE_ID") || "store-placeholder",
-            channelKeyKakaopay: env.get("PORTONE_CHANNEL_KEY_KAKAOPAY") || "",
-            channelKeyInicis: env.get("PORTONE_CHANNEL_KEY_INICIS") || "",
-            channelKeyKcp: env.get("PORTONE_CHANNEL_KEY_KCP") || "",
+            portoneStoreId: env.get("PORTONE_STORE_ID") || "",
+            channelKeyKakaopay: env.getAny(["PORTONE_CHANNEL_KEY_KAKAOPAY", "PORTONE_KAKAOPAY_CHANNEL_KEY"]) || "",
+            channelKeyInicis: env.getAny(["PORTONE_CHANNEL_KEY_INICIS", "PORTONE_INICIS_CHANNEL_KEY"]) || "",
+            channelKeyKcp: env.getAny(["PORTONE_CHANNEL_KEY_KCP", "PORTONE_KCP_CHANNEL_KEY"]) || "",
             userEmail: c.auth ? c.auth.getString("email") : "",
             userPhone: c.auth ? c.auth.getString("phone") : "",
             userId: c.auth ? c.auth.id : "",
@@ -121,115 +200,108 @@ routerAdd("GET", "/checkout", (c) => {
 
 routerAdd("GET", "/payment/complete", (c) => {
     try {
+        const renderUtil = require(`${__hooks}/utils/render.js`);
+        const portone = require(`${__hooks}/services/portone-verify.js`);
+        const env = require(`${__hooks}/utils/env.js`);
+        const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
+        const couponUtil = require(`${__hooks}/utils/coupons.js`);
         const query = c.request.url.query();
-        const paymentId = query.get("paymentId") || query.get("payment_id") || "Unknown";
+        const paymentId = query.get("paymentId") || query.get("payment_id") || query.get("orderId") || "Unknown";
         const code = query.get("code");
         const message = query.get("message");
+        const cleanupNonce = query.get("cleanupNonce") || "";
 
-        // If there's an error code or message in redirect, it means payment failed or was cancelled.
-        if (code || message) {
-            if (paymentId && paymentId !== "Unknown") {
-                try {
-                    const order = $app.findRecordById("orders", paymentId);
-                    if (order && order.getString("status") === "pending") {
-                        $app.delete(order);
-                    }
-                } catch (e) {
-                    console.error("Failed to delete pending order on payment failure:", e);
-                }
-            }
-            
-            const renderUtil = require(`${__hooks}/utils/render.js`);
+        const escapeHtml = (value) => {
+            return String(value || "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        };
+
+        const renderFailure = (title, detail) => {
             const failHtml = '<div class="max-w-4xl mx-auto text-center py-20">' +
                 '<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-600 text-white mb-6">' +
                     '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
                         '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>' +
                     '</svg>' +
                 '</div>' +
-                '<h1 class="text-4xl font-light mb-4 text-gray-900 dark:text-white">PAYMENT CANCELLED</h1>' +
-                '<p class="text-gray-500 dark:text-gray-400 mb-8">결제가 취소되었거나 실패하였습니다: ' + (message || "사용자 취소") + '</p>' +
+                '<h1 class="text-4xl font-light mb-4 text-gray-900 dark:text-white">' + escapeHtml(title) + '</h1>' +
+                '<p class="text-gray-500 dark:text-gray-400 mb-8">' + escapeHtml(detail) + '</p>' +
                 '<div class="mt-12">' +
                     '<a href="/checkout" class="bg-bmw-blue text-white hover:bg-blue-700 px-8 py-3 uppercase tracking-widest text-sm font-medium transition duration-300">다시 결제하기</a>' +
                 '</div>' +
             '</div>';
             return renderUtil.render(c, failHtml, { title: "Payment Failed - D'roll Shop" });
+        };
+
+        // If there's an error code or message in redirect, it means payment failed or was cancelled.
+        if (code || message) {
+            if (paymentId && paymentId !== "Unknown" && cleanupNonce) {
+                try {
+                    const order = $app.findRecordById("orders", paymentId);
+                    const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
+                    if (order.getString("status") === "pending" && guestSecurity.verifyCleanupNonce(guestInfo, cleanupNonce, env)) {
+                        couponUtil.releaseCouponReservationForOrder($app, order);
+                        $app.delete(order);
+                    }
+                } catch (cleanupErr) {}
+            }
+            return renderFailure("PAYMENT CANCELLED", "결제가 취소되었거나 실패하였습니다: " + (message || "사용자 취소"));
         }
 
-        const renderUtil = require(`${__hooks}/utils/render.js`);
+        if (!paymentId || paymentId === "Unknown") {
+            return renderFailure("PAYMENT ERROR", "결제 식별자가 없어 주문을 검증할 수 없습니다.");
+        }
         
         let isGuest = false;
-        let tempId = "";
-        let guestPasswordHint = "";
+        let guestContact = "";
+        let order = null;
         try {
-            if (paymentId && paymentId !== "Unknown") {
-                const order = $app.findRecordById("orders", paymentId);
-                
-                // Immediately verify payment via PortOne API and set status to paid to avoid stuck pending state
-                try {
-                    const env = require(`${__hooks}/utils/env.js`);
-                    const apiSecret = env.get("PORTONE_API_SECRET") || "test_api_secret";
-                    const res = $http.send({
-                        url: "https://api.portone.io/payments/" + paymentId,
-                        method: "GET",
-                        headers: {
-                            "Authorization": "PortOne " + apiSecret
-                        }
-                    });
-                    
-                    if (res.statusCode === 200) {
-                        const pResponse = res.json;
-                        if (pResponse.status === "PAID" && order.getString("status") === "pending") {
-                            order.set("status", "paid");
-                            order.set("portone_tx_id", pResponse.id || paymentId);
-                            $app.save(order);
-                            console.log("Synced order status to paid via Redirect callback: " + paymentId);
-                        }
-                    }
-                } catch (syncErr) {
-                    console.error("Failed to verify/sync payment status on redirect:", syncErr);
-                }
-
-                const guestInfo = order.get("guest_info");
-                if (!order.getString("user") && guestInfo) {
-                    isGuest = true;
-                    tempId = guestInfo.phone || guestInfo.email || order.getString("recipient_phone") || "Unknown";
-                    
-                    if (guestInfo.password) {
-                        const rawPhone = guestInfo.phone || order.getString("recipient_phone") || "";
-                        const cleanPhone = rawPhone.replace(/[^0-9]/g, "");
-                        const last4 = cleanPhone.slice(-4) || "0000";
-                        if (guestInfo.password === last4) {
-                            guestPasswordHint = "휴대폰 번호 뒷 4자리 (" + last4 + ")";
-                        } else {
-                            guestPasswordHint = "설정하신 주문 비밀번호";
-                        }
-                    } else {
-                        guestPasswordHint = "휴대폰 번호 뒷 4자리";
-                    }
-                }
-            }
+            order = $app.findRecordById("orders", paymentId);
         } catch (e) {
             console.error("Failed to load order for payment complete page:", e);
+            return renderFailure("PAYMENT ERROR", "주문 정보를 찾을 수 없습니다.");
         }
 
-        let partialHtml = $template.loadFiles(`${__hooks}/views/order-complete.html`).render({});
-        partialHtml = partialHtml.replace("{{.paymentId}}", paymentId);
+        const verified = portone.verifyPaidPaymentForOrder(order, paymentId, env);
+        if (!verified.ok) {
+            return renderFailure("PAYMENT VERIFICATION FAILED", "결제 검증에 실패했습니다: " + verified.error);
+        }
+
+        if (!verified.alreadyPaid) {
+            order.set("status", "paid");
+            order.set("portone_tx_id", verified.transactionId);
+            $app.save(order);
+            console.log("Synced order status to paid via redirect callback: " + paymentId);
+        }
+        couponUtil.markCouponUsedForOrder($app, order);
+
+        const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
+        if (!order.getString("user") && guestInfo) {
+            isGuest = true;
+            guestContact = guestInfo.phone || guestInfo.email || order.getString("recipient_phone") || "비회원";
+        }
+
+        let partialHtml = $template.loadFiles(`${__hooks}/views/order-complete.html`).render({
+            paymentId: paymentId
+        });
 
         let guestHtml = "";
         if (isGuest) {
             guestHtml = '<div class="mt-6 bg-blue-50/50 dark:bg-bmw-blue/10 border border-blue-200 dark:border-bmw-blue/30 p-6 rounded-sm text-left max-w-md mx-auto">' +
                 '<h3 class="text-sm font-bold text-gray-900 dark:text-white mb-3">비회원 주문 안내 (Guest Order Info)</h3>' +
                 '<div class="space-y-2 text-xs text-gray-600 dark:text-gray-400">' +
-                    '<div>• <strong>임시 아이디 (연락처/이메일):</strong> <span class="font-mono text-gray-900 dark:text-white text-sm">' + tempId + '</span></div>' +
-                    '<div>• <strong>주문 번호:</strong> <span class="font-mono text-gray-900 dark:text-white text-sm">' + paymentId + '</span></div>' +
-                    '<div>• <strong>주문 비밀번호:</strong> <span class="font-mono text-gray-900 dark:text-white text-sm">' + guestPasswordHint + '</span></div>' +
-                    '<div class="pt-2 text-[11px] text-gray-500">• 위 정보로 <strong>[주문 내역(YOUR ORDERS)]</strong> 페이지에서 비회원 주문을 조회하실 수 있습니다.</div>' +
+                    '<div>• <strong>임시 아이디:</strong> <span class="font-mono text-gray-900 dark:text-white text-sm">' + escapeHtml(guestContact) + '</span></div>' +
+                    '<div>• <strong>주문 비밀번호:</strong> 결제 전 직접 설정한 비밀번호</div>' +
+                    '<div class="pt-2 text-[11px] text-gray-500">• <strong>[주문 내역(YOUR ORDERS)]</strong> 조회 시 임시 아이디(전화번호 또는 이메일)와 주문 비밀번호가 모두 필요합니다.</div>' +
                 '</div>' +
             '</div>';
         }
         partialHtml = partialHtml.replace('<div id="guest-info-placeholder"></div>', guestHtml);
         
-        return renderUtil.render(c, partialHtml, { title: "Order Complete - D'roll Shop" });
+        return renderUtil.render(c, partialHtml, { title: "주문 완료 - D'roll Shop" });
     } catch(err) { return c.json(500, { error: err.toString() }); }
 });
 
@@ -294,96 +366,185 @@ routerAdd("POST", "/api/orders/{id}/withdraw-cancel", (e) => {
 });
 
 
+routerAdd("GET", "/api/orders/review-state", (e) => {
+    try {
+        const commentUtil = require(`${__hooks}/utils/comments.js`);
+        const couponUtil = require(`${__hooks}/utils/coupons.js`);
+
+        if (!e.auth || e.auth.collection().name !== "users") {
+            return e.json(401, { error: "로그인이 필요합니다." });
+        }
+
+        const userId = e.auth.id;
+        const productIds = {};
+        const orderPageSize = 100;
+        const itemPageSize = 100;
+
+        for (let orderOffset = 0; ; orderOffset += orderPageSize) {
+            const orders = $app.findRecordsByFilter(
+                "orders",
+                "user = {:userId}",
+                "",
+                orderPageSize,
+                orderOffset,
+                { userId: userId }
+            ) || [];
+
+            for (const order of orders) {
+                if (order.getString("status") !== "purchase_confirmed") {
+                    continue;
+                }
+
+                for (let itemOffset = 0; ; itemOffset += itemPageSize) {
+                    const items = $app.findRecordsByFilter(
+                        "order_items",
+                        "order = {:orderId}",
+                        "",
+                        itemPageSize,
+                        itemOffset,
+                        { orderId: order.id }
+                    ) || [];
+
+                    for (const item of items) {
+                        const productId = item.getString("product");
+                        if (productId) {
+                            productIds[productId] = true;
+                        }
+                    }
+
+                    if (items.length < itemPageSize) break;
+                }
+            }
+
+            if (orders.length < orderPageSize) break;
+        }
+
+        const byProduct = {};
+        const items = [];
+        const sortedProductIds = Object.keys(productIds).sort();
+
+        for (const productId of sortedProductIds) {
+            const existingComment = commentUtil.findUserComment($app, productId, userId);
+            const reward = couponUtil.reviewRewardCouponState($app, userId, productId);
+            const state = {
+                productId: productId,
+                canReview: !existingComment,
+                hasReview: !!existingComment,
+                commentId: existingComment ? existingComment.id : "",
+                commentStatus: existingComment ? existingComment.getString("status") : "",
+                couponState: reward.status,
+                coupon: reward.coupon
+            };
+            byProduct[productId] = state;
+            items.push(state);
+        }
+
+        return e.json(200, {
+            items: items,
+            byProduct: byProduct
+        });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+});
+
+
+routerAdd("POST", "/api/orders/{id}/confirm-purchase", (e) => {
+    try {
+        if (!e.auth || e.auth.collection().name !== "users") {
+            return e.json(401, { error: "로그인이 필요합니다." });
+        }
+
+        const orderId = e.request.pathValue("id");
+        const order = $app.findRecordById("orders", orderId);
+
+        if (order.getString("user") !== e.auth.id) {
+            return e.json(403, { error: "본인 주문만 구매확정할 수 있습니다." });
+        }
+
+        const status = order.getString("status");
+        if (status === "purchase_confirmed") {
+            return e.json(200, {
+                message: "이미 구매확정된 주문입니다.",
+                order: {
+                    id: order.id,
+                    status: status,
+                    purchase_confirmed_at: order.getString("purchase_confirmed_at")
+                }
+            });
+        }
+        if (status !== "completed") {
+            return e.json(400, { error: "배송완료 주문만 구매확정할 수 있습니다." });
+        }
+
+        order.set("status", "purchase_confirmed");
+        order.set("purchase_confirmed_at", new Date().toISOString());
+        $app.save(order);
+
+        return e.json(200, {
+            message: "구매가 확정되었습니다. 이제 리뷰를 작성할 수 있습니다.",
+            order: {
+                id: order.id,
+                status: order.getString("status"),
+                purchase_confirmed_at: order.getString("purchase_confirmed_at")
+            }
+        });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+});
+
+
 
 // Guest: Lookup guest order securely
 routerAdd("POST", "/api/guest/order-lookup", (e) => {
     try {
-        const data = e.requestInfo().body;
-        const tempId = (data.tempId || "").trim();
-        const orderId = (data.orderId || "").trim();
+        const env = require(`${__hooks}/utils/env.js`);
+        const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
+        const data = e.requestInfo().body || {};
+        const identifier = (data.identifier || data.orderId || "").trim();
         const password = (data.password || "").trim();
 
-        if (!tempId) {
-            return e.json(400, { error: "임시 아이디를 입력해 주세요." });
+        if (!guestSecurity.isValidGuestIdentifier(identifier) || !password) {
+            return e.json(400, { error: "임시 아이디와 주문 비밀번호를 모두 입력해 주세요." });
         }
-        if (!orderId && !password) {
-            return e.json(400, { error: "주문번호 또는 비밀번호를 입력해 주세요." });
-        }
-
-        // Fetch guest orders to scan
-        const candidateOrders = $app.findRecordsByFilter("orders", "user = ''", "", 500, 0);
 
         const matchedOrders = [];
-        const normalizePhone = (num) => (num || "").replace(/[^0-9]/g, "");
-        const inputTempIdNormalized = tempId.toLowerCase();
-        const inputCleanPhone = normalizePhone(tempId);
+        const pageSize = 100;
 
-        for (let order of candidateOrders) {
-            let guestInfo = null;
-            const rawGuest = order.get("guest_info");
-            if (rawGuest) {
-                try {
-                    let jsonStr = (typeof rawGuest === "string") ? rawGuest : rawGuest.toString();
-                    if (jsonStr) {
-                        guestInfo = JSON.parse(jsonStr);
-                    }
-                } catch (err) {
-                    console.error("Failed to parse guest_info in scan:", err);
-                }
+        for (let offset = 0; ; offset += pageSize) {
+            const orders = $app.findRecordsByFilter("orders", "1=1", "", pageSize, offset) || [];
+            for (const order of orders) {
+                if (order.getString("user") !== "") continue;
+
+                const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
+                if (!guestSecurity.matchesGuestIdentifier(guestInfo, identifier)) continue;
+                if (!guestSecurity.verifyGuestPasswordForOrder(order, guestInfo, password, env, $app)) continue;
+
+                matchedOrders.push({
+                    order: order,
+                    guestInfo: guestInfo
+                });
             }
 
-            if (!guestInfo) {
-                continue;
-            }
-
-            const dbPhoneClean = normalizePhone(guestInfo.phone || order.getString("recipient_phone"));
-            const dbEmail = (guestInfo.email || "").toLowerCase();
-            const dbTempId = (guestInfo.temp_id || "").toLowerCase();
-            const dbPassword = guestInfo.password || "";
-
-            // 1. 임시 아이디는 필수로 일치하여 통과해야 함
-            const matchTempId = (
-                inputTempIdNormalized === dbPhoneClean || 
-                (inputCleanPhone !== "" && inputCleanPhone === dbPhoneClean) ||
-                inputTempIdNormalized === dbEmail || 
-                inputTempIdNormalized === dbTempId ||
-                (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone))
-            );
-
-            if (!matchTempId) {
-                continue;
-            }
-
-            // 2. 주문번호(orderId) 또는 주문 비밀번호(password) 둘 중 하나만 맞으면 로그인
-            const matchOrderId = (orderId !== "" && order.id === orderId);
-            const matchPassword = (password !== "" && password === dbPassword);
-            const matchPhoneLast4 = (password !== "" && password.length === 4 && dbPhoneClean.endsWith(password));
-
-            if (matchOrderId || matchPassword || matchPhoneLast4) {
-                matchedOrders.push(order);
-            }
+            if (orders.length < pageSize) break;
         }
 
         if (matchedOrders.length === 0) {
             return e.json(401, { error: "주문 정보 또는 비밀번호가 일치하지 않습니다." });
         }
 
-        // Map matched orders to the structured results
-        const results = [];
-        for (let order of matchedOrders) {
-            let guestInfo = null;
-            const rawGuest = order.get("guest_info");
-            if (rawGuest) {
-                try {
-                    let jsonStr = (typeof rawGuest === "string") ? rawGuest : rawGuest.toString();
-                    if (jsonStr) guestInfo = JSON.parse(jsonStr);
-                } catch (err) {}
-            }
+        matchedOrders.sort((left, right) => {
+            return String(right.order.getString("created")).localeCompare(String(left.order.getString("created")));
+        });
 
-            // Fetch order items and products
+        const responseItems = [];
+        for (const matched of matchedOrders) {
+            const order = matched.order;
+            const guestInfo = matched.guestInfo;
             const orderItems = $app.findRecordsByFilter("order_items", "order = {:orderId}", "", 100, 0, { orderId: order.id });
             const items = [];
-            for (let item of orderItems) {
+            for (const item of orderItems) {
                 let productData = null;
                 try {
                     const product = $app.findRecordById("products", item.getString("product"));
@@ -407,7 +568,7 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
                 });
             }
 
-            results.push({
+            responseItems.push({
                 id: order.id,
                 created: order.getString("created"),
                 status: order.getString("status"),
@@ -425,8 +586,9 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
             });
         }
 
-        // Return the matched orders
-        return e.json(200, { items: results });
+        return e.json(200, {
+            items: responseItems
+        });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }
@@ -435,55 +597,34 @@ routerAdd("POST", "/api/guest/order-lookup", (e) => {
 // Guest: Request order cancellation
 routerAdd("POST", "/api/guest/orders/{id}/request-cancel", (e) => {
     try {
+        const env = require(`${__hooks}/utils/env.js`);
+        const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
         const orderId = e.request.pathValue("id");
-        const data = e.requestInfo().body;
-        const tempId = (data.tempId || "").trim();
+        const data = e.requestInfo().body || {};
+        const identifier = (data.identifier || "").trim();
         const password = (data.password || "").trim();
 
-        if (!tempId || !password) {
-            return e.json(400, { error: "임시 아이디와 비밀번호를 입력해주세요." });
+        if (!guestSecurity.isValidGuestIdentifier(identifier) || !password) {
+            return e.json(400, { error: "임시 아이디와 주문 비밀번호를 입력해주세요." });
         }
 
-        const order = $app.findRecordById("orders", orderId);
+        let order = null;
+        try {
+            order = $app.findRecordById("orders", orderId);
+        } catch (err) {
+            return e.json(401, { error: "권한이 없습니다." });
+        }
         
         if (order.getString("user") !== "") {
             return e.json(400, { error: "비회원 주문이 아닙니다." });
         }
 
-        let guestInfo = null;
-        const rawGuest = order.get("guest_info");
-        if (rawGuest) {
-            try {
-                let jsonStr = (typeof rawGuest === "string") ? rawGuest : rawGuest.toString();
-                if (jsonStr) {
-                    guestInfo = JSON.parse(jsonStr);
-                }
-            } catch (err) {}
-        }
-
+        const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
         if (!guestInfo) {
             return e.json(404, { error: "비회원 주문 정보를 찾을 수 없습니다." });
         }
 
-        const normalizePhone = (num) => (num || "").replace(/[^0-9]/g, "");
-        const inputTempIdNormalized = tempId.toLowerCase();
-        const dbPhoneClean = normalizePhone(guestInfo.phone || order.getString("recipient_phone"));
-        const dbEmail = (guestInfo.email || "").toLowerCase();
-        const dbTempId = (guestInfo.temp_id || "").toLowerCase();
-        
-        const inputCleanPhone = normalizePhone(tempId);
-        const matchTempId = (
-            inputTempIdNormalized === dbPhoneClean || 
-            (inputCleanPhone !== "" && inputCleanPhone === dbPhoneClean) ||
-            inputTempIdNormalized === dbEmail || 
-            inputTempIdNormalized === dbTempId ||
-            (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone))
-        );
-
-        const matchPassword = (password === guestInfo.password);
-        const matchPhoneLast4 = (password.length === 4 && dbPhoneClean.endsWith(password));
-
-        if (!matchTempId || (!matchPassword && !matchPhoneLast4)) {
+        if (!guestSecurity.matchesGuestIdentifier(guestInfo, identifier) || !guestSecurity.verifyGuestPasswordForOrder(order, guestInfo, password, env, $app)) {
             return e.json(401, { error: "권한이 없습니다." });
         }
 
@@ -503,55 +644,34 @@ routerAdd("POST", "/api/guest/orders/{id}/request-cancel", (e) => {
 // Guest: Withdraw cancellation request
 routerAdd("POST", "/api/guest/orders/{id}/withdraw-cancel", (e) => {
     try {
+        const env = require(`${__hooks}/utils/env.js`);
+        const guestSecurity = require(`${__hooks}/utils/guest_security.js`);
         const orderId = e.request.pathValue("id");
-        const data = e.requestInfo().body;
-        const tempId = (data.tempId || "").trim();
+        const data = e.requestInfo().body || {};
+        const identifier = (data.identifier || "").trim();
         const password = (data.password || "").trim();
 
-        if (!tempId || !password) {
-            return e.json(400, { error: "임시 아이디와 비밀번호를 입력해주세요." });
+        if (!guestSecurity.isValidGuestIdentifier(identifier) || !password) {
+            return e.json(400, { error: "임시 아이디와 주문 비밀번호를 입력해주세요." });
         }
 
-        const order = $app.findRecordById("orders", orderId);
+        let order = null;
+        try {
+            order = $app.findRecordById("orders", orderId);
+        } catch (err) {
+            return e.json(401, { error: "권한이 없습니다." });
+        }
         
         if (order.getString("user") !== "") {
             return e.json(400, { error: "비회원 주문이 아닙니다." });
         }
 
-        let guestInfo = null;
-        const rawGuest = order.get("guest_info");
-        if (rawGuest) {
-            try {
-                let jsonStr = (typeof rawGuest === "string") ? rawGuest : rawGuest.toString();
-                if (jsonStr) {
-                    guestInfo = JSON.parse(jsonStr);
-                }
-            } catch (err) {}
-        }
-
+        const guestInfo = guestSecurity.parseGuestInfo(order.get("guest_info"));
         if (!guestInfo) {
             return e.json(404, { error: "비회원 주문 정보를 찾을 수 없습니다." });
         }
 
-        const normalizePhone = (num) => (num || "").replace(/[^0-9]/g, "");
-        const inputTempIdNormalized = tempId.toLowerCase();
-        const dbPhoneClean = normalizePhone(guestInfo.phone || order.getString("recipient_phone"));
-        const dbEmail = (guestInfo.email || "").toLowerCase();
-        const dbTempId = (guestInfo.temp_id || "").toLowerCase();
-        
-        const inputCleanPhone = normalizePhone(tempId);
-        const matchTempId = (
-            inputTempIdNormalized === dbPhoneClean || 
-            (inputCleanPhone !== "" && inputCleanPhone === dbPhoneClean) ||
-            inputTempIdNormalized === dbEmail || 
-            inputTempIdNormalized === dbTempId ||
-            (inputCleanPhone.length === 4 && dbPhoneClean.endsWith(inputCleanPhone))
-        );
-
-        const matchPassword = (password === guestInfo.password);
-        const matchPhoneLast4 = (password.length === 4 && dbPhoneClean.endsWith(password));
-
-        if (!matchTempId || (!matchPassword && !matchPhoneLast4)) {
+        if (!guestSecurity.matchesGuestIdentifier(guestInfo, identifier) || !guestSecurity.verifyGuestPasswordForOrder(order, guestInfo, password, env, $app)) {
             return e.json(401, { error: "권한이 없습니다." });
         }
 

@@ -1,0 +1,36 @@
+<footer class="aroma-shell border-t border-aroma-muted bg-aroma-cream px-4 py-10 pb-24 text-aroma-deep md:px-8 md:pb-12">
+    <div class="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1.4fr_2fr] md:items-start">
+        <div>
+            <p class="text-sm text-aroma-green">{{ i18n "aroma_customer_care" }}</p>
+            <p class="mt-2 text-2xl font-medium tracking-tight">{{ i18n "aroma_customer_hours" }}</p>
+        </div>
+        <div class="grid grid-cols-2 gap-6 text-sm md:grid-cols-4">
+            <div>
+                <h3 class="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-aroma-green">{{ i18n "catalog" }}</h3>
+                <a href="{{ "/products/" | relLangURL }}" class="block text-aroma-deep/70 hover:text-aroma-green">{{ i18n "view_all_products" }}</a>
+            </div>
+            <div>
+                <h3 class="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-aroma-green">{{ i18n "account" | default "Account" }}</h3>
+                <a x-bind:href="loggedIn ? profileHref : loginHref" class="block text-aroma-deep/70 hover:text-aroma-green" x-text="loggedIn ? '{{ i18n "profile" }}' : '{{ i18n "login" }}'"></a>
+            </div>
+            <div>
+                <h3 class="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-aroma-green">{{ i18n "cart" }}</h3>
+                <button type="button" @click="cartOpen = true" class="text-left text-aroma-deep/70 hover:text-aroma-green">{{ i18n "your_cart" }}</button>
+            </div>
+            <div>
+                <h3 class="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-aroma-green">Language</h3>
+                <div class="flex gap-3">
+                    {{ range .AllTranslations }}
+                        <a href="{{ .RelPermalink }}" class="{{ if eq .Language.Lang $.Language.Lang }}text-aroma-green{{ else }}text-aroma-deep/50 hover:text-aroma-green{{ end }}">{{ .Language.LanguageName }}</a>
+                    {{ end }}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="mx-auto mt-12 max-w-7xl">
+        <p class="break-words text-[clamp(2.8rem,11vw,9rem)] font-black uppercase leading-none tracking-[0.06em] text-aroma-green">
+            {{ site.Title | upper }}
+        </p>
+        <p class="mt-4 text-xs text-aroma-deep/55">&copy; {{ now.Format "2006" }} {{ site.Title }}. {{ i18n "all_rights_reserved" }}</p>
+    </div>
+</footer>

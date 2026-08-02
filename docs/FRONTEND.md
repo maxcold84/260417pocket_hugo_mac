@@ -32,6 +32,7 @@
 8. **Manual Authorization Header in `fetch()`**:
     - PocketBase's custom API routes (`routerAdd`) require an explicit `Authorization: Bearer <token>` header if they use `e.auth`. Unlike the SDK's `pb.send()`, native `fetch()` does NOT attach the token automatically.
     - **Rule:** When calling custom endpoints like `/api/orders/prep` from the frontend, manually extract the token from `localStorage` and include it in the headers to avoid being treated as a Guest.
+    - **Rule:** If the checkout sends `couponId`, do not trust any client-side discount amount. The UI may show an estimate, but PortOne must receive only the `amount` returned by `/api/orders/prep`.
 9. **Back-Relation Expansion Syntax**:
     - To expand related records from a collection pointing TO the current one, use the `collection_via_field` syntax.
     - **Example:** `pb.collection('orders').getList(1, 50, { expand: 'order_items_via_order' })` where `order_items` has an `order` field.
@@ -63,3 +64,44 @@
       document.cookie = pb.authStore.exportToCookie({ secure: false, httpOnly: false });
       ```
     - **Rule:** In single-page app (SPA) environments where Alpine.js restores credentials directly from `localStorage` on page load, the manual `login()` function is completely bypassed. Ensure cookie exports are also placed inside the Alpine.js component's `init()` method to guarantee session synchronization whenever the admin refreshes or directly navigates to an SSR page.
+
+17. **CMS Order Management Uses Guarded Custom Routes**:
+    - Never update order status from the CMS with `pb.collection('orders').update(id, { status })`. That bypasses the server-side payment-state guard.
+    - **Rule:** Use `pb.send('/api/cms/orders/' + id + '/status', { method: 'POST', body: { status } })` for list-page status changes and `/api/cms/orders/{id}/update` for guarded detail-page edits.
+    - **Rule:** The CMS order archive/list must page through all `orders` result pages before calculating counts or filtered views. Do not assume `getList(1, 50)` contains the full archive.
+    - **Rule:** For newest-first order display, fetch without `sort: '-created'`, then sort the combined client-side array by the `created` string.
+
+18. **OAuth Button Visibility Must Follow PocketBase Auth Methods**:
+    - `hugo.toml` only controls whether a social login button is allowed to render in the static template. It does not configure PocketBase provider credentials.
+    - **Rule:** Before showing OAuth buttons, call `pb.collection('users').listAuthMethods()` and only show providers returned by PocketBase. This prevents a visible Google/Kakao button when `users.oauth2.enabled` is true but `oauth2.providers` is empty or `null`.
+    - **Rule:** Do not use `async/await` directly in the OAuth click handler. Use a promise chain for `authWithOAuth2()` so strict browsers do not treat the OAuth popup as detached from the user click.
+    - **Rule:** OAuth error handling should surface provider configuration failures instead of only displaying a generic "Something went wrong" message.
+19. **Static Product Page + Dynamic Comments Pattern**:
+    - Product detail pages remain Hugo-generated static pages. Comments are the only dynamic island on the page.
+    - **Rule:** Load the PocketBase SDK UMD only on `hugo/layouts/products/single.html` and call custom comment routes with `pb.send()` so the SDK attaches the auth token for logged-in users.
+    - **Rule:** Use the Hugo product page slug as the comment API product key. The backend resolves both DB ids and slugs, which prevents stale Markdown frontmatter ids from blocking eligible buyers.
+    - **Rule:** Render comment body and author snapshots with `x-text` only. Never inject user comment text with `x-html`.
+    - **Rule:** Keep comment UI state (`editingId`, `deleteConfirmId`, loading flags, notices) on the Alpine component instead of mutating fetched comment objects.
+    - **Rule:** Comments appear immediately after successful create/update/delete by updating Alpine state; no Hugo rebuild is needed for comment changes.
+    - **Rule:** Product ratings live inside the same dynamic island. The UI must send a 1-5 integer rating with comment create/update requests, display rating text with SVG icons (not emoji), and update the returned `summary` in Alpine state so the visible average changes without a rebuild.
+    - **Rule:** A logged-in buyer can create one review per product only after the related order is `purchase_confirmed`. If a review already exists, guide the user to edit the existing review instead of posting duplicates.
+    - **Rule:** The comment create response may include `couponIssued`, `coupon`, and `couponMessage`. Show the reward message as a notice after the successful create response, but do not attempt to mint or reserve coupons on the client.
+20. **Static Product Page + Dynamic Product Inquiries Pattern**:
+    - Product detail pages remain Hugo-generated static pages. Inquiries are a second dynamic island on `hugo/layouts/products/single.html` and use the Hugo product slug as the API product key.
+    - **Rule:** Call inquiry custom routes with `pb.send()` so logged-in user auth is attached consistently.
+    - **Rule:** Render inquiry title, content, author snapshot, and admin answer with `x-text` only. Never inject inquiry text with `x-html`.
+    - **Rule:** Keep inquiry UI state (`editingId`, `deleteConfirmId`, loading flags, notices, secret toggles) on the Alpine component instead of mutating fetched records.
+    - **Rule:** Secret inquiries must be masked for non-authors: show only locked/private state and answer status, never the title, content, answer, or author snapshot.
+    - **Rule:** Users can edit/delete only their own `pending` inquiries. Answered inquiries are read-only on the product page.
+
+21. **Member Order History Purchase Confirmation Pattern**:
+    - `/my-orders/` is a static Hugo page with an Alpine.js dynamic order island. It must show the purchase-confirm CTA only for logged-in member orders in `completed` status, never for guest orders.
+    - **Rule:** Use `pb.send('/api/orders/{id}/confirm-purchase', { method: 'POST' })` for confirmation so the SDK attaches auth. Keep confirmation and loading state on component-level properties such as `confirmAction` and `confirmingPurchase`.
+    - **Rule:** After confirmation, update the local order status to `purchase_confirmed` and refresh `/api/orders/review-state` without requiring a page reload.
+    - **Rule:** Product review CTAs must be filtered by the server-returned `canReview` state. A member can review each product only once, even if the product appears in multiple confirmed orders.
+    - **Rule:** Show the review reward coupon state per purchased product item (`available`, `reserved`, `used`, `expired`, `void`, or `not_issued`) so the member can tell whether the reward is still pending, already earned, or already used.
+
+22. **Checkout Coupon Pattern**:
+    - Logged-in checkout pages may load available coupons with `pb.send('/api/coupons/available')`. Guest checkout must not show coupon controls.
+    - **Rule:** Show coupon discounts and final totals as estimates before order prep. The authoritative subtotal, discount, coupon snapshot, and payable amount are the `/api/orders/prep` response.
+    - **Rule:** Disable or explain coupon choices that would reduce the payable amount to 0 or below, because this storefront has no zero-payment order flow.

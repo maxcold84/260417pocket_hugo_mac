@@ -1,61 +1,51 @@
 module.exports = {
     getSuperuserFromCookie: (ev) => {
         try {
-            const cookie = ev.request.header.get("Cookie");
-            console.log("[auth] Cookie header:", cookie);
-            if (!cookie) {
-                console.log("[auth] No cookie header found");
-                return null;
-            }
-            const match = cookie.match(/pb_auth=([^;]+)/);
-            if (!match) {
-                console.log("[auth] pb_auth cookie not found");
-                return null;
-            }
-            // Decode the cookie value in case it is URL encoded (cookie values can be encoded by the browser)
-            const cookieVal = decodeURIComponent(match[1]);
-            let token = cookieVal;
-            try {
-                const parsed = JSON.parse(cookieVal);
-                if (parsed && parsed.token) {
-                    token = parsed.token;
-                    console.log("[auth] Extracted token from JSON cookie");
-                }
-            } catch (e) {
-                console.log("[auth] Cookie value is not JSON, treating as raw token");
-            }
-            console.log("[auth] Parsed token (first 15 chars):", token.substring(0, 15) + "...");
-            
-            const superusers = ev.app.findCollectionByNameOrId("_superusers");
-            console.log("[auth] Found _superusers collection:", superusers ? "yes" : "no");
-            
-            // Try traditional findAuthRecordByToken
-            let superuser = null;
-            try {
-                superuser = ev.app.findAuthRecordByToken(token, superusers);
-                console.log("[auth] findAuthRecordByToken result:", superuser ? "Found: " + superuser.id : "Not found");
-            } catch (authErr) {
-                console.error("[auth] findAuthRecordByToken threw error:", authErr);
-            }
-            
-            // Fallback: If findAuthRecordByToken fails, let's try decoding the JWT manually to get the user ID!
-            if (!superuser) {
-                console.log("[auth] Attempting JWT parsing fallback");
+            const getHeader = (name) => {
                 try {
-                    const claims = $security.parseUnverifiedJWT(token);
-                    console.log("[auth] Parsed JWT claims:", JSON.stringify(claims));
-                    if (claims && claims.id) {
-                        superuser = ev.app.findRecordById("_superusers", claims.id);
-                        console.log("[auth] Fallback findRecordById result:", superuser ? "Found: " + superuser.id : "Not found");
-                    }
-                } catch (jwtErr) {
-                    console.error("[auth] JWT parsing fallback threw error:", jwtErr);
+                    return ev.request.header.get(name);
+                } catch (err) {}
+                try {
+                    return ev.request.Header.Get(name);
+                } catch (err) {}
+                return "";
+            };
+
+            const getCookieToken = () => {
+                const cookie = getHeader("Cookie");
+                if (!cookie) return "";
+
+                const match = cookie.match(/pb_auth=([^;]+)/);
+                if (!match) return "";
+
+                const cookieVal = decodeURIComponent(match[1]);
+                try {
+                    const parsed = JSON.parse(cookieVal);
+                    return parsed && parsed.token ? parsed.token : cookieVal;
+                } catch (err) {
+                    return cookieVal;
                 }
+            };
+
+            const authHeader = getHeader("Authorization");
+            const authToken = authHeader && authHeader.toLowerCase().indexOf("bearer ") === 0
+                ? authHeader.slice(7).trim()
+                : "";
+            const cookieToken = getCookieToken();
+            const tokens = [authToken, cookieToken].filter(token => token);
+
+            for (const token of tokens) {
+                try {
+                    const authRecord = ev.app.findAuthRecordByToken(token, "auth");
+                    if (authRecord && authRecord.collection().name === "_superusers") {
+                        return authRecord;
+                    }
+                } catch (err) {}
             }
-            
-            return superuser;
+
+            return null;
         } catch (err) {
-            console.error("[auth] getSuperuserFromCookie error:", err);
+            console.error("[auth] superuser cookie verification failed");
             return null;
         }
     }

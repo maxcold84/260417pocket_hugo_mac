@@ -1,5 +1,6 @@
 baseURL = "http://localhost:8090/"
 title = "D'roll Shop"
+theme = ["aurora", "default"]
 
 # Publish Hugo output directly to the PocketBase public directory
 publishDir = "../pb_public"
@@ -54,6 +55,11 @@ enableRobotsTXT = true
 
 [params]
 heroImg = "https://cdn.midjourney.com/b26ef844-b04c-44e8-9a98-6438d86d3697/0_2.png"
+productRecommendationsLimit = 5
+productRecommendationIntervalMs = 5000
+featuredProductsSliderEnabled = true
+featuredProductsLimit = 8
+featuredProductSlideIntervalMs = 5000
 
 [params.oauth]
 google = true
@@ -66,35 +72,12 @@ kakao = false
 
 [[menu.main]]
 name = "catalog"
-url = "/products"
+url = "/products/"
 weight = 1
 
-[[params.categories]]
-name = "퍼포먼스"
-nameEn = "Performance"
-slug = "performance"
-icon = "lightning"
 
 [[params.categories]]
-name = "액세서리"
-nameEn = "Accessories"
-slug = "accessories"
-icon = "heart"
-
-[[params.categories]]
-name = "라이프스타일"
-nameEn = "Lifestyle"
-slug = "lifestyle"
-icon = "adjustment"
-
-[[params.categories]]
-name = "신규 상품"
-nameEn = "New Arrival"
-slug = "new_arrival"
-icon = "spark"
-
-[[params.categories]]
-name = "할인"
-nameEn = "SALE"
-slug = "sale"
-icon = "card"
+name = "기본"
+nameEn = "base"
+slug = "base"
+icon = "tag"

@@ -1,0 +1,112 @@
+{{- /*
+  Aurora product card.
+
+  Params:
+    product (dict)  normalized product from aurora/product-data.html
+    variant (string) "feature" renders the tall bento tile, anything else the standard card
+    class   (string) extra classes for the outer element
+    eager   (bool)   render the image without lazy loading (above the fold)
+*/ -}}
+{{- $p := .product -}}
+{{- $variant := .variant | default "default" -}}
+{{- $isFeature := eq $variant "feature" -}}
+{{- $extraClass := .class | default "" -}}
+{{- $href := printf "/products/%s/" $p.slug | relLangURL -}}
+{{- $badgeLabels := dict "new" (i18n "aurora_badge_new") "best" (i18n "aurora_badge_best") "sale" (i18n "aurora_badge_sale") -}}
+{{- $badgeLabel := index $badgeLabels $p.badge | default "" -}}
+<article class="aurora-card group relative flex flex-col overflow-hidden rounded-[24px] {{ $extraClass }}">
+    <a href="{{ $href }}"
+       class="absolute inset-0 z-10 rounded-[24px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aurora-accent)] focus-visible:ring-offset-2"
+       aria-label="{{ $p.name }}"></a>
+
+    <div class="relative w-full overflow-hidden bg-black/5 dark:bg-white/5 {{ if $isFeature }}aspect-[4/5] sm:aspect-[16/13] lg:aspect-auto lg:min-h-[18rem] lg:max-h-[30rem] lg:flex-1{{ else }}aspect-[4/5]{{ end }}">
+        {{- if $p.image }}
+        <img src="{{ $p.image }}"
+             alt="{{ $p.name }}"
+             {{ if not .eager }}loading="lazy"{{ end }}
+             decoding="async"
+             class="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]">
+        {{- if $p.imageHover }}
+        <img src="{{ $p.imageHover }}"
+             alt=""
+             aria-hidden="true"
+             loading="lazy"
+             decoding="async"
+             class="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+        {{- end }}
+        {{- else }}
+        {{ partial "aurora/media-fallback.html" (dict "size" (cond $isFeature "lg" "sm")) }}
+        {{- end }}
+
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/40 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100"></div>
+
+        <div class="absolute left-3 top-3 z-20 flex flex-wrap gap-1.5">
+            {{- if $p.soldOut }}
+            <span class="rounded-full bg-black/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur dark:bg-white/90 dark:text-black">{{ i18n "sold_out" }}</span>
+            {{- else if gt $p.discountRate 0 }}
+            <span class="rounded-full bg-rose-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">{{ $p.discountRate }}% {{ i18n "aurora_discount_suffix" }}</span>
+            {{- end }}
+            {{- if and $badgeLabel (not $p.soldOut) }}
+            <span class="rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--aurora-ink)] backdrop-blur dark:bg-white/10 dark:text-white">{{ $badgeLabel }}</span>
+            {{- end }}
+            {{- if and $p.seasonTag (not $p.soldOut) }}
+            <span class="rounded-full bg-[var(--aurora-mint)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#04231D]">{{ $p.seasonTag }}</span>
+            {{- end }}
+        </div>
+
+        <button type="button"
+                @click="$dispatch('add-to-cart', {
+                    id: {{ $p.id | jsonify }},
+                    name: {{ $p.name | jsonify }},
+                    price: {{ $p.finalPrice }},
+                    image: {{ if $p.image }}{{ $p.image | jsonify }}{{ else }}null{{ end }},
+                    quantity: 1
+                })"
+                {{ if $p.soldOut }}disabled{{ end }}
+                class="absolute bottom-3 right-3 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[var(--aurora-ink)] shadow-[0_10px_24px_-12px_rgba(11,14,20,0.7)] backdrop-blur transition-all duration-200 hover:bg-[var(--aurora-accent)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aurora-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white/90 disabled:hover:text-[var(--aurora-ink)] md:opacity-0 md:translate-y-2 md:group-hover:opacity-100 md:group-hover:translate-y-0 md:focus-visible:opacity-100 md:focus-visible:translate-y-0 dark:bg-white/10 dark:text-white"
+                aria-label="{{ if $p.soldOut }}{{ i18n "sold_out" }}{{ else }}{{ i18n "aurora_quick_add" }}{{ end }}: {{ $p.name }}">
+            {{- if $p.soldOut }}
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+            {{- else }}
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 5v14M5 12h14"></path></svg>
+            {{- end }}
+        </button>
+    </div>
+
+    <div class="flex flex-col gap-2 p-4 {{ if $isFeature }}md:p-6{{ end }}">
+        <h3 class="aurora-body line-clamp-2 font-semibold leading-snug text-[var(--aurora-ink)] transition-colors duration-200 group-hover:text-[var(--aurora-accent)] {{ if $isFeature }}text-lg md:text-2xl aurora-display{{ else }}text-sm md:text-base{{ end }}">
+            {{ $p.name }}
+        </h3>
+
+        {{- if and $isFeature $p.subtitle }}
+        <p class="aurora-body line-clamp-2 text-sm leading-6 text-[var(--aurora-muted)]">{{ $p.subtitle }}</p>
+        {{- end }}
+
+        <div class="flex min-h-[18px] flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--aurora-muted)]">
+            {{- if gt $p.rating 0.0 }}
+            <span class="inline-flex items-center gap-1 text-amber-500" aria-label="{{ i18n "rating_average_label" }} {{ printf "%.1f" $p.rating }}">
+                <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path></svg>
+                <span class="font-semibold text-[var(--aurora-ink)]">{{ printf "%.1f" $p.rating }}</span>
+            </span>
+            {{- if gt $p.reviewCount 0 }}
+            <span>{{ lang.FormatNumberCustom 0 $p.reviewCount }}{{ i18n "aurora_reviews_suffix" }}</span>
+            {{- end }}
+            {{- else }}
+            <span>{{ i18n "rating_empty_short" }}</span>
+            {{- end }}
+            {{- if and $isFeature $p.origin }}
+            <span class="hidden sm:inline" aria-hidden="true">·</span>
+            <span class="hidden sm:inline">{{ $p.origin }}</span>
+            {{- end }}
+        </div>
+
+        <div class="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            {{- if gt $p.salePrice 0 }}
+            <span class="text-sm font-normal text-[var(--aurora-muted)] line-through">₩{{ lang.FormatNumberCustom 0 $p.price }}</span>
+            <span class="{{ if $isFeature }}text-xl md:text-2xl{{ else }}text-base md:text-lg{{ end }} font-bold tracking-tight text-rose-500">₩{{ lang.FormatNumberCustom 0 $p.salePrice }}</span>
+            {{- else }}
+            <span class="{{ if $isFeature }}text-xl md:text-2xl{{ else }}text-base md:text-lg{{ end }} font-bold tracking-tight text-[var(--aurora-ink)]">₩{{ lang.FormatNumberCustom 0 $p.price }}</span>
+            {{- end }}
+        </div>
+    </div>
+</article>

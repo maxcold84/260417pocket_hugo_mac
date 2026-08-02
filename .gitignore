@@ -8,7 +8,8 @@ pocketbase.exe
 hugo/public/
 hugo/resources/
 hugo/.hugo_build.lock
-hugo/content/products/
+hugo/content/products/*
+!hugo/content/products/.gitkeep
 
 # macOS
 .DS_Store
@@ -18,4 +19,15 @@ hugo/content/products/
 *.bak
 .env
 token.json
+
+# Local QA/runtime artifacts
+qa-*.png
+pb-serve-*.log
+
+# Local Codex Windows desktop tooling
+tools/windows/*
+tools/rg.cmd
+tools/rg-shim.ps1
+!tools/windows/start-pocketbase.cmd
+!tools/windows/start-pocketbase.ps1
 

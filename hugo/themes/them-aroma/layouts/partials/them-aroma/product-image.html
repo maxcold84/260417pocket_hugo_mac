@@ -1,0 +1,14 @@
+{{ $product := . }}
+{{ $imageSrc := "" }}
+{{ with $product.images }}
+  {{ if gt (len .) 0 }}
+    {{ $firstImage := index . 0 }}
+    {{ if or (hasPrefix $firstImage "/") (hasPrefix $firstImage "http") }}
+      {{ $imageSrc = $firstImage }}
+    {{ else }}
+      {{ $id := $product.id | default $product.slug | default $product.name }}
+      {{ $imageSrc = printf "/api/files/products/%s/%s" $id $firstImage }}
+    {{ end }}
+  {{ end }}
+{{ end }}
+{{ return $imageSrc }}

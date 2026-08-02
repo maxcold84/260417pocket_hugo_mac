@@ -1,0 +1,40 @@
+{{ $aroma := site.Params.aroma | default dict }}
+{{ $defaultProductSource := "markdown" }}
+{{ if isset site.Params "aroma" }}{{ $defaultProductSource = "auto" }}{{ end }}
+{{ $productSource := lower ($aroma.productSource | default $defaultProductSource) }}
+{{ $data := dict "items" slice }}
+{{ $productItems := slice }}
+{{ $useMarkdownFallback := eq $productSource "markdown" }}
+{{ if not $useMarkdownFallback }}
+  {{ $pbBase := getenv "HUGO_POCKETBASE_INTERNAL_URL" | default ($aroma.pocketbaseInternalURL | default site.BaseURL) }}
+  {{ if not (hasSuffix $pbBase "/") }}
+    {{ $pbBase = printf "%s/" $pbBase }}
+  {{ end }}
+  {{ $prodUrl := printf "%sapi/collections/products/records?sort=sort_order&expand=category&limit=1000&t=%d" $pbBase now.Unix }}
+  {{ with try (resources.GetRemote $prodUrl) }}
+    {{ with .Err }}
+      {{ $useMarkdownFallback = true }}
+    {{ else }}
+      {{ $data = .Value | transform.Unmarshal }}
+      {{ $productItems = $data.items | default slice }}
+    {{ end }}
+  {{ end }}
+{{ end }}
+{{ if $useMarkdownFallback }}
+  {{ $productItems = slice }}
+  {{ range (where site.RegularPages "Section" "products").ByWeight }}
+    {{ $productItems = $productItems | append (dict
+      "id" (.Params.id | default .File.BaseFileName)
+      "name" .Title
+      "slug" .File.BaseFileName
+      "price" (.Params.price | default 0)
+      "discount_price" (.Params.discount_price | default 0)
+      "stock" (.Params.stock | default 1)
+      "rating_average" (.Params.rating_average | default 0)
+      "rating_count" (.Params.rating_count | default 0)
+      "images" (.Params.images | default (slice))
+      "category" (.Params.category | default "")
+    ) }}
+  {{ end }}
+{{ end }}
+{{ return $productItems }}

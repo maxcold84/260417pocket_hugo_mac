@@ -2,128 +2,21 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
     try {
         const cmsUtil = require(`${__hooks}/utils/cms.js`);
 
-        // Step 0: Sync categories from hugo.toml to DB first
+        // Step 0: Prune stale TOML categories first, then sync the remaining TOML metadata to DB.
         try {
-            const tomlBytes = $os.readFile("hugo/hugo.toml");
-            const tomlBinaryStr = Array.from(tomlBytes).map(b => String.fromCharCode(b)).join('');
-            const tomlStr = decodeURIComponent(escape(tomlBinaryStr));
-            cmsUtil.syncCategoriesFromToml($app, tomlStr);
+            const categoryToml = cmsUtil.pruneCategoryTomlToDb($app);
+            cmsUtil.syncCategoriesFromToml($app, categoryToml.toml);
+            if (categoryToml.removed > 0) {
+                console.log("[cms-rebuild] Removed " + categoryToml.removed + " stale category blocks from hugo.toml before rebuild.");
+            }
         } catch (catErr) {
-            console.error("Failed to sync categories during rebuild:", catErr);
+            console.error("Failed to reconcile categories during rebuild:", catErr);
         }
 
-        // Step 1: Get all current products from DB — collect slugs and image filenames
-        const products = $app.findRecordsByFilter("products", "1=1", "sort_order", 1000, 0);
-        const dbSlugs = {};
-        const usedImagePrefixes = []; // original image filenames used by active products
-        for (let p of products) {
-            const slug = p.getString("slug");
-            if (slug) dbSlugs[slug] = true;
-            const images = p.getStringSlice("images");
-            if (images && images.length > 0) {
-                for (let img of images) {
-                    const base = img.replace(/\.[^.]+$/, "");
-                    usedImagePrefixes.push(base);
-                }
-            }
-        }
+        // Step 1: Sync all current DB products to Hugo Markdown and clean stale outputs.
+        const syncResult = cmsUtil.syncProductsToMarkdown($app);
 
-        // Step 2: Remove orphaned product markdown + static output folder
-        let deletedProductCount = 0;
-        try {
-            const entries = $os.readDir("hugo/content/products");
-            for (let entry of entries) {
-                const filename = entry.name();
-                if (!filename.endsWith(".md")) continue;
-                const slug = filename.slice(0, -3);
-                if (!dbSlugs[slug]) {
-                    try { $os.remove("hugo/content/products/" + filename); } catch (e) {}
-                    try { $os.removeAll("pb_public/products/" + slug); } catch (e) {}
-                    deletedProductCount++;
-                }
-            }
-        } catch (e) {
-            console.error("readDir (products) error:", e);
-        }
-
-        // Helper: check if a generated image file is still used by an active product
-        function isImageUsed(filename) {
-            for (let prefix of usedImagePrefixes) {
-                if (filename.indexOf(prefix) === 0) return true;
-            }
-            return false;
-        }
-
-        // Step 3: Remove orphaned Hugo-generated images from hugo/resources/_gen/images/
-        let deletedImageCount = 0;
-        try {
-            const resEntries = $os.readDir("hugo/resources/_gen/images");
-            for (let entry of resEntries) {
-                const filename = entry.name();
-                if (!isImageUsed(filename)) {
-                    try { $os.remove("hugo/resources/_gen/images/" + filename); } catch (e) {}
-                    deletedImageCount++;
-                }
-            }
-        } catch (e) {
-            console.error("readDir (resources/_gen/images) error:", e);
-        }
-
-        // Step 4: Remove orphaned published images from pb_public/
-        try {
-            const pubEntries = $os.readDir("pb_public");
-            for (let entry of pubEntries) {
-                const filename = entry.name();
-                if (!filename.endsWith(".webp") && !filename.endsWith(".jpg") && !filename.endsWith(".png")) continue;
-                if (!isImageUsed(filename)) {
-                    try { $os.remove("pb_public/" + filename); } catch (e) {}
-                    deletedImageCount++;
-                }
-            }
-        } catch (e) {
-            console.error("readDir (pb_public) error:", e);
-        }
-
-        // Step 5: Write/update markdown files for all current DB products
-        let syncedCount = 0;
-        for (let p of products) {
-            const slug = p.getString("slug");
-            if (!slug) continue;
-
-            const name = p.getString("name").replace(/"/g, '\\"');
-            const price = p.getInt("price");
-            const description = p.getString("description");
-
-            const images = p.getStringSlice("images");
-            let imageLine = "";
-            if (images && images.length > 0) {
-                const collectionId = p.collection().id;
-                const recordId = p.id;
-                let imageUrls = [];
-                for (let img of images) {
-                    imageUrls.push('"/api/files/' + collectionId + '/' + recordId + '/' + img + '"');
-                }
-                imageLine = '\nimages: [' + imageUrls.join(', ') + ']\nimage: ' + imageUrls[0];
-            }
-
-            const sortOrder = p.getInt("sort_order");
-            const discountPrice = p.getInt("discount_price");
-            const categoryId = p.getString("category");
-            let categorySlug = "";
-            if (categoryId) {
-                try {
-                    const catRec = $app.findRecordById("categories", categoryId);
-                    categorySlug = catRec.getString("slug");
-                } catch (e) {
-                    console.error("Failed to find category for product", e);
-                }
-            }
-            const content = '---\nid: "' + p.id + '"\ntitle: "' + name + '"\nprice: ' + price + '\ndiscount_price: ' + discountPrice + '\nweight: ' + sortOrder + '\ncategory: "' + categorySlug + '"' + imageLine + '\n---\n' + description + '\n';
-            $os.writeFile("hugo/content/products/" + slug + ".md", content, 0o644);
-            syncedCount++;
-        }
-
-        // Step 6: Run Hugo with --ignoreCache
+        // Step 2: Run Hugo with --ignoreCache
         let hugoOutput = "";
         let hugoWarning = "";
         try {
@@ -143,13 +36,14 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
             return e.json(500, {
                 error: "Hugo 빌드 실패",
                 detail: errMsg,
-                synced: syncedCount,
-                deletedPages: deletedProductCount,
-                deletedImages: deletedImageCount
+                synced: syncResult.synced,
+                deletedPages: syncResult.deletedPages,
+                deletedImages: syncResult.deletedImages,
+                clearedBrokenCategories: syncResult.clearedBrokenCategories
             });
         }
 
-        const summary = syncedCount + "개 상품 동기화, " + deletedProductCount + "개 페이지 삭제, " + deletedImageCount + "개 고아 이미지 정리 완료.";
+        const summary = syncResult.synced + "개 상품 동기화, " + syncResult.deletedPages + "개 페이지 삭제, " + syncResult.deletedImages + "개 고아 이미지 정리 완료.";
         return e.json(200, {
             message: "동기화 및 사이트 빌드 완료: " + summary + (hugoWarning ? " " + hugoWarning : ""),
             detail: hugoOutput
@@ -162,17 +56,54 @@ routerAdd("POST", "/api/cms/rebuild", (e) => {
 
 routerAdd("GET", "/api/cms/settings", (e) => {
     try {
-        let tomlStr = "";
-        try {
-            const bytes = $os.readFile("hugo/hugo.toml");
-            const binaryStr = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
-            tomlStr = decodeURIComponent(escape(binaryStr));
-        } catch (err) {
-            console.error("Failed to read hugo.toml", err);
-        }
-        return e.json(200, { toml: tomlStr });
+        const cmsUtil = require(`${__hooks}/utils/cms.js`);
+        return e.json(200, cmsUtil.resolveThemeSettings());
     } catch (err) {
         return e.json(500, { error: err.toString() });
+    }
+}, $apis.requireSuperuserAuth());
+
+routerAdd("POST", "/api/cms/settings/theme", (e) => {
+    try {
+        const cmsUtil = require(`${__hooks}/utils/cms.js`);
+        const body = e.requestInfo().body || {};
+        const settings = cmsUtil.applyThemeSelection(body.theme);
+
+        let hugoOutput = "";
+        let hugoWarning = "";
+        try {
+            const hugoResult = cmsUtil.runHugo(e);
+            if (hugoResult && hugoResult.output) {
+                hugoOutput = hugoResult.output;
+                if (hugoOutput.indexOf("WARN") !== -1 || hugoOutput.indexOf("ERROR") !== -1) {
+                    hugoWarning = " [빌드 경고: " + hugoOutput.split("\n").filter(function(l) {
+                        return l.indexOf("WARN") !== -1 || l.indexOf("ERROR") !== -1;
+                    }).join(" | ") + "]";
+                }
+            }
+        } catch (hugoErr) {
+            const errMsg = String(hugoErr);
+            console.error("Hugo build failed after theme update:", errMsg);
+            return e.json(500, {
+                error: "테마는 저장되었으나 Hugo 빌드 실패",
+                detail: errMsg,
+                toml: settings.toml,
+                activeTheme: settings.activeTheme,
+                themes: settings.themes
+            });
+        }
+
+        return e.json(200, {
+            message: "테마가 적용되었고 사이트가 재빌드되었습니다." + hugoWarning,
+            detail: hugoOutput,
+            toml: settings.toml,
+            activeTheme: settings.activeTheme,
+            themes: settings.themes
+        });
+    } catch (err) {
+        const errMsg = String(err);
+        const statusCode = errMsg.indexOf("유효하지 않은 테마") !== -1 || errMsg.indexOf("존재하지 않는 테마") !== -1 ? 400 : 500;
+        return e.json(statusCode, { error: errMsg });
     }
 }, $apis.requireSuperuserAuth());
 
@@ -232,6 +163,14 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
         const renderUtil = require(`${__hooks}/utils/render.js`);
         const orderId = e.request.pathValue("id");
         const order = $app.findRecordById("orders", orderId);
+        const fromTab = e.request.url.query().get("from");
+        const returnTab = fromTab === "orderArchive" ? "orderArchive" : "orders";
+        const archiveStatus = e.request.url.query().get("archiveStatus");
+        const validArchiveStatus = archiveStatus === "completed" || archiveStatus === "purchase_confirmed" || archiveStatus === "refunded" || archiveStatus === "cancelled";
+        const returnHref = returnTab === "orderArchive"
+            ? "/cms/?tab=orderArchive" + (validArchiveStatus ? "&archiveStatus=" + archiveStatus : "")
+            : "/cms/?tab=orders";
+        const returnLabel = returnTab === "orderArchive" ? "보관함으로 돌아가기" : "목록으로 돌아가기";
         
         // Expand user
         $app.expandRecord(order, ["user"], null);
@@ -299,7 +238,7 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
             displayShippingAddress = guestInfo.address || "";
         }
         
-        const items = $app.findRecordsByFilter("order_items", "order = {:id}", "-id", 100, 0, { id: orderId });
+        const items = $app.findRecordsByFilter("order_items", "order = {:id}", "", 100, 0, { id: orderId });
         const itemsWithTotals = items.map(item => {
             $app.expandRecord(item, ["product"], null);
             const plain = item.publicExport();
@@ -319,17 +258,20 @@ routerAdd("GET", "/cms/orders/{id}", (e) => {
                 email: memberEmail,
                 address: memberAddress
             } : null,
-            isGuest: guestInfo !== null,
+            isGuest: !order.getString("user") && guestInfo !== null,
             guestName: guestInfo ? (guestInfo.name || "") : "",
             guestPhone: guestInfo ? (guestInfo.phone || "") : "",
             guestEmail: guestInfo ? (guestInfo.email || "") : "",
-            guestPassword: guestInfo ? (guestInfo.password || "") : "",
+            guestPasswordStored: guestInfo && guestInfo.password_hash ? "해시로 저장됨" : "미설정",
             memberName: memberName,
             memberPhone: memberPhone,
             memberEmail: memberEmail,
             displayRecipientName: displayRecipientName,
             displayRecipientPhone: displayRecipientPhone,
-            displayShippingAddress: displayShippingAddress
+            displayShippingAddress: displayShippingAddress,
+            returnTab: returnTab,
+            returnHref: returnHref,
+            returnLabel: returnLabel
         });
         return e.html(200, fullHtml);
     } catch (err) {
@@ -350,27 +292,162 @@ routerAdd("POST", "/api/cms/orders/{id}/update", (e) => {
 
         // Helper to retrieve fields from both JSON body and URL-encoded form values
         const getVal = (key) => {
-            if (bodyData && key in bodyData) {
-                return bodyData[key];
+            const value = bodyData && Object.prototype.hasOwnProperty.call(bodyData, key)
+                ? bodyData[key]
+                : e.request.formValue(key);
+            if (Array.isArray(value)) {
+                return value.length > 0 ? String(value[0]) : "";
             }
-            return e.request.formValue(key);
+            if (value === null || value === undefined) {
+                return "";
+            }
+            return String(value);
         };
 
         const order = $app.findRecordById("orders", orderId);
-        
+
+        const status = getVal("status");
+        const validStatuses = ["pending", "paid", "cancel_requested", "cancelled", "refunded", "shipping", "completed", "purchase_confirmed"];
+        if (validStatuses.indexOf(status) === -1) {
+            return e.json(400, { error: "유효하지 않은 주문 상태입니다." });
+        }
+        const currentStatus = order.getString("status");
+        const validateAdminStatusTransition = (fromStatus, toStatus) => {
+            if (fromStatus === toStatus) return { ok: true };
+
+            if (fromStatus === "purchase_confirmed" || fromStatus === "refunded" || fromStatus === "cancelled") {
+                return { ok: false, error: "완료된 환불/취소 주문의 상태는 직접 변경할 수 없습니다." };
+            }
+
+            if (toStatus === "purchase_confirmed") {
+                return { ok: false, error: "구매확정 상태는 회원 구매확정 경로로만 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "refunded" || toStatus === "cancelled") {
+                return { ok: false, error: "환불/취소 완료 상태는 환불 승인 경로로만 변경할 수 있습니다." };
+            }
+
+            if (fromStatus === "pending") {
+                return { ok: false, error: "결제대기 주문은 결제 검증 후에만 진행 상태로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "paid") {
+                return fromStatus === "cancel_requested"
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 상태는 결제 검증 또는 취소요청 철회 경로로만 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "cancel_requested") {
+                return fromStatus === "paid"
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 상태의 주문만 취소요청으로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "shipping") {
+                return (fromStatus === "paid" || fromStatus === "shipping" || fromStatus === "completed")
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 또는 배송 관련 상태의 주문만 배송중으로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "completed") {
+                return (fromStatus === "paid" || fromStatus === "shipping" || fromStatus === "completed")
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 또는 배송중 주문만 배송완료로 변경할 수 있습니다." };
+            }
+
+            return { ok: false, error: "허용되지 않은 주문 상태 변경입니다." };
+        };
+        const transition = validateAdminStatusTransition(currentStatus, status);
+        if (!transition.ok) {
+            return e.json(400, { error: transition.error });
+        }
+
         // Update all standard order detail fields
-        order.set("status", getVal("status"));
-        order.set("courier_name", getVal("courier_name"));
-        order.set("tracking_number", getVal("tracking_number"));
-        order.set("recipient_name", getVal("recipient_name"));
-        order.set("recipient_phone", getVal("recipient_phone"));
-        order.set("shipping_address", getVal("shipping_address"));
-        order.set("shipping_address_detail", getVal("shipping_address_detail"));
-        order.set("shipping_memo", getVal("shipping_memo"));
+        order.set("status", status);
+        order.set("courier_name", getVal("courier_name").trim());
+        order.set("tracking_number", getVal("tracking_number").trim());
+        order.set("recipient_name", getVal("recipient_name").trim());
+        order.set("recipient_phone", getVal("recipient_phone").trim());
+        order.set("shipping_address", getVal("shipping_address").trim());
+        order.set("shipping_address_detail", getVal("shipping_address_detail").trim());
+        order.set("shipping_memo", getVal("shipping_memo").trim());
         
         $app.save(order);
         
         return e.json(200, { message: "Order updated successfully" });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+});
+
+routerAdd("POST", "/api/cms/orders/{id}/status", (e) => {
+    try {
+        const authUtil = require(`${__hooks}/utils/auth.js`);
+        const superuser = authUtil.getSuperuserFromCookie(e);
+        if (!superuser) {
+            return e.json(401, { error: "인증되지 않은 사용자입니다." });
+        }
+
+        const orderId = e.request.pathValue("id");
+        const bodyData = e.requestInfo().body || {};
+        const nextStatus = String(bodyData.status || "").trim();
+        const validStatuses = ["pending", "paid", "cancel_requested", "shipping", "completed", "purchase_confirmed"];
+        if (validStatuses.indexOf(nextStatus) === -1) {
+            return e.json(400, { error: "이 경로에서 변경할 수 없는 주문 상태입니다." });
+        }
+
+        const order = $app.findRecordById("orders", orderId);
+        const currentStatus = order.getString("status");
+        const validateAdminStatusTransition = (fromStatus, toStatus) => {
+            if (fromStatus === toStatus) return { ok: true };
+
+            if (fromStatus === "purchase_confirmed" || fromStatus === "refunded" || fromStatus === "cancelled") {
+                return { ok: false, error: "완료된 환불/취소 주문의 상태는 직접 변경할 수 없습니다." };
+            }
+
+            if (toStatus === "purchase_confirmed") {
+                return { ok: false, error: "구매확정 상태는 회원 구매확정 경로로만 변경할 수 있습니다." };
+            }
+
+            if (fromStatus === "pending") {
+                return { ok: false, error: "결제대기 주문은 결제 검증 후에만 진행 상태로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "paid") {
+                return fromStatus === "cancel_requested"
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 상태는 결제 검증 또는 취소요청 철회 경로로만 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "cancel_requested") {
+                return fromStatus === "paid"
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 상태의 주문만 취소요청으로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "shipping") {
+                return (fromStatus === "paid" || fromStatus === "shipping" || fromStatus === "completed")
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 또는 배송 관련 상태의 주문만 배송중으로 변경할 수 있습니다." };
+            }
+
+            if (toStatus === "completed") {
+                return (fromStatus === "paid" || fromStatus === "shipping" || fromStatus === "completed")
+                    ? { ok: true }
+                    : { ok: false, error: "결제완료 또는 배송중 주문만 배송완료로 변경할 수 있습니다." };
+            }
+
+            return { ok: false, error: "허용되지 않은 주문 상태 변경입니다." };
+        };
+        const transition = validateAdminStatusTransition(currentStatus, nextStatus);
+        if (!transition.ok) {
+            return e.json(400, { error: transition.error });
+        }
+
+        order.set("status", nextStatus);
+        $app.save(order);
+
+        return e.json(200, { message: "주문 상태가 변경되었습니다." });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }
@@ -383,6 +460,10 @@ routerAdd("POST", "/api/cms/orders/{id}/approve-cancel", (e) => {
         const orderId = e.request.pathValue("id");
         const order = $app.findRecordById("orders", orderId);
         const currentStatus = order.getString("status");
+
+        if (currentStatus === "refunded") {
+            return e.json(200, { message: "이미 환불 처리된 주문입니다." });
+        }
 
         // Only cancel_requested or paid orders can be approved for cancellation
         if (currentStatus !== "cancel_requested" && currentStatus !== "paid") {
@@ -397,7 +478,10 @@ routerAdd("POST", "/api/cms/orders/{id}/approve-cancel", (e) => {
 
         // The payment ID used with PortOne is the order ID itself
         const paymentId = orderId;
-        const storeId = env.get("PORTONE_STORE_ID") || "";
+        const storeId = env.get("PORTONE_STORE_ID");
+        if (!storeId) {
+            return e.json(500, { error: "PORTONE_STORE_ID 환경 변수가 설정되지 않았습니다." });
+        }
 
         const cancelBody = JSON.stringify({
             reason: "관리자 취소 승인",
@@ -485,54 +569,34 @@ routerAdd("POST", "/api/cms/categories/delete", (e) => {
         }
 
         // Find database record
-        const catRec = $app.findRecordById("categories", id);
+        let catRec;
+        try {
+            catRec = $app.findRecordById("categories", id);
+        } catch (findErr) {
+            return e.json(404, { error: "카테고리를 찾을 수 없습니다." });
+        }
         const slug = catRec.getString("slug");
 
-        // Read hugo.toml
-        const tomlBytes = $os.readFile("hugo/hugo.toml");
-        const tomlBinaryStr = Array.from(tomlBytes).map(b => String.fromCharCode(b)).join('');
-        const tomlStr = decodeURIComponent(escape(tomlBinaryStr));
-
-        // Remove block matching slug
-        const parts = tomlStr.split("[[params.categories]]");
-        const header = parts[0];
-        const remainingBlocks = [];
-        for (let i = 1; i < parts.length; i++) {
-            const block = parts[i];
-            const slugMatch = block.match(/slug\s*=\s*"([^"]+)"/);
-            if (slugMatch && slugMatch[1] === slug) {
-                continue; // Skip this block (delete)
-            }
-            remainingBlocks.push(block);
-        }
-
-        let updatedToml = header;
-        if (remainingBlocks.length > 0) {
-            updatedToml += "[[params.categories]]" + remainingBlocks.join("[[params.categories]]");
-        }
-
-        $os.writeFile("hugo/hugo.toml", updatedToml, 0o644);
-
-        // Clear category relation on products
-        const products = $app.findRecordsByFilter("products", "category = '" + id + "'", "", 1000, 0);
-        for (let p of products) {
-            p.set("category", "");
-            $app.save(p);
-        }
+        const tomlResult = cmsUtil.removeCategoryFromTomlBySlug(slug);
+        const clearedProducts = cmsUtil.clearProductsCategory($app, id);
 
         // Delete from database
         $app.delete(catRec);
 
-        // Rebuild site
+        // Rebuild site and regenerate product Markdown so stale category frontmatter is removed.
         let hugoWarning = "";
+        let syncResult = null;
         try {
-            cmsUtil.runHugo(e);
+            const rebuildResult = cmsUtil.syncProductsAndRunHugo($app, e);
+            syncResult = rebuildResult.sync;
         } catch (hugoErr) {
             console.error("Hugo build failed after category delete:", hugoErr);
             hugoWarning = " (주의: 카테고리는 삭제되었으나 사이트 자동 빌드에 실패했습니다. 환경 설정을 확인하거나 수동 빌드를 시도하세요.)";
         }
 
-        return e.json(200, { message: "카테고리가 삭제되었습니다." + hugoWarning });
+        const syncNote = syncResult ? " 상품 " + syncResult.synced + "개를 다시 동기화했습니다." : "";
+        const tomlNote = tomlResult.changed ? "" : " (hugo.toml에는 해당 카테고리 블록이 없었습니다.)";
+        return e.json(200, { message: "카테고리가 삭제되었습니다. 연결된 상품 " + clearedProducts + "개의 카테고리를 해제했습니다." + syncNote + tomlNote + hugoWarning });
     } catch (err) {
         return e.json(500, { error: err.toString() });
     }

@@ -1,0 +1,185 @@
+{{ define "main" }}
+<main class="max-w-7xl mx-auto px-4 py-12 flex-1 w-full" x-data="profileForm()">
+    <div class="max-w-2xl mx-auto py-8">
+        <h1 class="text-3xl font-light mb-8 text-center tracking-widest uppercase">{{ i18n "profile" }}</h1>
+        
+        <!-- Quick Actions: Orders & Logout -->
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <a href="{{ "/my-orders/" | relLangURL }}" class="group flex items-center gap-4 bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-5 rounded-sm hover:border-bmw-blue dark:hover:border-bmw-blue transition duration-300">
+                <div class="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-black rounded-full group-hover:bg-bmw-blue/10 transition">
+                    <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-bmw-blue transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                </div>
+                <div>
+                    <span class="text-sm font-medium text-gray-900 dark:text-white uppercase tracking-wider">{{ i18n "orders" }}</span>
+                    <p class="text-xs text-gray-400 mt-0.5">{{ i18n "view_order_history" }}</p>
+                </div>
+            </a>
+            <button @click="doLogout()" class="group flex items-center gap-4 bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-5 rounded-sm hover:border-red-400 dark:hover:border-red-400 transition duration-300 text-left">
+                <div class="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-black rounded-full group-hover:bg-red-500/10 transition">
+                    <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-red-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                </div>
+                <span class="text-sm font-medium text-gray-900 dark:text-white uppercase tracking-wider">{{ i18n "logout" }}</span>
+            </button>
+        </div>
+
+        <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-8 rounded-sm mb-8">
+            <h2 class="text-xl font-medium mb-6 uppercase tracking-wider">{{ i18n "update_profile" }}</h2>
+            
+            <!-- Success/Error Alerts -->
+            <div x-show="infoSuccess" x-cloak class="bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-400 px-4 py-3 mb-6 flex justify-between items-center text-sm">
+                <span x-text="infoSuccess"></span>
+                <button @click="infoSuccess=''" class="hover:text-green-800 dark:hover:text-white">&times;</button>
+            </div>
+            <div x-show="infoError" x-cloak class="bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 px-4 py-3 mb-6 flex justify-between items-center text-sm">
+                <span x-text="infoError"></span>
+                <button @click="infoError=''" class="hover:text-red-800 dark:hover:text-white">&times;</button>
+            </div>
+
+            <form @submit.prevent="updateInfo()" class="space-y-6">
+                <div>
+                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "email" }}</label>
+                    <input type="email" x-model="infoData.email" disabled class="w-full bg-gray-100 dark:bg-[#111] border border-gray-200 dark:border-bmw-darkBorder text-gray-500 px-4 py-3 opacity-70 cursor-not-allowed" />
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "nickname" }}</label>
+                    <input type="text" x-model="infoData.nickname" required class="w-full bg-white dark:bg-[#111] border border-gray-300 dark:border-bmw-darkBorder text-gray-900 dark:text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "phone" }}</label>
+                    <input type="text" x-model="infoData.phone" class="w-full bg-white dark:bg-[#111] border border-gray-300 dark:border-bmw-darkBorder text-gray-900 dark:text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
+                </div>
+                {{ partial "form/address.html" (dict "model" "infoData.address" "Page" .) }}
+                <div class="mt-2">
+                    <input type="text" x-model="infoData.address_detail" class="w-full bg-white dark:bg-[#111] border border-gray-300 dark:border-bmw-darkBorder text-gray-900 dark:text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" placeholder="상세 주소 (동·호수 등)" />
+                </div>
+                <button type="submit" :disabled="infoLoading" class="w-full bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
+                    <span x-show="!infoLoading">{{ i18n "save_changes" }}</span>
+                    <span x-show="infoLoading">{{ i18n "processing" }}</span>
+                </button>
+            </form>
+        </div>
+
+        <div class="bg-white dark:bg-bmw-surface border border-gray-200 dark:border-bmw-darkBorder p-8 rounded-sm">
+            <h2 class="text-xl font-medium mb-6 uppercase tracking-wider">{{ i18n "change_password" }}</h2>
+            
+            <!-- Success/Error Alerts -->
+            <div x-show="pwdSuccess" x-cloak class="bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-400 px-4 py-3 mb-6 flex justify-between items-center text-sm">
+                <span x-text="pwdSuccess"></span>
+                <button @click="pwdSuccess=''" class="hover:text-green-800 dark:hover:text-white">&times;</button>
+            </div>
+            <div x-show="pwdError" x-cloak class="bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 px-4 py-3 mb-6 flex justify-between items-center text-sm">
+                <span x-text="pwdError"></span>
+                <button @click="pwdError=''" class="hover:text-red-800 dark:hover:text-white">&times;</button>
+            </div>
+
+            <form @submit.prevent="updatePassword()" class="space-y-6">
+                <div>
+                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "old_password" }}</label>
+                    <input type="password" x-model="pwdData.oldPassword" required class="w-full bg-white dark:bg-[#111] border border-gray-300 dark:border-bmw-darkBorder text-gray-900 dark:text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "new_password" }}</label>
+                    <input type="password" x-model="pwdData.password" required class="w-full bg-white dark:bg-[#111] border border-gray-300 dark:border-bmw-darkBorder text-gray-900 dark:text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">{{ i18n "confirm_password" }}</label>
+                    <input type="password" x-model="pwdData.passwordConfirm" required class="w-full bg-white dark:bg-[#111] border border-gray-300 dark:border-bmw-darkBorder text-gray-900 dark:text-white px-4 py-3 focus:outline-none focus:border-bmw-blue transition" />
+                </div>
+                <button type="submit" :disabled="pwdLoading" class="w-full bg-bmw-blue hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 uppercase tracking-wider text-sm font-medium transition duration-300">
+                    <span x-show="!pwdLoading">{{ i18n "change_password" }}</span>
+                    <span x-show="pwdLoading">{{ i18n "processing" }}</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/pocketbase/dist/pocketbase.umd.js"></script>
+    <script>
+        function profileForm() {
+            return {
+                pb: null,
+                user: null,
+                infoLoading: false,
+                infoSuccess: '',
+                infoError: '',
+                infoData: { email: '', nickname: '', phone: '', address: '', address_detail: '' },
+                
+                pwdLoading: false,
+                pwdSuccess: '',
+                pwdError: '',
+                pwdData: { oldPassword: '', password: '', passwordConfirm: '' },
+
+                async init() {
+                    this.pb = new PocketBase(window.location.origin);
+                    if (!this.pb.authStore.isValid) {
+                        window.location.href = '/login';
+                        return;
+                    }
+                    // Fetch fresh user data (v0.23+ compatible)
+                    try {
+                        const authData = await this.pb.collection('users').authRefresh();
+                        this.user = authData.record || authData.model;
+                        this.infoData.email = this.user.email;
+                        this.infoData.nickname = this.user.nickname || '';
+                        this.infoData.phone = this.user.phone || '';
+                        this.infoData.address = this.user.address || '';
+                        this.infoData.address_detail = this.user.address_detail || '';
+                    } catch (e) {
+                        this.pb.authStore.clear();
+                        window.location.href = '/login';
+                    }
+                },
+
+                async updateInfo() {
+                    this.infoLoading = true;
+                    this.infoError = '';
+                    this.infoSuccess = '';
+                    try {
+                        const updated = await this.pb.collection('users').update(this.user.id, {
+                            nickname: this.infoData.nickname,
+                            phone: this.infoData.phone,
+                            address: this.infoData.address,
+                            address_detail: this.infoData.address_detail
+                        });
+                        this.user = updated;
+                        this.infoSuccess = '{{ i18n "profile_updated" }}';
+                    } catch (err) {
+                        this.infoError = err.message || 'Failed to update profile.';
+                    } finally {
+                        this.infoLoading = false;
+                    }
+                },
+
+                async updatePassword() {
+                    if (this.pwdData.password !== this.pwdData.passwordConfirm) {
+                        this.pwdError = 'Passwords do not match.';
+                        return;
+                    }
+                    this.pwdLoading = true;
+                    this.pwdError = '';
+                    this.pwdSuccess = '';
+                    try {
+                        await this.pb.collection('users').update(this.user.id, {
+                            oldPassword: this.pwdData.oldPassword,
+                            password: this.pwdData.password,
+                            passwordConfirm: this.pwdData.passwordConfirm
+                        });
+                        this.pwdSuccess = '{{ i18n "password_updated" }}';
+                        this.pwdData = { oldPassword: '', password: '', passwordConfirm: '' };
+                    } catch (err) {
+                        this.pwdError = err.message || 'Failed to change password. Please check your current password.';
+                    } finally {
+                        this.pwdLoading = false;
+                    }
+                },
+
+                doLogout() {
+                    localStorage.removeItem('pocketbase_auth');
+                    document.cookie = 'pb_auth=; Max-Age=0; path=/';
+                    window.location.href = '/';
+                }
+            }
+        }
+    </script>
+</main>
+{{ end }}

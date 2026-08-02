@@ -1,0 +1,11 @@
+name = "오로라 (Aurora)"
+license = "Internal"
+description = "2026 커머스 트렌드를 반영한 홈 화면 테마입니다. 오로라 메시 그라디언트, 벤토 그리드, 글래스 서피스, 마스크 텍스트 리빌과 스크롤 리빌 모션을 사용합니다. 홈 화면만 override하고 카탈로그·상품·로그인 등 나머지 화면은 기본 테마를 그대로 사용합니다."
+homepage = ""
+tags = ["commerce", "modern", "bento", "glass", "aurora", "2026"]
+features = ["home-override", "bento-grid", "aurora-gradient", "scroll-reveal", "default-fallback"]
+min_version = "0.160.1"
+
+[author]
+  name = "D'roll"
+  homepage = ""

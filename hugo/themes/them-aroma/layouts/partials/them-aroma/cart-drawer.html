@@ -1,0 +1,62 @@
+<template x-teleport="body">
+    <div x-show="cartOpen" class="fixed inset-0 z-[100] flex justify-end" style="display: none;">
+        <div x-show="cartOpen" x-transition.opacity class="absolute inset-0 bg-aroma-deep/60 backdrop-blur-sm" @click="cartOpen = false"></div>
+        <div x-show="cartOpen"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition ease-in duration-300"
+             x-transition:leave-start="translate-x-0"
+             x-transition:leave-end="translate-x-full"
+             class="relative flex h-full w-full max-w-md flex-col border-l border-aroma-muted bg-aroma-paper text-aroma-deep shadow-2xl">
+            <div class="flex items-center justify-between border-b border-aroma-muted p-6">
+                <h2 class="text-xl font-medium tracking-[0.12em] uppercase">{{ i18n "your_cart" }}</h2>
+                <button type="button" @click="cartOpen = false" class="text-3xl font-light leading-none text-aroma-deep/70 hover:text-aroma-deep" aria-label="{{ i18n "close_menu" | default "Close" }}">&times;</button>
+            </div>
+            <div class="relative flex flex-1 flex-col overflow-hidden">
+                <template x-if="cart.length === 0">
+                    <div class="flex h-full items-center justify-center px-6 text-sm text-aroma-deep/55">
+                        <p>{{ i18n "empty_cart" }}</p>
+                    </div>
+                </template>
+                <template x-if="cart.length > 0">
+                    <div class="flex h-full flex-col">
+                        <div class="flex-1 overflow-y-auto p-6">
+                            <template x-for="item in cart" :key="item.id">
+                                <div class="flex items-start gap-4 border-b border-aroma-muted/70 py-4">
+                                    <div class="flex h-20 w-20 flex-shrink-0 items-center justify-center bg-white text-[10px] uppercase text-aroma-deep/40">
+                                        <template x-if="item.image">
+                                            <img :src="item.image" class="h-full w-full object-cover" alt="">
+                                        </template>
+                                        <span x-show="!item.image">IMG</span>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <h3 class="truncate text-sm font-medium text-aroma-deep" x-text="item.name"></h3>
+                                        <p class="mt-2 text-xs text-aroma-deep/60">
+                                            <span x-text="'₩' + item.price.toLocaleString()"></span>
+                                            <span class="mx-1">x</span>
+                                            <input type="number" min="1" x-model.number="item.quantity" @change="updateQuantity(item.id, item.quantity)" class="w-12 border border-aroma-muted bg-transparent p-1 text-center text-xs text-aroma-deep">
+                                        </p>
+                                    </div>
+                                    <div class="flex flex-shrink-0 flex-col items-end gap-2 text-right">
+                                        <p class="text-sm font-semibold text-aroma-deep" x-text="'₩' + (item.price * item.quantity).toLocaleString()"></p>
+                                        <button type="button" @click="removeFromCart(item.id)" class="text-xs text-aroma-green hover:text-aroma-deep">{{ i18n "remove" }}</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="border-t border-aroma-muted bg-aroma-cream p-6">
+                            <div class="mb-6 flex items-center justify-between text-sm font-medium">
+                                <span class="uppercase tracking-[0.12em] text-aroma-deep/55">{{ i18n "subtotal" }}</span>
+                                <span class="text-lg text-aroma-deep" x-text="'₩' + cartTotal.toLocaleString()"></span>
+                            </div>
+                            <a href="{{ "/checkout/" | relLangURL }}" class="block w-full bg-aroma-green py-4 text-center text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-aroma-deep">
+                                {{ i18n "proceed_to_checkout" }}
+                            </a>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+</template>

@@ -1,0 +1,5 @@
+name = "기본 테마"
+license = "Internal"
+description = "현재 BMW 계열 디자인과 기존 상점 레이아웃을 보존하는 기본 Hugo 테마입니다."
+tags = ["commerce", "default", "bmw"]
+features = ["catalog", "product-detail", "login", "profile", "orders"]
