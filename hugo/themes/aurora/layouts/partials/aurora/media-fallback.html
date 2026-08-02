@@ -1,0 +1,15 @@
+{{- /*
+  Designed placeholder for products without images.
+
+  Params: size (string) "lg" for the hero spotlight, anything else for cards
+
+  A catalog can legitimately ship before its photography does, so this state
+  is styled rather than left as an empty grey box.
+*/ -}}
+{{- $isLarge := eq (.size | default "sm") "lg" -}}
+<div class="aurora-media-empty flex h-full w-full flex-col items-center justify-center gap-3 px-4 text-center">
+    <span class="aurora-tint inline-flex items-center justify-center rounded-2xl {{ if $isLarge }}h-14 w-14 p-3.5{{ else }}h-11 w-11 p-2.5{{ end }}">
+        {{ partial "aurora/icon.html" (dict "name" "basket") }}
+    </span>
+    <span class="aurora-eyebrow text-[10px] font-bold uppercase text-[var(--aurora-muted)]">{{ i18n "no_image" }}</span>
+</div>

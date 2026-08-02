@@ -1,0 +1,40 @@
+{{- /*
+  Renders a category icon.
+
+  Params: name (string)
+
+  Resolution order:
+    1. Material-symbol name from PocketBase mapped onto the Aurora icon set
+    2. icons/aurora/<name>.svg in this theme
+    3. icons/<name>.svg from the default theme's asset folder
+    4. icons/aurora/basket.svg
+*/ -}}
+{{- $name := lower (printf "%v" (.name | default "")) -}}
+{{- $aliases := dict
+  "eco" "leaf"
+  "spa" "sprout"
+  "grass" "sprout"
+  "wb_sunny" "sun"
+  "sunny" "sun"
+  "grain" "berry"
+  "nutrition" "berry"
+  "shopping_basket" "basket"
+  "storefront" "basket"
+  "local_grocery_store" "basket"
+-}}
+{{- $mapped := index $aliases $name | default $name -}}
+{{- $icon := "" -}}
+{{- with resources.Get (printf "icons/aurora/%s.svg" $mapped) -}}
+  {{- $icon = .Content -}}
+{{- end -}}
+{{- if not $icon -}}
+  {{- with resources.Get (printf "icons/%s.svg" $name) -}}
+    {{- $icon = .Content -}}
+  {{- end -}}
+{{- end -}}
+{{- if not $icon -}}
+  {{- with resources.Get "icons/aurora/basket.svg" -}}
+    {{- $icon = .Content -}}
+  {{- end -}}
+{{- end -}}
+{{- $icon | safeHTML -}}

@@ -1,0 +1,489 @@
+{{ define "main" }}
+{{/* ---------------------------------------------------------------
+     Aurora home — overrides only the home layout. Every other route
+     (catalog, product, login, profile, orders) falls back to the
+     default theme through the theme chain in hugo.toml.
+     --------------------------------------------------------------- */}}
+{{ $pbBase := getenv "HUGO_POCKETBASE_INTERNAL_URL" | default site.BaseURL }}
+{{ if not (hasSuffix $pbBase "/") }}{{ $pbBase = printf "%s/" $pbBase }}{{ end }}
+
+{{ $aurora := site.Params.aurora | default dict }}
+{{ $productLimit := int ($aurora.productLimit | default 12) }}
+{{ $categoryLimit := int ($aurora.categoryLimit | default 12) }}
+{{ $railIntervalMs := int ($aurora.railIntervalMs | default (site.Params.featuredProductSlideIntervalMs | default 5000)) }}
+
+{{ $products := partial "aurora/product-data.html" (dict "pbBase" $pbBase "limit" $productLimit) }}
+{{ $categories := partial "aurora/category-data.html" (dict "pbBase" $pbBase "limit" $categoryLimit) }}
+
+{{/* Featured products lead, then the rest, so the bento never opens on a filler item. */}}
+{{ $ordered := slice }}
+{{ range where $products "featured" true }}{{ $ordered = $ordered | append . }}{{ end }}
+{{ range where $products "featured" false }}{{ $ordered = $ordered | append . }}{{ end }}
+{{ $picks := first 5 $ordered }}
+{{ $rail := slice }}
+{{ range $index, $product := $ordered }}{{ if ge $index 5 }}{{ $rail = $rail | append $product }}{{ end }}{{ end }}
+
+{{/* The 2x2 bento tile only tiles cleanly at five picks. Smaller catalogs get
+     an even grid instead, so the section never renders with empty cells. */}}
+{{ $pickCount := len $picks }}
+{{ $useBento := ge $pickCount 5 }}
+{{ $pickGrid := "sm:grid-cols-2 lg:grid-cols-3" }}
+{{ if $useBento }}
+  {{ $pickGrid = "sm:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2" }}
+{{ else if eq $pickCount 4 }}
+  {{ $pickGrid = "sm:grid-cols-2 lg:grid-cols-4" }}
+{{ else if le $pickCount 2 }}
+  {{ $pickGrid = "sm:grid-cols-2" }}
+{{ end }}
+
+{{/* Spotlight prefers an in-stock, top-rated product. */}}
+{{ $spotlightPool := where $ordered "soldOut" false }}
+{{ if not $spotlightPool }}{{ $spotlightPool = $ordered }}{{ end }}
+{{ $spotlight := "" }}
+{{ with sort $spotlightPool "rating" "desc" }}{{ $spotlight = index . 0 }}{{ end }}
+
+{{/* Hero stats are derived from the same data the page renders. */}}
+{{ $ratingSum := 0.0 }}
+{{ $ratingHits := 0 }}
+{{ range $products }}
+  {{ if gt .rating 0.0 }}{{ $ratingSum = add $ratingSum .rating }}{{ $ratingHits = add $ratingHits 1 }}{{ end }}
+{{ end }}
+{{ $avgRating := 0.0 }}
+{{ if gt $ratingHits 0 }}{{ $avgRating = div $ratingSum (float $ratingHits) }}{{ end }}
+
+{{ $heroTitle := site.Params.heroTitle | default site.Title }}
+{{ $heroSubtitle := site.Params.heroSubtitle | default (i18n "catalog_description") }}
+{{ $heroEyebrow := site.Params.newArrivalLabel | default (i18n "new_arrival") }}
+{{ $exploreLabel := site.Params.exploreCollection | default (i18n "explore_collection") }}
+{{ $catalogURL := "/products/" | relLangURL }}
+
+{{ with resources.Get "css/aurora.css" }}<style>{{ .Content | safeCSS }}</style>{{ end }}
+
+<div class="aurora-home">
+<script>/* Motion opt-in: hidden states only exist once this runs, so a blocked script can never blank the page. */
+(function () { var el = document.currentScript.parentElement; if (el) el.classList.add('aurora-js'); })();</script>
+
+    <!-- ============================ HERO ============================ -->
+    <section class="aurora-mesh aurora-grain relative overflow-hidden">
+        <div class="relative mx-auto grid max-w-7xl gap-12 px-4 pb-16 pt-14 md:px-8 md:pb-24 md:pt-20 lg:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)] lg:items-center lg:gap-14 lg:pb-28 lg:pt-24">
+
+            <div class="min-w-0">
+                <p data-aurora-reveal class="aurora-glass aurora-eyebrow inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-bold uppercase text-[var(--aurora-accent)]">
+                    <span class="aurora-dot inline-block h-1.5 w-1.5 rounded-full bg-[var(--aurora-accent)]"></span>
+                    {{ $heroEyebrow }}
+                </p>
+
+                <h1 data-aurora-reveal class="aurora-display aurora-words mt-6 text-[clamp(2.35rem,7.2vw,4.5rem)] font-semibold leading-[1.06] text-[var(--aurora-ink)]">
+                    {{- range $index, $word := (split $heroTitle " ") -}}
+                        {{- if $word -}}
+                            <span class="aurora-word"><span class="aurora-word-inner" style="--aurora-delay: {{ mul $index 75 }}ms">{{ $word }}</span></span>{{ " " }}
+                        {{- end -}}
+                    {{- end -}}
+                </h1>
+
+                <p data-aurora-reveal style="--aurora-delay: 140ms" class="aurora-body mt-6 max-w-xl text-base leading-7 text-[var(--aurora-muted)] md:text-lg md:leading-8">
+                    {{ $heroSubtitle }}
+                </p>
+
+                <div data-aurora-reveal style="--aurora-delay: 220ms" class="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <a href="{{ $catalogURL }}" class="aurora-cta inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--aurora-accent)] px-8 py-3.5 text-sm font-bold tracking-wide text-white hover:bg-[var(--aurora-accent-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aurora-accent)] focus-visible:ring-offset-2">
+                        {{ $exploreLabel }}
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                    <a href="#aurora-picks" class="aurora-glass aurora-pill inline-flex min-h-12 items-center justify-center rounded-full px-8 py-3.5 text-sm font-bold tracking-wide text-[var(--aurora-ink)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aurora-accent)] focus-visible:ring-offset-2">
+                        {{ i18n "aurora_picks_title" }}
+                    </a>
+                </div>
+
+                {{ if $products }}
+                <dl data-aurora-reveal style="--aurora-delay: 300ms" class="mt-10 grid max-w-lg grid-cols-3 gap-2.5 sm:gap-3">
+                    <div class="aurora-glass rounded-2xl px-3 py-3 sm:px-4">
+                        <dt class="aurora-eyebrow text-[9px] font-bold uppercase text-[var(--aurora-muted)] sm:text-[10px]">{{ i18n "aurora_stat_products" }}</dt>
+                        <dd class="aurora-display mt-1 text-xl font-bold text-[var(--aurora-ink)] sm:text-2xl">{{ len $products }}</dd>
+                    </div>
+                    <div class="aurora-glass rounded-2xl px-3 py-3 sm:px-4">
+                        <dt class="aurora-eyebrow text-[9px] font-bold uppercase text-[var(--aurora-muted)] sm:text-[10px]">{{ i18n "aurora_stat_rating" }}</dt>
+                        <dd class="aurora-display mt-1 text-xl font-bold text-[var(--aurora-ink)] sm:text-2xl">{{ if gt $avgRating 0.0 }}{{ printf "%.1f" $avgRating }}{{ else }}—{{ end }}</dd>
+                    </div>
+                    <div class="aurora-glass rounded-2xl px-3 py-3 sm:px-4">
+                        <dt class="aurora-eyebrow text-[9px] font-bold uppercase text-[var(--aurora-muted)] sm:text-[10px]">{{ i18n "aurora_stat_categories" }}</dt>
+                        <dd class="aurora-display mt-1 text-xl font-bold text-[var(--aurora-ink)] sm:text-2xl">{{ len $categories }}</dd>
+                    </div>
+                </dl>
+                {{ end }}
+            </div>
+
+            {{ with $spotlight }}
+            <div data-aurora-reveal style="--aurora-delay: 180ms" class="min-w-0">
+                <div class="aurora-glass aurora-edge relative overflow-hidden rounded-[32px] p-3 shadow-[0_30px_80px_-40px_rgba(11,14,20,0.6)]">
+                    <div class="relative overflow-hidden rounded-[24px] bg-black/5 dark:bg-white/5">
+                        <div class="aspect-[4/3] w-full">
+                            {{ if .image }}
+                            <img src="{{ .image }}" alt="{{ .name }}" decoding="async" class="h-full w-full object-cover">
+                            {{ else }}
+                            {{ partial "aurora/media-fallback.html" (dict "size" "lg") }}
+                            {{ end }}
+                        </div>
+                        <span class="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur">
+                            <span class="aurora-dot inline-block h-1.5 w-1.5 rounded-full bg-[var(--aurora-mint)]"></span>
+                            {{ i18n "aurora_spotlight_label" }}
+                        </span>
+                    </div>
+
+                    <div class="px-3 pb-2 pt-5 md:px-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="min-w-0">
+                                <h2 class="aurora-display aurora-body truncate text-lg font-semibold text-[var(--aurora-ink)] md:text-xl">{{ .name }}</h2>
+                                {{ with .subtitle }}<p class="aurora-body mt-1 line-clamp-1 text-sm text-[var(--aurora-muted)]">{{ . }}</p>{{ end }}
+                            </div>
+                            {{ if gt .rating 0.0 }}
+                            <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-600 dark:text-amber-400" aria-label="{{ i18n "rating_average_label" }} {{ printf "%.1f" .rating }}">
+                                <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.8l2.47 5.01 5.53.8-4 3.9.94 5.51L10 14.42l-4.94 2.6L6 11.51l-4-3.9 5.53-.8L10 1.8z"></path></svg>
+                                {{ printf "%.1f" .rating }}
+                            </span>
+                            {{ end }}
+                        </div>
+
+                        <div class="mt-5 flex flex-wrap items-end justify-between gap-4">
+                            <div class="flex flex-wrap items-baseline gap-2">
+                                {{ if gt .salePrice 0 }}
+                                <span class="text-sm text-[var(--aurora-muted)] line-through">₩{{ lang.FormatNumberCustom 0 .price }}</span>
+                                <span class="aurora-display text-2xl font-bold text-rose-500 md:text-3xl">₩{{ lang.FormatNumberCustom 0 .salePrice }}</span>
+                                {{ else }}
+                                <span class="aurora-display text-2xl font-bold text-[var(--aurora-ink)] md:text-3xl">₩{{ lang.FormatNumberCustom 0 .price }}</span>
+                                {{ end }}
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <a href="{{ printf "/products/%s/" .slug | relLangURL }}" class="aurora-pill inline-flex min-h-11 items-center rounded-full border border-[var(--aurora-line)] px-5 text-sm font-semibold text-[var(--aurora-ink)] hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aurora-accent)] dark:hover:bg-white/10">
+                                    {{ i18n "view_all" }}
+                                </a>
+                                <button type="button"
+                                        @click="$dispatch('add-to-cart', {
+                                            id: {{ .id | jsonify }},
+                                            name: {{ .name | jsonify }},
+                                            price: {{ .finalPrice }},
+                                            image: {{ if .image }}{{ .image | jsonify }}{{ else }}null{{ end }},
+                                            quantity: 1
+                                        })"
+                                        {{ if .soldOut }}disabled{{ end }}
+                                        class="aurora-cta inline-flex min-h-11 items-center rounded-full bg-[var(--aurora-accent)] px-5 text-sm font-bold text-white hover:bg-[var(--aurora-accent-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aurora-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        aria-label="{{ if .soldOut }}{{ i18n "sold_out" }}{{ else }}{{ i18n "add_to_cart" }}{{ end }}: {{ .name }}">
+                                    {{ if .soldOut }}{{ i18n "sold_out" }}{{ else }}{{ i18n "add_to_cart" }}{{ end }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+        </div>
+    </section>
+
+    <!-- ========================== TICKER ============================ -->
+    {{ $ticker := slice (i18n "aurora_ticker_origin") (i18n "aurora_ticker_fresh") (i18n "aurora_ticker_shipping") (i18n "aurora_ticker_quality") (i18n "aurora_ticker_curation") }}
+    <section aria-hidden="true" class="border-y border-[var(--aurora-line)] bg-[var(--aurora-panel)]">
+        <div class="aurora-marquee-wrap py-3.5">
+            <div class="aurora-marquee">
+                {{ range $pass := slice 1 2 }}
+                    {{ range $ticker }}
+                    <span class="aurora-eyebrow flex shrink-0 items-center gap-5 px-6 text-[11px] font-bold uppercase text-[var(--aurora-muted)]">
+                        {{ . }}
+                        <span class="inline-block h-1 w-1 shrink-0 rounded-full bg-[var(--aurora-accent)]"></span>
+                    </span>
+                    {{ end }}
+                {{ end }}
+            </div>
+        </div>
+    </section>
+
+    <!-- ========================= CATEGORIES ========================= -->
+    {{ if $categories }}
+    {{/* A store with two categories should not stretch across six columns. */}}
+    {{ $categoryCount := len $categories }}
+    {{ $categoryGrid := "md:grid-cols-3 lg:grid-cols-6" }}
+    {{ if le $categoryCount 2 }}
+      {{ $categoryGrid = "md:grid-cols-2" }}
+    {{ else if le $categoryCount 3 }}
+      {{ $categoryGrid = "md:grid-cols-3" }}
+    {{ else if le $categoryCount 4 }}
+      {{ $categoryGrid = "md:grid-cols-2 lg:grid-cols-4" }}
+    {{ else if le $categoryCount 5 }}
+      {{ $categoryGrid = "md:grid-cols-3 lg:grid-cols-5" }}
+    {{ end }}
+    <section class="mx-auto max-w-7xl px-4 py-14 md:px-8 md:py-20">
+        <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div data-aurora-reveal class="min-w-0">
+                <p class="aurora-eyebrow text-[11px] font-bold uppercase text-[var(--aurora-accent)]">{{ i18n "aurora_categories_label" }}</p>
+                <h2 class="aurora-display mt-3 text-[clamp(1.7rem,4.2vw,2.6rem)] font-semibold text-[var(--aurora-ink)]">{{ i18n "aurora_categories_title" }}</h2>
+                <p class="aurora-body mt-3 max-w-xl text-sm leading-6 text-[var(--aurora-muted)] md:text-base">{{ i18n "aurora_categories_body" }}</p>
+            </div>
+            <a href="{{ $catalogURL }}" data-aurora-reveal style="--aurora-delay: 90ms" class="inline-flex shrink-0 items-center gap-2 text-sm font-bold text-[var(--aurora-muted)] transition-colors hover:text-[var(--aurora-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aurora-accent)]">
+                {{ i18n "view_all" }}
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+            </a>
+        </div>
+
+        <div class="aurora-rail mt-8 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 md:grid md:overflow-visible md:pb-0 {{ $categoryGrid }}">
+            {{ range $index, $category := $categories }}
+            <a href="{{ printf "/products/?category=%s" $category.slug | relLangURL }}"
+               data-aurora-reveal style="--aurora-delay: {{ mul $index 55 }}ms"
+               class="aurora-card group flex shrink-0 basis-[44%] snap-start flex-col gap-3 rounded-[22px] p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aurora-accent)] focus-visible:ring-offset-2 sm:basis-[30%] md:basis-auto">
+                <span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl aurora-tint p-2.5 transition-transform duration-300 group-hover:scale-105">
+                    {{ partial "aurora/icon.html" (dict "name" $category.icon) }}
+                </span>
+                <span class="aurora-body text-sm font-semibold leading-snug text-[var(--aurora-ink)]">{{ $category.name }}</span>
+                {{ with $category.subtitle }}
+                <span class="aurora-body line-clamp-2 text-xs leading-5 text-[var(--aurora-muted)]">{{ . }}</span>
+                {{ end }}
+            </a>
+            {{ end }}
+        </div>
+    </section>
+    {{ end }}
+
+    <!-- ======================== WEEKLY PICKS ======================== -->
+    <section id="aurora-picks" class="mx-auto max-w-7xl scroll-mt-24 px-4 pb-14 md:px-8 md:pb-20">
+        <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div data-aurora-reveal class="min-w-0">
+                <p class="aurora-eyebrow text-[11px] font-bold uppercase text-[var(--aurora-accent)]">{{ i18n "aurora_picks_label" }}</p>
+                <h2 class="aurora-display mt-3 text-[clamp(1.7rem,4.2vw,2.6rem)] font-semibold text-[var(--aurora-ink)]">{{ i18n "aurora_picks_title" }}</h2>
+                <p class="aurora-body mt-3 max-w-xl text-sm leading-6 text-[var(--aurora-muted)] md:text-base">{{ i18n "aurora_picks_body" }}</p>
+            </div>
+        </div>
+
+        {{ if $picks }}
+        <div class="mt-8 grid gap-4 {{ $pickGrid }}">
+            {{ range $index, $product := $picks }}
+                {{ if and $useBento (eq $index 0) }}
+                <div data-aurora-reveal class="min-w-0 sm:col-span-2 lg:col-span-2 lg:row-span-2">
+                    {{ partial "aurora/product-card.html" (dict "product" $product "variant" "feature" "eager" true "class" "h-full") }}
+                </div>
+                {{ else }}
+                <div data-aurora-reveal style="--aurora-delay: {{ mul $index 70 }}ms" class="min-w-0">
+                    {{ partial "aurora/product-card.html" (dict "product" $product "eager" (eq $index 0) "class" "h-full") }}
+                </div>
+                {{ end }}
+            {{ end }}
+        </div>
+        {{ else }}
+        <div class="aurora-panel mt-8 rounded-[24px] px-6 py-16 text-center">
+            <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-black/5 text-[var(--aurora-muted)] dark:bg-white/10">
+                <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+            </div>
+            <p class="text-lg font-semibold text-[var(--aurora-ink)]">{{ i18n "aurora_empty_title" }}</p>
+            <p class="mt-2 text-sm text-[var(--aurora-muted)]">{{ i18n "aurora_empty_body" }}</p>
+        </div>
+        {{ end }}
+    </section>
+
+    <!-- ======================== PRODUCT RAIL ======================== -->
+    {{ if $rail }}
+    <section class="mx-auto max-w-7xl px-4 pb-14 md:px-8 md:pb-20"
+             aria-label="{{ i18n "aurora_rail_label" }}"
+             x-data="auroraRail({{ $railIntervalMs }})"
+             x-init="init($refs.auroraTrack)"
+             @mouseenter="pause()"
+             @mouseleave="resume()"
+             @focusin="pause()"
+             @focusout="if (!$el.contains($event.relatedTarget)) resume()"
+             @touchstart.passive="pause()">
+        <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div data-aurora-reveal class="min-w-0">
+                <p class="aurora-eyebrow text-[11px] font-bold uppercase text-[var(--aurora-accent)]">{{ site.Params.selectedForYou | default (i18n "selected_for_you") }}</p>
+                <h2 class="aurora-display mt-3 text-[clamp(1.7rem,4.2vw,2.6rem)] font-semibold text-[var(--aurora-ink)]">{{ site.Params.featuredProducts | default (i18n "featured_products") }}</h2>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+                <button type="button" @click="prev()" :disabled="atStart"
+                        class="aurora-pill inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--aurora-line)] bg-[var(--aurora-panel)] text-[var(--aurora-ink)] hover:border-[var(--aurora-accent)] hover:text-[var(--aurora-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aurora-accent)] disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="{{ i18n "aurora_rail_previous" }}">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <button type="button" @click="next()"
+                        class="aurora-pill inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--aurora-line)] bg-[var(--aurora-panel)] text-[var(--aurora-ink)] hover:border-[var(--aurora-accent)] hover:text-[var(--aurora-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aurora-accent)]"
+                        aria-label="{{ i18n "aurora_rail_next" }}">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <div x-ref="auroraTrack"
+             @scroll.debounce.80ms="update()"
+             class="aurora-rail mt-8 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 motion-reduce:scroll-auto">
+            {{ range $index, $product := $rail }}
+            <div class="min-w-0 shrink-0 basis-[70%] snap-start sm:basis-[46%] lg:basis-[23.5%]">
+                {{ partial "aurora/product-card.html" (dict "product" $product "class" "h-full") }}
+            </div>
+            {{ end }}
+        </div>
+
+        <div class="mt-5 h-1 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10" aria-hidden="true">
+            <div class="h-full rounded-full bg-[var(--aurora-accent)] transition-[width] duration-300 ease-out" :style="'width: ' + Math.max(12, progress) + '%'"></div>
+        </div>
+    </section>
+    {{ end }}
+
+    <!-- ========================= VALUE BENTO ======================== -->
+    {{ $values := slice
+        (dict "num" "01" "icon" "leaf" "title" (i18n "aurora_value_one_title") "body" (i18n "aurora_value_one_body"))
+        (dict "num" "02" "icon" "shield" "title" (i18n "aurora_value_two_title") "body" (i18n "aurora_value_two_body"))
+        (dict "num" "03" "icon" "truck" "title" (i18n "aurora_value_three_title") "body" (i18n "aurora_value_three_body"))
+    }}
+    <section class="mx-auto max-w-7xl px-4 pb-14 md:px-8 md:pb-20">
+        <div data-aurora-reveal class="min-w-0">
+            <p class="aurora-eyebrow text-[11px] font-bold uppercase text-[var(--aurora-accent)]">{{ i18n "aurora_value_label" }}</p>
+            <h2 class="aurora-display mt-3 text-[clamp(1.7rem,4.2vw,2.6rem)] font-semibold text-[var(--aurora-ink)]">{{ i18n "aurora_value_title" }}</h2>
+        </div>
+
+        <div class="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {{ range $index, $value := $values }}
+            <div data-aurora-reveal style="--aurora-delay: {{ mul $index 70 }}ms" class="aurora-card flex min-w-0 flex-col gap-4 rounded-[24px] p-6">
+                <div class="flex items-center justify-between">
+                    <span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl aurora-tint p-2.5">
+                        {{ partial "aurora/icon.html" (dict "name" $value.icon) }}
+                    </span>
+                    <span class="aurora-display text-sm font-bold text-[var(--aurora-muted)]">{{ $value.num }}</span>
+                </div>
+                <h3 class="aurora-body text-lg font-semibold text-[var(--aurora-ink)]">{{ $value.title }}</h3>
+                <p class="aurora-body text-sm leading-6 text-[var(--aurora-muted)]">{{ $value.body }}</p>
+            </div>
+            {{ end }}
+
+            <div data-aurora-reveal style="--aurora-delay: 210ms" class="aurora-card aurora-edge flex min-w-0 flex-col justify-between gap-4 rounded-[24px] p-6">
+                <p class="aurora-eyebrow text-[10px] font-bold uppercase text-[var(--aurora-muted)]">{{ i18n "aurora_value_metric_label" }}</p>
+                <div class="flex items-end gap-2">
+                    <span class="aurora-display text-5xl font-bold leading-none text-[var(--aurora-ink)]">{{ if gt $avgRating 0.0 }}{{ printf "%.1f" $avgRating }}{{ else }}—{{ end }}</span>
+                    <span class="pb-1 text-sm font-semibold text-[var(--aurora-muted)]">/ 5.0</span>
+                </div>
+                <p class="aurora-body text-sm leading-6 text-[var(--aurora-muted)]">{{ i18n "aurora_value_metric_body" }}</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================ CTA ============================= -->
+    <section class="mx-auto max-w-7xl px-4 pb-20 md:px-8 md:pb-28">
+        <div data-aurora-reveal class="aurora-mesh aurora-grain relative overflow-hidden rounded-[36px] border border-[var(--aurora-line)] bg-[var(--aurora-panel)] px-6 py-16 text-center md:px-16 md:py-20">
+            <p class="aurora-eyebrow text-[11px] font-bold uppercase text-[var(--aurora-accent)]">{{ i18n "aurora_cta_label" }}</p>
+            <h2 class="aurora-display mx-auto mt-4 max-w-3xl text-[clamp(1.9rem,5.2vw,3.4rem)] font-semibold leading-[1.1] text-[var(--aurora-ink)]">{{ i18n "aurora_cta_title" }}</h2>
+            <p class="aurora-body mx-auto mt-5 max-w-xl text-sm leading-7 text-[var(--aurora-muted)] md:text-base">{{ i18n "aurora_cta_body" }}</p>
+            <a href="{{ $catalogURL }}" class="aurora-cta mt-9 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--aurora-accent)] px-9 py-3.5 text-sm font-bold tracking-wide text-white hover:bg-[var(--aurora-accent-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aurora-accent)] focus-visible:ring-offset-2">
+                {{ i18n "view_all_products" }}
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+            </a>
+        </div>
+    </section>
+</div>
+
+<script>
+    /* Scroll reveal: one observer, one shot per element, disabled under reduced motion. */
+    (function () {
+        var root = document.querySelector('.aurora-home');
+        if (!root) return;
+
+        var targets = root.querySelectorAll('[data-aurora-reveal]');
+        var reveal = function (el) { el.classList.add('is-visible'); };
+        var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        if (prefersReduced || !('IntersectionObserver' in window)) {
+            Array.prototype.forEach.call(targets, reveal);
+            return;
+        }
+
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (!entry.isIntersecting) return;
+                reveal(entry.target);
+                observer.unobserve(entry.target);
+            });
+        }, { rootMargin: '0px 0px -8% 0px', threshold: 0 });
+
+        Array.prototype.forEach.call(targets, function (el) { observer.observe(el); });
+    })();
+
+    /* Horizontal product rail: native scroll-snap plus optional autoplay. */
+    function auroraRail(intervalMs) {
+        return {
+            intervalMs: Number(intervalMs) || 0,
+            track: null,
+            timer: null,
+            progress: 0,
+            atStart: true,
+            atEnd: false,
+            paused: false,
+            reduceMotion: false,
+
+            init(track) {
+                if (!track) return;
+                this.track = track;
+
+                var media = window.matchMedia('(prefers-reduced-motion: reduce)');
+                var syncMotion = function () {
+                    this.reduceMotion = media.matches;
+                    if (this.reduceMotion) {
+                        this.stop();
+                    } else if (!this.paused) {
+                        this.start();
+                    }
+                }.bind(this);
+
+                this.reduceMotion = media.matches;
+                if (media.addEventListener) {
+                    media.addEventListener('change', syncMotion);
+                } else if (media.addListener) {
+                    media.addListener(syncMotion);
+                }
+
+                this.update();
+                this.start();
+
+                window.addEventListener('pagehide', this.stop.bind(this), { once: true });
+            },
+
+            maxScroll() {
+                return Math.max(1, this.track.scrollWidth - this.track.clientWidth);
+            },
+
+            update() {
+                if (!this.track) return;
+                var max = this.maxScroll();
+                var left = this.track.scrollLeft;
+                this.progress = Math.min(100, Math.max(0, (left / max) * 100));
+                this.atStart = left <= 4;
+                this.atEnd = left >= max - 4;
+            },
+
+            move(direction) {
+                if (!this.track) return;
+                var step = Math.max(200, Math.round(this.track.clientWidth * 0.8));
+                this.track.scrollBy({ left: direction * step, behavior: this.reduceMotion ? 'auto' : 'smooth' });
+            },
+
+            prev() { this.move(-1); },
+
+            next() {
+                if (!this.track) return;
+                if (this.atEnd) {
+                    this.track.scrollTo({ left: 0, behavior: this.reduceMotion ? 'auto' : 'smooth' });
+                    return;
+                }
+                this.move(1);
+            },
+
+            start() {
+                if (this.timer || this.reduceMotion || this.intervalMs <= 0) return;
+                this.timer = setInterval(this.next.bind(this), this.intervalMs);
+            },
+
+            stop() {
+                if (!this.timer) return;
+                clearInterval(this.timer);
+                this.timer = null;
+            },
+
+            pause() { this.paused = true; this.stop(); },
+
+            resume() { this.paused = false; this.start(); }
+        };
+    }
+</script>
+{{ end }}

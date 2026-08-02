@@ -1,5 +1,12 @@
 # Design Tokens
 
+## Themes
+- Themes live in `hugo/themes/<id>/` and are selected from CMS 설정 → 사이트 테마, which writes the top-level `theme` line in `hugo/hugo.toml` and rebuilds.
+- `default` holds the original storefront design and is always the fallback. It must stay last in the `theme` array so non-home routes keep rendering.
+- `aurora` is the current home theme and overrides `layouts/index.html` only. Its tokens are documented under "Aurora home theme" below.
+- Reverting to the original design is a theme switch, not a code change: pick 기본 테마, or use the 기본 디자인으로 되돌리기 button shown whenever another theme is active.
+- A theme that overrides part of the storefront must not assume it owns the shell. Nav, cart drawer, footer, and mobile tabs come from `themes/default/layouts/_default/baseof.html`.
+
 ## Stack
 - Tailwind CSS CDN is loaded from `hugo/themes/default/layouts/_default/baseof.html`.
 - No build-time CSS pipeline or component library is used.
@@ -46,3 +53,36 @@
 ## Responsive
 - Controls must stack cleanly at `375px`, use denser two-column or flex layouts from tablet width, and preserve table alternatives for CMS mobile views.
 - Fixed-format elements such as action groups and counters should use stable min heights so loading and state changes do not shift nearby content.
+
+## Aurora home theme
+Tokens are CSS custom properties scoped to `.aurora-home` in `hugo/themes/aurora/assets/css/aurora.css`, with a `.dark .aurora-home` override block. Nothing outside the home layout inherits them.
+
+### Color
+- Accent stays BMW blue `#1C69D4` (`--aurora-accent`), pressed `#0B4FA8` (`--aurora-accent-strong`).
+- Mesh companions: violet `#6D5AE6` (`--aurora-violet`), mint `#17C3A2` (`--aurora-mint`). They appear only in gradients and the season badge, never as text on light surfaces.
+- Light surfaces: page `#F6F7FB`, panel `#FFFFFF`, ink `#0B0E14`, muted `#5A6272`. Dark: page `#08090D`, panel `#12141B`, ink `#F4F6FB`, muted `#98A1B3`.
+- Tailwind cannot apply an opacity modifier to a CSS-variable color. Use the `.aurora-tint` class instead of `bg-[var(--aurora-accent)]/10`, and keep plain Tailwind opacity modifiers to values in the default scale.
+
+### Surfaces
+- `.aurora-glass` — frosted panel with `backdrop-filter: blur(18px) saturate(150%)`. Hero eyebrow, stat tiles, spotlight card, secondary CTA.
+- `.aurora-panel` / `.aurora-card` — solid panel with a hairline border and two-layer shadow. Cards lift `-5px` on hover in 260ms.
+- `.aurora-edge` — masked gradient hairline for feature surfaces. Use sparingly; two per screen at most.
+- `.aurora-mesh` / `.aurora-grain` — drifting radial-gradient field plus a 5% soft-light noise layer. Hero and closing CTA only.
+- Radii: 36px CTA band, 32px spotlight, 24px cards, 22px category tiles, full-round for pills and buttons.
+
+### Typography
+- `.aurora-display` for headings: `-0.035em` tracking and `text-wrap: balance`. Section titles use `clamp(1.7rem, 4.2vw, 2.6rem)`, the hero `clamp(2.35rem, 7.2vw, 4.5rem)`.
+- `.aurora-body` for prose: `text-wrap: pretty` with `overflow-wrap: anywhere` so Korean and English both wrap safely.
+- `.aurora-eyebrow` for uppercase labels at `0.22em` tracking.
+
+### Motion
+- Easing is `cubic-bezier(0.22, 1, 0.36, 1)` throughout. Micro-interactions 180–260ms, section reveals 620ms, hero word reveals 780ms.
+- Scroll reveals use `[data-aurora-reveal]` with a per-element `--aurora-delay`, staggered 55–75ms. One IntersectionObserver, unobserved after firing.
+- Hidden reveal states are gated behind the `.aurora-js` class that the layout's own inline script adds, so a blocked or failed script never leaves the page blank.
+- Hero headings split into `.aurora-word` / `.aurora-word-inner` spans for a masked rise. Mark the observed container `.aurora-words` so it does not fade in on top of its own words.
+- `prefers-reduced-motion: reduce` disables mesh drift, marquee, pulse, word reveals, and rail autoplay, and switches rail scrolling to instant.
+
+### Layout rules
+- The 2×2 bento tile tiles cleanly only at five picks. Below that the pick grid falls back to an even grid, and the category row narrows its column count, so a small catalog never renders empty cells.
+- Products without images use `aurora/media-fallback.html`, not a blank box. A catalog can ship before its photography does.
+- The home root sets `overflow-x: clip`; mesh layers must stay inside an `overflow-hidden` parent so no section can introduce horizontal scroll at `375px`.
